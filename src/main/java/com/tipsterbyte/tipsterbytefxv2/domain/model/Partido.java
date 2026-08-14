@@ -41,6 +41,30 @@ public final class Partido {
     // [QUÉ]: Construye un partido con identidad y estado provistos (reconstrucción desde persistencia).
     public Partido(UUID id, UUID ligaId, Equipo equipoLocal, Equipo equipoVisitante,
                    FechaProgramada fechaProgramada, EstadoPartido estado) {
+        this(id, ligaId, equipoLocal, equipoVisitante, fechaProgramada, estado, List.of(), null);
+        if (estado == EstadoPartido.PROGRAMADO) {
+            this.eventos.add(new PartidoProgramado(this.id));
+        }
+    }
+
+    // [QUÉ]: Factory de reconstrucción completa del aggregate desde persistencia (FASE 8).
+    // [POR QUÉ]: Al cargar un partido de la BD se deben restaurar también sus cuotas y
+    //            resultado. No se usan actualizarCuotas/asignarResultado porque son
+    //            transiciones de negocio (asignarResultado exige FINALIZADO, BR-003)
+    //            y actualizarCuotas emite evento. Reconstruir no debe emitir eventos
+    //            (no es una nueva programación) ni aplicar reglas de transición.
+    // [ALTERNATIVAS]: Hidratar vía setters de negocio; se descarta porque re-emitiría
+    //                 PartidoProgramado/CuotaActualizada al leer de BD.
+    // [RELACIONES]: Usado por PartidoRepositoryJpaAdapter (FASE 8).
+    public static Partido reconstruir(UUID id, UUID ligaId, Equipo equipoLocal, Equipo equipoVisitante,
+                                      FechaProgramada fechaProgramada, EstadoPartido estado,
+                                      List<Cuota> cuotas, Resultado resultado) {
+        return new Partido(id, ligaId, equipoLocal, equipoVisitante, fechaProgramada, estado, cuotas, resultado);
+    }
+
+    private Partido(UUID id, UUID ligaId, Equipo equipoLocal, Equipo equipoVisitante,
+                    FechaProgramada fechaProgramada, EstadoPartido estado,
+                    List<Cuota> cuotas, Resultado resultado) {
         if (id == null) {
             throw new DomainException("Partido requiere id");
         }
@@ -61,12 +85,10 @@ public final class Partido {
         this.equipoLocal = equipoLocal;
         this.equipoVisitante = equipoVisitante;
         this.fechaProgramada = fechaProgramada;
-        this.cuotas = new ArrayList<>();
+        this.cuotas = new ArrayList<>(cuotas != null ? cuotas : List.of());
+        this.resultado = resultado;
         this.estado = estado;
         this.eventos = new ArrayList<>();
-        if (estado == EstadoPartido.PROGRAMADO) {
-            this.eventos.add(new PartidoProgramado(this.id));
-        }
     }
 
     // [QUÉ]: Reemplaza las cuotas con las recibidas de la fuente de odds (CU-03).

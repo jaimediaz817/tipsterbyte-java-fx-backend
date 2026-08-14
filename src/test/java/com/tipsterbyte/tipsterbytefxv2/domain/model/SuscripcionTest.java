@@ -51,4 +51,21 @@ class SuscripcionTest {
         suscripcion.expirar(HOY.plusDays(31));
         assertEquals(EstadoSuscripcion.EXPIRADA, suscripcion.estado());
     }
+
+    @Test
+    void debe_reconstruir_activa_sin_eventos() {
+        Suscripcion suscripcion = Suscripcion.reconstruir(
+                UUID.randomUUID(), CLIENTE_ID, TIPSTER_ID, PLAN,
+                HOY, HOY.plusDays(30), EstadoSuscripcion.ACTIVA);
+        assertEquals(EstadoSuscripcion.ACTIVA, suscripcion.estado());
+        assertTrue(suscripcion.estaActiva(HOY.plusDays(15)));
+        assertTrue(suscripcion.pullEventos().isEmpty(), "reconstruir no debe emitir eventos");
+    }
+
+    @Test
+    void debe_reconstruir_rechazando_nulos() {
+        assertThrows(DomainException.class, () ->
+                Suscripcion.reconstruir(null, CLIENTE_ID, TIPSTER_ID, PLAN,
+                        HOY, HOY.plusDays(30), EstadoSuscripcion.ACTIVA));
+    }
 }

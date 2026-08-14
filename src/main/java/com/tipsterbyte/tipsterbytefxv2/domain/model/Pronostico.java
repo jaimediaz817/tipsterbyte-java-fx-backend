@@ -39,6 +39,25 @@ public final class Pronostico {
     // [QUÉ]: Construye un pronóstico con identidad y estado provistos (reconstrucción).
     public Pronostico(UUID id, UUID tipsterId, UUID partidoId, SeleccionPronostico seleccion,
                       Cuota cuota, EstadoPronostico estado) {
+        this(id, tipsterId, partidoId, seleccion, cuota, estado, null);
+    }
+
+    // [QUÉ]: Factory de reconstrucción completa desde persistencia (FASE 8).
+    // [POR QUÉ]: Al cargar un pronóstico de la BD se debe restaurar también su
+    //            resultado final (asignado por CU-05). No se usa registrarResultadoFinal
+    //            por claridad de intención (reconstrucción ≠ transición) y para no
+    //            depender del estado del agregado al hidratar.
+    // [ALTERNATIVAS]: Setter de negocio; se descarta porque reconstruir no debe
+    //                 pasar por reglas de transición.
+    // [RELACIONES]: Usado por PronosticoRepositoryJpaAdapter (FASE 8).
+    public static Pronostico reconstruir(UUID id, UUID tipsterId, UUID partidoId,
+                                         SeleccionPronostico seleccion, Cuota cuota,
+                                         EstadoPronostico estado, Resultado resultadoFinal) {
+        return new Pronostico(id, tipsterId, partidoId, seleccion, cuota, estado, resultadoFinal);
+    }
+
+    private Pronostico(UUID id, UUID tipsterId, UUID partidoId, SeleccionPronostico seleccion,
+                       Cuota cuota, EstadoPronostico estado, Resultado resultadoFinal) {
         if (id == null) {
             throw new DomainException("Pronóstico requiere id");
         }
@@ -60,6 +79,7 @@ public final class Pronostico {
         this.seleccion = seleccion;
         this.cuota = cuota;
         this.estado = estado;
+        this.resultadoFinal = resultadoFinal;
         this.eventos = new ArrayList<>();
     }
 

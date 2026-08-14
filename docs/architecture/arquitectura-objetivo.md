@@ -143,3 +143,15 @@ FASE 20  AWS / Deployment
 - **Artefacto**: `domain/DomainException.java`.
 - **Decisión**: No ensucia los casos de uso con try/catch; el handler global de interfaces las traduce a HTTP.
 - **Alternativas descartadas**: checked exceptions (acoplan manejo obligatorio), excepciones de Spring en dominio (acoplamiento a framework).
+
+### ADR-006 — Reconstrucción de aggregates sin emitir eventos (FASE 8)
+- **Concepto**: Los aggregates exponen factory methods estáticos `reconstruir(...)` para hidratarse desde persistencia.
+- **Artefacto**: `Liga.reconstruir`, `Partido.reconstruir`, `Pronostico.reconstruir`, `Suscripcion.reconstruir` (domain.model).
+- **Decisión**: Reconstruir **no** es una transición de negocio: no aplica reglas como BR-002/BR-003 ni emite eventos (`PartidoProgramado`, `SuscripcionCreada`). Evita re-publicar eventos al leer de BD y permite restaurar el estado completo (cuotas, resultado, posiciones, equipos).
+- **Alternativas descartadas**: hidratar vía métodos de negocio (re-emite eventos y valida reglas de transición al cargar); anotar el dominio con JPA (viola la Dependency Rule).
+
+### ADR-007 — Mapeo JPA en infraestructura, separado del dominio (FASE 8)
+- **Concepto**: 7 entidades JPA en `infrastructure.persistence.entity` (Liga, Equipo, PosicionTabla, Partido, Cuota, Pronostico, Suscripcion) + 4 repositorios Spring Data + 4 adapters con mappers entity↔dominio.
+- **Decisión**: El dominio no conoce JPA. Los agregados se guardan como tablas y se reconstruyen con `reconstruir(...)` (ADR-006). VOs se mapean a columnas planas o tablas hijas (`equipos`, `posiciones_tabla`, `cuotas`) con cascade/orphanRemoval.
+- **Equipos denormalizados en Partido**: el partido guarda `equipo_local_id/nombre` y `equipo_visitante_id/nombre` en lugar de `@ManyToOne` a EquipoEntity, respetando la regla de referencias por id entre agregados y evitando ciclos de asociación.
+- **Alternativas descartadas**: `@ManyToOne` a EquipoEntity en Partido (ciclo Liga→Equipo→Partido, acopla agregados).

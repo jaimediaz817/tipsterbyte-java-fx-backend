@@ -21,6 +21,29 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	// ─────────────────────────────────────────────
+	// [QUÉ]: Persistencia relacional con JPA/Hibernate sobre PostgreSQL (FASE 8).
+	// [POR QUÉ]: Los repository ports (application.port.XxxRepository) se implementan
+	//            con Spring Data JPA + PostgreSQL 17. PostgreSQL es el motor objetivo
+	//            (docker-compose en FASE 9); no se usa H2 porque el objetivo es prod.
+	// [ALTERNATIVAS]: MyBatis o JDBC puro; se descartan porque JPA + Spring Data
+	//                 reduce el boilerplate de mapeo y da transaccionalidad declarativa.
+	// [RELACIONES]: infrastructure.persistence.entity/repository/adapter (FASE 8).
+	// ─────────────────────────────────────────────
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	runtimeOnly 'org.postgresql:postgresql'
+	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
+	// ─────────────────────────────────────────────
+	// [QUÉ]: Soporte Testcontainers para tests de integración de los adapters JPA.
+	// [POR QUÉ]: Los repository adapters se prueban contra un PostgreSQL real en
+	//            contenedor (regla testing.md), no contra la BD local de dev.
+	// [ALTERNATIVAS]: H2 embebido; se descarta porque no valida SQL/DDL de PostgreSQL
+	//                 ni las constraints reales del motor objetivo.
+	// [RELACIONES]: Tests de infrastructure.persistence (FASE 8, profundizado en FASE 10).
+	// ─────────────────────────────────────────────
+	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+	testImplementation 'org.testcontainers:testcontainers-postgresql:2.0.5'
+	testImplementation 'org.testcontainers:testcontainers-junit-jupiter:2.0.5'
 	testImplementation 'org.springframework.boot:spring-boot-starter-actuator-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'

@@ -84,8 +84,13 @@ FASE 22 Preparación para entrevista
 - Los beans de los controllers se registran solo si `app.api.rest.enabled=true` (FASE 8 habilita el wiring); hoy se ejercitan con MockMvc standalone.
 - **Estado**: COMPLETADA — 96 tests en verde (16 nuevos de controllers), `./gradlew build` OK, `bootRun` OK.
 
-### FASE 8 — PostgreSQL + JPA
+### FASE 8 — PostgreSQL + JPA ✅
 - Repository Ports → Adapters JPA. Entities mapping, relaciones, constraints, transacciones.
+- **Resultado**: dependencias `spring-boot-starter-data-jpa` + `org.postgresql:postgresql` + Testcontainers 2.0.5 (`testcontainers-postgresql`, `testcontainers-junit-jupiter`, `spring-boot-testcontainers`). 7 entidades JPA en `infrastructure.persistence.entity` (`LigaEntity`, `EquipoEntity`, `PosicionTablaEntity`, `PartidoEntity`, `CuotaEntity`, `PronosticoEntity`, `SuscripcionEntity`). 4 repositorios Spring Data en `infrastructure.persistence.repository` (`LigaJpaRepository`, `PartidoJpaRepository`, `PronosticoJpaRepository`, `SuscripcionJpaRepository`). 4 adapters JPA en `infrastructure.adapter` (`LigaRepositoryJpaAdapter`, `PartidoRepositoryJpaAdapter`, `PronosticoRepositoryJpaAdapter`, `SuscripcionRepositoryJpaAdapter`) con mappers entity↔dominio y transacciones.
+- Factory methods `reconstruir(...)` en `Liga`, `Partido`, `Pronostico`, `Suscripcion`: restauran el aggregate completo desde persistencia **sin emitir eventos** (reconstrucción ≠ transición, patrón DDD).
+- `application.properties`: datasource con env vars con fallback al contenedor local (`localhost:5433/tipsterbyte_fx_db`), `ddl-auto=update` en dev. Equipos del partido denormalizados (id + nombre) para respetar referencias por id entre agregados.
+- **Nota wiring**: los controllers NO se activan todavía (`app.api.rest.enabled=false`). CU-01..04 requieren los proveedores de FASE 8.5; el wiring REST completo se difiere a FASE 8.5/17.
+- **Estado**: COMPLETADA — 114 tests en verde (8 nuevos de dominio para `reconstruir`, 11 de integración con Testcontainers), `./gradlew build` OK.
 
 ### FASE 8.5 — Adapters de fuentes externas (4 endpoints reales)
 - **Documentar primero** las 4 fuentes de extracción reales del usuario (cómo funcionan, qué devuelve cada endpoint) y **decidir el mapeo** a los puertos del modelo (`ProveedorPosiciones/Calendario/Cuotas`), aún sin cerrar si conviven con las APIs originales o las reemplazan. El usuario entrega la respuesta real (JSON) de cada endpoint cuando se necesita; **no asumir formatos**.

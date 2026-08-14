@@ -60,4 +60,22 @@ class LigaTest {
         liga.agregarEquipo(EQUIPO);
         assertThrows(DomainException.class, () -> liga.agregarEquipo(EQUIPO));
     }
+
+    @Test
+    void debe_reconstruir_con_equipos_y_posiciones_sin_eventos() {
+        Liga liga = Liga.reconstruir(
+                java.util.UUID.randomUUID(), "La Liga", "España", TEMPORADA,
+                EstadoLiga.ACTIVA, List.of(EQUIPO),
+                List.of(new PosicionTabla(EQUIPO, 1, 5, 3, 1, 1, 10, 4, 10)));
+        assertEquals(1, liga.equipos().size());
+        assertEquals(1, liga.posiciones().size());
+        assertEquals(EstadoLiga.ACTIVA, liga.estado());
+        assertTrue(liga.pullEventos().isEmpty(), "reconstruir no debe emitir eventos");
+    }
+
+    @Test
+    void debe_reconstruir_rechazando_nulos() {
+        assertThrows(DomainException.class, () ->
+                Liga.reconstruir(null, "La Liga", "España", TEMPORADA, EstadoLiga.BORRADOR, List.of(), List.of()));
+    }
 }

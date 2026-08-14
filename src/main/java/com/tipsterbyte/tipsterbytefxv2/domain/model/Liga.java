@@ -38,6 +38,25 @@ public final class Liga {
 
     // [QUÉ]: Construye una liga con identidad y estado provistos (reconstrucción desde persistencia).
     public Liga(UUID id, String nombre, String pais, Temporada temporada, EstadoLiga estado) {
+        this(id, nombre, pais, temporada, estado, List.of(), List.of());
+    }
+
+    // [QUÉ]: Factory de reconstrucción completa del aggregate desde persistencia (FASE 8).
+    // [POR QUÉ]: Al cargar una liga de la BD se deben restaurar también sus equipos y
+    //            posiciones. No se usan agregarEquipo/actualizarPosiciones porque son
+    //            transiciones de negocio (actualizarPosiciones exige ACTIVA, BR-002);
+    //            reconstruir no debe emitir eventos ni aplicar reglas de transición,
+    //            solo invariantes estructurales. Patrón DDD: reconstrucción ≠ transición.
+    // [ALTERNATIVAS]: Setear listas vía métodos de negocio; se descarta porque
+    //                 re-emitiría reglas/validaciones incorrectas al hidratar desde BD.
+    // [RELACIONES]: Usado por LigaRepositoryJpaAdapter (FASE 8).
+    public static Liga reconstruir(UUID id, String nombre, String pais, Temporada temporada,
+                                   EstadoLiga estado, List<Equipo> equipos, List<PosicionTabla> posiciones) {
+        return new Liga(id, nombre, pais, temporada, estado, equipos, posiciones);
+    }
+
+    private Liga(UUID id, String nombre, String pais, Temporada temporada, EstadoLiga estado,
+                 List<Equipo> equipos, List<PosicionTabla> posiciones) {
         if (id == null) {
             throw new DomainException("Liga requiere id");
         }
@@ -54,8 +73,8 @@ public final class Liga {
         this.nombre = nombre;
         this.pais = pais;
         this.temporada = temporada;
-        this.equipos = new ArrayList<>();
-        this.posiciones = new ArrayList<>();
+        this.equipos = new ArrayList<>(equipos != null ? equipos : List.of());
+        this.posiciones = new ArrayList<>(posiciones != null ? posiciones : List.of());
         this.estado = estado;
         this.eventos = new ArrayList<>();
     }

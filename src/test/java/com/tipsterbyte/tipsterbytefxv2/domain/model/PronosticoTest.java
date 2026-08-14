@@ -8,6 +8,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PronosticoTest {
 
@@ -59,5 +60,22 @@ class PronosticoTest {
     void debe_rechazar_anular_un_borrador_br005() {
         Pronostico pronostico = pronosticoBorrador();
         assertThrows(DomainException.class, pronostico::anular);
+    }
+
+    @Test
+    void debe_reconstruir_con_resultado_final_sin_eventos() {
+        Pronostico pronostico = Pronostico.reconstruir(
+                UUID.randomUUID(), TIPSTER_ID, PARTIDO_ID, SELECCION, CUOTA,
+                EstadoPronostico.PUBLICADO, new Resultado(2, 1));
+        assertEquals(EstadoPronostico.PUBLICADO, pronostico.estado());
+        assertEquals(2, pronostico.resultadoFinal().golesLocal());
+        assertTrue(pronostico.pullEventos().isEmpty(), "reconstruir no debe emitir eventos");
+    }
+
+    @Test
+    void debe_reconstruir_rechazando_nulos() {
+        assertThrows(DomainException.class, () ->
+                Pronostico.reconstruir(null, TIPSTER_ID, PARTIDO_ID, SELECCION, CUOTA,
+                        EstadoPronostico.BORRADOR, null));
     }
 }

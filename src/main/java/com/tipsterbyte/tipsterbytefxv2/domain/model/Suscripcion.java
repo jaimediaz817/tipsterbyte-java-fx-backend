@@ -41,6 +41,25 @@ public final class Suscripcion {
     // [QUÉ]: Construye una suscripción con identidad y estado provistos (reconstrucción).
     public Suscripcion(UUID id, UUID clienteId, UUID tipsterId, Plan plan,
                        LocalDateTime fechaInicio, LocalDateTime fechaFin, EstadoSuscripcion estado) {
+        this(id, clienteId, tipsterId, plan, fechaInicio, fechaFin, estado, true);
+    }
+
+    // [QUÉ]: Factory de reconstrucción completa desde persistencia (FASE 8).
+    // [POR QUÉ]: Al cargar una suscripción de la BD no se debe re-emitir SuscripcionCreada
+    //            (ese evento corresponde a la creación, no a la lectura). Reconstruir
+    //            solo valida invariantes estructurales, no transiciones de negocio.
+    // [ALTERNATIVAS]: Usar el constructor público; se descarta porque re-emitiría el
+    //                 evento de creación al hidratar desde BD.
+    // [RELACIONES]: Usado por SuscripcionRepositoryJpaAdapter (FASE 8).
+    public static Suscripcion reconstruir(UUID id, UUID clienteId, UUID tipsterId, Plan plan,
+                                          LocalDateTime fechaInicio, LocalDateTime fechaFin,
+                                          EstadoSuscripcion estado) {
+        return new Suscripcion(id, clienteId, tipsterId, plan, fechaInicio, fechaFin, estado, false);
+    }
+
+    private Suscripcion(UUID id, UUID clienteId, UUID tipsterId, Plan plan,
+                        LocalDateTime fechaInicio, LocalDateTime fechaFin,
+                        EstadoSuscripcion estado, boolean emitirEventoCreacion) {
         if (id == null) {
             throw new DomainException("Suscripción requiere id");
         }
@@ -67,7 +86,7 @@ public final class Suscripcion {
         this.fechaFin = fechaFin;
         this.estado = estado;
         this.eventos = new ArrayList<>();
-        if (estado == EstadoSuscripcion.ACTIVA) {
+        if (emitirEventoCreacion && estado == EstadoSuscripcion.ACTIVA) {
             this.eventos.add(new SuscripcionCreada(this.id));
         }
     }
