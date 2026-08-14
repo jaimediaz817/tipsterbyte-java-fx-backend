@@ -71,9 +71,11 @@ FASE 22 Preparación para entrevista
 - Referencias por id entre aggregates; eventos recolectados con `pullEventos()` para publicarse en FASE 13.
 - **Estado**: COMPLETADA — 52 tests unitarios en verde, `./gradlew build` OK.
 
-### FASE 6 — Application + Use Cases
+### FASE 6 — Application + Use Cases ✅
 - Implementar casos de uso de `docs/use-cases/casos-de-uso.md`.
 - Ports (interfaces) + use cases.
+- **Resultado**: 9 casos de uso en `application.usecase` (CU-01..09), puertos completados `ProveedorPosiciones/Calendario/Cuotas` + puertos nuevos `LigaRepository`, `PartidoRepository`, `PronosticoRepository`, `SuscripcionRepository`, y DTOs en `application.dto` (`PosicionFuente`, `PartidoFuente`, `CuotaFuente`, `DisponibilidadFuentes`, `CrearPronosticoComando`, `PronosticoPublicoDto`).
+- **Estado**: COMPLETADA — 80 tests en verde (28 nuevos de casos de uso con Mockito), `./gradlew build` OK.
 
 ### FASE 7 — REST API
 - Controllers, DTOs, validación, status codes, manejo global de errores.

@@ -10,6 +10,17 @@
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.application.port;
 
+import com.tipsterbyte.tipsterbytefxv2.application.dto.CuotaFuente;
+
+import java.util.List;
+import java.util.UUID;
+
 public interface ProveedorCuotas {
+
+    // [QUÉ]: Obtiene las cuotas de un partido desde la fuente de odds.
+    // [POR QUÉ]: El caso de uso CU-03 la usa para sincronizar cuotas sin conocer
+    //            el formato concreto de cada casa de apuestas.
+    // [RELACIONES]: CU-03. Devuelve DTOs de fuente que el caso de uso mapea al dominio.
+    List<CuotaFuente> obtenerCuotas(UUID partidoId);
 
 }

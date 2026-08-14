@@ -9,6 +9,17 @@
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.application.port;
 
+import com.tipsterbyte.tipsterbytefxv2.application.dto.PartidoFuente;
+
+import java.util.List;
+import java.util.UUID;
+
 public interface ProveedorCalendario {
+
+    // [QUÉ]: Obtiene el calendario de partidos (jugados y pendientes) de una liga.
+    // [POR QUÉ]: El caso de uso CU-02 la usa para sincronizar partidos sin conocer
+    //            el formato concreto de cada API.
+    // [RELACIONES]: CU-02. Devuelve DTOs de fuente que el caso de uso mapea al dominio.
+    List<PartidoFuente> obtenerCalendario(UUID ligaId);
 
 }
