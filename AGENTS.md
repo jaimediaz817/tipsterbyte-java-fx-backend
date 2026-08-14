@@ -4,9 +4,9 @@ Proyecto de aprendizaje/portafolio Java para proceso de selección. Plataforma d
 
 ## Estado actual — CRÍTICO
 
-- El repo está en **FASE 2 completada (Spring Initializr bootstrap)**. Hay proyecto Spring Boot compilando (Gradle 9.5.1, Java 21, Boot 4.1.0), pero NO hay git todavía ni código de negocio.
+- El repo está en **FASE 5 completada (Domain + DDD)**. Modelo de dominio completo en `domain.model` (enums, VOs, entities, aggregates `Liga/Partido/Pronostico/Suscripcion` con BR-001..008), eventos en `domain.event` + interfaz `DomainEvent`. 52 tests unitarios en verde. FASE 4 (Clean Architecture) y FASE 5 aún **sin commitear**.
 - Avanzamos **una fase a la vez** (ver `docs/PROYECTO-PLAN.md`), con aprobación explícita del usuario entre fases. **NUNCA** ejecutar fases adelantadas ni "construir el proyecto completo".
-- Próxima: FASE 3 (Git + estructura base).
+- Próxima: FASE 6 (Application + Use Cases).
 
 ## Configuración de OpenCode (FASE 1)
 

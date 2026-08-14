@@ -53,16 +53,23 @@ FASE 22 Preparación para entrevista
 - **Configuración cerrada**: Gradle 9.5.1 (wrapper), Java 21, Spring Boot 4.1.0, paquete `com.tipsterbyte.tipsterbytefxv2`.
 - **Estado**: COMPLETADA — `./gradlew build` OK, `bootRun` OK, Actuator `/actuator/health` responde UP.
 
-### FASE 3 — Git + estructura base
-- `.gitignore`, `README.md`, primer commit, package base.
+### FASE 3 — Git + estructura base ✅
+- `.gitignore` (del inicializador, verificado), `README.md`, primer commit, package base `com.tipsterbyte.tipsterbytefxv2`.
+- Rama `main`, autor `JDiaz`.
+- **Estado**: COMPLETADA — commit inicial `83bad74`.
 
-### FASE 4 — Clean Architecture
-- Capas: domain / application / infrastructure / interfaces.
-- Dependency Rule. Formalizar ADRs.
+### FASE 4 — Clean Architecture ✅
+- Capas: domain / application / infrastructure / interfaces con `package-info.java` documentado.
+- Dependency Rule. `DomainException` (ADR-005), primer VO `Cuota` (patrón), puertos `ProveedorPosiciones/Calendario/Cuotas`.
+- ADRs formalizados en `docs/architecture/arquitectura-objetivo.md` (ADR-001..005).
+- **Estado**: COMPLETADA — `./gradlew build` OK.
 
-### FASE 5 — Domain + DDD
+### FASE 5 — Domain + DDD ✅
 - Implementar el modelo de `docs/domain/modelo-dominio.md`.
 - Entities, VOs, Aggregates, reglas de negocio, domain events.
+- **Resultado**: enums (`EstadoLiga`, `EstadoPartido`, `EstadoPronostico`, `EstadoSuscripcion`, `Mercado`, `Rol`), VOs (`Temporada`, `Resultado`, `Cuota`, `PosicionTabla`, `SeleccionPronostico`, `Email`, `Plan`, `FechaProgramada`), entities (`Equipo`, `Tipster`, `Cliente`), aggregates (`Liga`, `Partido`, `Pronostico`, `Suscripcion`) con BR-001..008, eventos (`LigaActivada`, `PartidoProgramado`, `CuotaActualizada`, `PronosticoPublicado`, `SuscripcionCreada`) + interfaz `DomainEvent`.
+- Referencias por id entre aggregates; eventos recolectados con `pullEventos()` para publicarse en FASE 13.
+- **Estado**: COMPLETADA — 52 tests unitarios en verde, `./gradlew build` OK.
 
 ### FASE 6 — Application + Use Cases
 - Implementar casos de uso de `docs/use-cases/casos-de-uso.md`.
