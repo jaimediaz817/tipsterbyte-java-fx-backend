@@ -4,9 +4,9 @@ Proyecto de aprendizaje/portafolio Java para proceso de selección. Plataforma d
 
 ## Estado actual — CRÍTICO
 
-- El repo está en **FASE 6 completada (Application + Use Cases)**. Modelo de dominio completo en `domain.model` (enums, VOs, entities, aggregates `Liga/Partido/Pronostico/Suscripcion` con BR-001..008), eventos en `domain.event` + interfaz `DomainEvent`. Capa application con los 9 casos de uso (CU-01..09) en `application.usecase`, puertos `ProveedorPosiciones/Calendario/Cuotas` + 4 repositorios en `application.port`, DTOs en `application.dto`. 80 tests en verde. FASE 4, 5 y 6 **sin commitear**.
+- El repo está en **FASE 7 completada (REST API)**. Modelo de dominio completo en `domain.model` (enums, VOs, entities, aggregates `Liga/Partido/Pronostico/Suscripcion` con BR-001..008), eventos en `domain.event` + interfaz `DomainEvent`. Capa application con los 9 casos de uso (CU-01..09) en `application.usecase`, puertos `ProveedorPosiciones/Calendario/Cuotas` + 4 repositorios en `application.port`, DTOs en `application.dto`. Capa interfaces con 4 controllers (`interfaces.rest.controller`), request/response DTOs y `GlobalExceptionHandler` (DomainException → 422, validación → 400). 96 tests en verde. Los controllers se registran solo con `app.api.rest.enabled=true` (FASE 8 habilita el wiring). FASE 7 **sin commitear**.
 - Avanzamos **una fase a la vez** (ver `docs/PROYECTO-PLAN.md`), con aprobación explícita del usuario entre fases. **NUNCA** ejecutar fases adelantadas ni "construir el proyecto completo".
-- Próxima: FASE 7 (REST API).
+- Próxima: FASE 8 (PostgreSQL + JPA). El plan incluye una **FASE 8.5 (Adapters de fuentes externas)**: el usuario tiene 4 endpoints de extracción funcionando (ligas/torneos por país, tablas de posiciones con últimos 5 resultados por equipo, calendario con estadísticas, cuotas de Wplay) que alimentarán los puertos del modelo. **Antes de implementar cualquier adapter, pedir al usuario la respuesta real (JSON) del endpoint y el detalle de qué expone; NO asumir formatos.**
 
 ## Configuración de OpenCode (FASE 1)
 

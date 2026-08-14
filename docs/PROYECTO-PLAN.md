@@ -16,6 +16,7 @@ FASE 5  Domain + DDD
 FASE 6  Application + Use Cases
 FASE 7  REST API
 FASE 8  PostgreSQL + JPA
+FASE 8.5  Adapters de fuentes externas (4 endpoints reales)
 FASE 9  Docker + Docker Compose
 FASE 10 Testing
 FASE 11 Spring Security + JWT
@@ -77,11 +78,21 @@ FASE 22 Preparación para entrevista
 - **Resultado**: 9 casos de uso en `application.usecase` (CU-01..09), puertos completados `ProveedorPosiciones/Calendario/Cuotas` + puertos nuevos `LigaRepository`, `PartidoRepository`, `PronosticoRepository`, `SuscripcionRepository`, y DTOs en `application.dto` (`PosicionFuente`, `PartidoFuente`, `CuotaFuente`, `DisponibilidadFuentes`, `CrearPronosticoComando`, `PronosticoPublicoDto`).
 - **Estado**: COMPLETADA — 80 tests en verde (28 nuevos de casos de uso con Mockito), `./gradlew build` OK.
 
-### FASE 7 — REST API
+### FASE 7 — REST API ✅
 - Controllers, DTOs, validación, status codes, manejo global de errores.
+- **Resultado**: 4 controllers en `interfaces.rest.controller` (`LigaController`, `PartidoController`, `PronosticoController`, `SuscripcionController`) con los 9 endpoints de CU-01..09, request DTOs con Bean Validation en `interfaces.rest.dto.request`, response DTOs en `interfaces.rest.dto.response`, y `GlobalExceptionHandler` (`@RestControllerAdvice`: DomainException → 422, validación/params/JSON → 400, resto → 500).
+- Los beans de los controllers se registran solo si `app.api.rest.enabled=true` (FASE 8 habilita el wiring); hoy se ejercitan con MockMvc standalone.
+- **Estado**: COMPLETADA — 96 tests en verde (16 nuevos de controllers), `./gradlew build` OK, `bootRun` OK.
 
 ### FASE 8 — PostgreSQL + JPA
 - Repository Ports → Adapters JPA. Entities mapping, relaciones, constraints, transacciones.
+
+### FASE 8.5 — Adapters de fuentes externas (4 endpoints reales)
+- **Documentar primero** las 4 fuentes de extracción reales del usuario (cómo funcionan, qué devuelve cada endpoint) y **decidir el mapeo** a los puertos del modelo (`ProveedorPosiciones/Calendario/Cuotas`), aún sin cerrar si conviven con las APIs originales o las reemplazan. El usuario entrega la respuesta real (JSON) de cada endpoint cuando se necesita; **no asumir formatos**.
+- Definir DTOs de fuente en `application.dto` a partir de las respuestas reales.
+- Extender dominio si procede: modelar "últimos 5 resultados por equipo" (clave para predicción) y nuevo caso de uso CU-10 para poblar catálogo de países y ligas (fuente #1).
+- Implementar 4 adapters en `infrastructure.adapter` contra los endpoints reales, con tests usando las respuestas reales como fixtures.
+- Actualizar ADRs y `docs/architecture/arquitectura-objetivo.md` según el mapeo decidido.
 
 ### FASE 9 — Docker
 - PostgreSQL en docker-compose. Volumes, networks, healthcheck.
