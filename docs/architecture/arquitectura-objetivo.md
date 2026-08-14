@@ -112,11 +112,34 @@ FASE 20  AWS / Deployment
 
 ---
 
-## Decisiones de arquitectura (ADR — se formaliza en FASE 4)
+## Decisiones de arquitectura (ADR — formalizados en FASE 4)
 
-| # | Decisión | Justificación corta |
-| --- | --- | --- |
-| ADR-001 | Clean Architecture + DDD | Separación clara por capas, dominio protegido, defendible en entrevista |
-| ADR-002 | Ports/adapters para las 4 APIs | Abstracción de proveedores externos, cambio sin impacto al núcleo |
-| ADR-003 | Java + Spring Boot + Gradle | Estandar del proceso de selección + coherencia con proyecto previo |
-| ADR-004 | Núcleo funcional pequeño (9 casos de uso) | Evita sobreingeniería; las demás features entran por fases |
+### ADR-001 — Clean Architecture + DDD
+- **Concepto**: Organizar el sistema en 4 capas (domain, application, interfaces, infrastructure) con Dependency Rule hacia el dominio.
+- **Artefacto**: paquetes raíz `domain`, `application`, `interfaces`, `infrastructure` + `package-info.java`.
+- **Decisión**: Separación clara por capas; el dominio no conoce Spring/JPA/APIs. Defendible en entrevista.
+- **Alternativas descartadas**: arquitectura por capas "tradicional" (controller-service-repository) sin dominio protegido.
+
+### ADR-002 — Ports/adapters para las 4 APIs
+- **Concepto**: Las 4 APIs (football-data.org, API-Football, The Odds API, SharpAPI) se consumen solo vía puertos.
+- **Artefacto**: `ProveedorPosiciones`, `ProveedorCalendario`, `ProveedorCuotas` (application.port).
+- **Decisión**: Cambiar de proveedor = ajustar un adapter, sin tocar dominio ni casos de uso.
+- **Alternativas descartadas**: usar RestTemplate/WebClient directo en application (acopla la app a infraestructura).
+
+### ADR-003 — Java + Spring Boot + Gradle
+- **Concepto**: Stack base del proyecto.
+- **Artefacto**: `build.gradle` (Gradle 9.5.1, Java 21, Spring Boot 4.1.0).
+- **Decisión**: Estandar del proceso de selección + coherencia con el proyecto previo (`contexto_java/pronosticos-futbol`).
+- **Alternativas descartadas**: Maven (correcto, pero el estándar evaluado es Gradle).
+
+### ADR-004 — Núcleo funcional pequeño (9 casos de uso)
+- **Concepto**: Solo las funcionalidades que demuestran arquitectura: ingesta, ligas/partidos, pronósticos, suscripciones.
+- **Artefacto**: catálogo CU-01..09 (`docs/use-cases/casos-de-uso.md`).
+- **Decisión**: Evita sobreingeniería; Security/Redis/RabbitMQ/WebFlux entran por fases cuando se necesitan.
+- **Alternativas descartadas**: 30 funcionalidades el día uno (proyecto inflado, decisiones sin defender).
+
+### ADR-005 — Excepciones de dominio unchecked
+- **Concepto**: `DomainException` extiende `RuntimeException`.
+- **Artefacto**: `domain/DomainException.java`.
+- **Decisión**: No ensucia los casos de uso con try/catch; el handler global de interfaces las traduce a HTTP.
+- **Alternativas descartadas**: checked exceptions (acoplan manejo obligatorio), excepciones de Spring en dominio (acoplamiento a framework).
