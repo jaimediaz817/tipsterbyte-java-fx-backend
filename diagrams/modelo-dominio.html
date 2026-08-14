@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Modelo de dominio · tipsterbyte-fx-v2</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #f5f5f5;
+      --color-ink:     #2d3142;
+      --color-muted:   #4f5d75;
+      --color-accent:  #eb6c36;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      padding: 3rem 2rem;
+    }
+
+    /* [POR QUÉ]: reserva siempre el espacio de la barra de scroll (aunque no
+       haya scroll o esté oculta). Evita el salto horizontal al abrir/cerrar el
+       modal. Los navegadores sin soporte usan el fallback JS (bloquearScroll). */
+    html { scrollbar-gutter: stable; }
+
+    .frame { max-width: 1360px; width: 100%; margin: 0 auto; }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 0.4rem;
+    }
+
+    .sub {
+      font-size: 0.85rem;
+      color: var(--color-muted);
+      margin-bottom: 1.5rem;
+      max-width: 780px;
+      line-height: 1.5;
+    }
+
+    /* [POR QUÉ]: el SVG tiene un viewBox de 1320px de ancho. En pantallas más
+       angostas se comprimiría y los textos de las relaciones se solaparían.
+       Este lienzo permite scroll horizontal cuando no cabe, manteniendo el
+       ancho natural del diagrama. */
+    .lienzo { overflow-x: auto; margin-top: 1.5rem; }
+
+    svg { width: 100%; min-width: 1320px; display: block; }
+
+    /* ── Interactividad por click ─────────────────────────────────── */
+    /* El hover NO oculta nada: solo indica que es clicable. */
+    .clase, .relacion { cursor: pointer; }
+    .clase .cuerpo, .relacion .cuerpo { opacity: 1; transition: opacity 0.12s ease; }
+    .clase:hover .marco { stroke-width: 2; }
+    .clase:hover .titulo-texto { text-decoration: underline; text-underline-offset: 3px; }
+    .relacion:hover line, .relacion:hover path, .relacion:hover line, .relacion:hover path { stroke: #eb6c36; stroke-width: 1.6; }
+    .relacion:hover .etiqueta { fill: #eb6c36; font-weight: 600; }
+
+    /* ── Dialog modal ─────────────────────────────────────────────── */
+    #overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      background: rgba(45,49,66,0.35);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    #overlay.abierto { display: flex; }
+
+    #dialogo {
+      background: #ffffff;
+      border-radius: 8px;
+      border-top: 3px solid var(--color-accent);
+      box-shadow: 0 24px 64px rgba(45,49,66,0.28);
+      width: 100%;
+      max-width: 560px;
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 20px 22px;
+    }
+
+    #dialogo .dlg-cabecera {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+    #dialogo .dlg-titulo {
+      font-family: var(--font-serif);
+      font-size: 1.35rem;
+      line-height: 1.1;
+      color: var(--color-ink);
+    }
+    #dialogo .dlg-tipo {
+      font-family: var(--font-mono);
+      font-size: 8px;
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--color-accent);
+      margin-top: 4px;
+    }
+    #dialogo #dlg-cerrar {
+      border: none;
+      background: rgba(45,49,66,0.06);
+      color: var(--color-ink);
+      font-size: 18px;
+      line-height: 1;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      flex: 0 0 auto;
+    }
+    #dialogo #dlg-cerrar:hover { background: rgba(45,49,66,0.12); }
+
+    #dialogo .dlg-fila {
+      display: flex;
+      gap: 12px;
+      padding: 9px 0;
+      border-top: 1px solid rgba(45,49,66,0.08);
+      font-size: 12.5px;
+      line-height: 1.5;
+    }
+    #dialogo .dlg-fila:first-of-type { border-top: none; }
+    #dialogo .dlg-etiqueta {
+      flex: 0 0 auto;
+      min-width: 74px;
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      padding-top: 3px;
+    }
+    #dialogo .dlg-valor { color: var(--color-ink); }
+    #dialogo .dlg-valor code {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      background: rgba(45,49,66,0.06);
+      border-radius: 3px;
+      padding: 0 4px;
+      white-space: nowrap;
+    }
+    #dialogo .dlg-br {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--color-accent);
+      border: 1px solid rgba(235,108,54,0.4);
+      background: rgba(235,108,54,0.06);
+      border-radius: 3px;
+      padding: 1px 5px;
+      margin: 1px 3px 1px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">ER · Diagram Design</p>
+    <h1>Modelo de dominio · tipsterbyte-fx-v2</h1>
+    <p class="sub">Implementado en FASE 5 (Domain + DDD). Cuatro aggregates (<em>Liga</em>, <em>Partido</em>, <em>Pronostico</em>, <em>Suscripcion</em>) referenciados por id, con sus entities, VOs y reglas de negocio BR-001..008. <strong>Haz click en cualquier clase o relación</strong> para abrir un panel con su detalle.</p>
+
+    <div class="lienzo">
+    <svg viewBox="0 0 1320 936" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="dm-title dm-desc">
+      <title id="dm-title">Modelo de dominio · tipsterbyte-fx-v2</title>
+      <desc id="dm-desc">Diagrama de entidad-relación del dominio: aggregates Liga, Partido, Pronostico y Suscripcion con sus entities, value objects y reglas de negocio BR-001 a BR-008. Al hacer click en una clase o relación se muestra un panel con su detalle.</desc>
+        <defs>
+          <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="0.9" fill="rgba(45,49,66,0.10)"/>
+          </pattern>
+        </defs>
+
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+        <rect width="100%" height="100%" fill="url(#dots)" opacity="0.55"/>
+
+        <!-- ══ RELACIÓN L1 · Liga — Partido (1:N) ══════════════════════════════ -->
+        <g class="relacion" data-titulo="Liga — Partido"
+           data-tipo="Relación 1:N · ref. por id"
+           data-que="Una liga tiene muchos partidos; cada partido pertenece a una única liga."
+           data-relacion="Partido.ligaId → Liga.id"
+           data-regla="BR-002 (no se extraen partidos de ligas inactivas)"
+           data-metodos="Partido(ligaId, local, visitante, fecha)"
+           data-eventos="—">
+          <g class="cuerpo">
+            <line x1="320" y1="210" x2="340" y2="210" stroke="#4f5d75" stroke-width="1"/>
+            <rect x="262" y="198" width="12" height="12" rx="2" fill="#f5f5f5"/>
+            <text x="268" y="208" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle" font-weight="600">1</text>
+            <rect x="344" y="198" width="16" height="12" rx="2" fill="#f5f5f5"/>
+            <text x="352" y="208" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle" font-weight="600">N</text>
+            <rect x="296" y="184" width="76" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="334" y="194" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em" class="etiqueta">TIENE PARTIDOS</text>
+          </g>
+        </g>
+
+        <!-- ══ RELACIÓN L2 · Partido — Pronostico (1:N) ════════════════════════ -->
+        <g class="relacion" data-titulo="Partido — Pronostico"
+           data-tipo="Relación 1:N · ref. por id"
+           data-que="Un partido puede tener muchos pronósticos (uno por tipster); cada pronóstico apunta a un único partido."
+           data-relacion="Pronostico.partidoId → Partido.id"
+           data-regla="BR-004 (pronóstico solo sobre partido jugable)"
+           data-metodos="Pronostico(tipsterId, partidoId, seleccion, cuota)"
+           data-eventos="—">
+          <g class="cuerpo">
+            <line x1="600" y1="210" x2="620" y2="210" stroke="#4f5d75" stroke-width="1"/>
+            <rect x="544" y="198" width="12" height="12" rx="2" fill="#f5f5f5"/>
+            <text x="550" y="208" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle" font-weight="600">1</text>
+            <rect x="628" y="198" width="16" height="12" rx="2" fill="#f5f5f5"/>
+            <text x="636" y="208" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle" font-weight="600">N</text>
+            <rect x="576" y="184" width="88" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="620" y="194" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em" class="etiqueta">GENERA PRONÓSTICOS</text>
+          </g>
+        </g>
+
+        <!-- ══ RELACIÓN L3 · Pronostico — Tipster (N:1) ════════════════════════ -->
+        <g class="relacion" data-titulo="Pronostico — Tipster"
+           data-tipo="Relación N:1 · ref. por id"
+           data-que="Un tipster crea muchos pronósticos; cada pronóstico pertenece a un único tipster."
+           data-relacion="Pronostico.tipsterId → Tipster.id"
+           data-regla="—"
+           data-metodos="Pronostico(tipsterId, partidoId, seleccion, cuota)"
+           data-eventos="—">
+          <g class="cuerpo">
+            <path d="M 760,340 V 404 H 1000 V 460" fill="none" stroke="#4f5d75" stroke-width="1"/>
+            <rect x="748" y="330" width="16" height="12" rx="2" fill="#f5f5f5"/>
+            <text x="756" y="340" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle" font-weight="600">N</text>
+            <rect x="988" y="448" width="16" height="12" rx="2" fill="#f5f5f5"/>
+            <text x="996" y="458" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle" font-weight="600">1</text>
+            <rect x="860" y="392" width="48" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="884" y="402" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em" class="etiqueta">CREA</text>
+          </g>
+        </g>
+
+        <!-- ══ RELACIÓN L4 · Suscripcion — Tipster (N:1) ═══════════════════════ -->
+        <g class="relacion" data-titulo="Suscripcion — Tipster"
+           data-tipo="Relación N:1 · ref. por id"
+           data-que="Un tipster tiene muchas suscripciones; cada suscripción apunta a un único tipster."
+           data-relacion="Suscripcion.tipsterId → Tipster.id"
+           data-regla="BR-006 (acceso solo con suscripción activa)"
+           data-metodos="Suscripcion(clienteId, tipsterId, plan, fechaInicio)"
+           data-eventos="—">
+          <g class="cuerpo">
+            <line x1="1150" y1="308" x2="1150" y2="460" stroke="#4f5d75" stroke-width="1"/>
+            <rect x="1138" y="292" width="16" height="12" rx="2" fill="#f5f5f5"/>
+            <text x="1146" y="302" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle" font-weight="600">N</text>
+            <rect x="1138" y="448" width="16" height="12" rx="2" fill="#f5f5f5"/>
+            <text x="1146" y="458" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle" font-weight="600">1</text>
+            <rect x="1158" y="372" width="56" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="1186" y="382" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em" class="etiqueta">SUSCRIBE</text>
+          </g>
+        </g>
+
+        <!-- ══ RELACIÓN L5 · Suscripcion — Cliente (N:1) ═══════════════════════ -->
+        <g class="relacion" data-titulo="Suscripcion — Cliente"
+           data-tipo="Relación N:1 · ref. por id"
+           data-que="Un cliente tiene muchas suscripciones; cada suscripción pertenece a un único cliente."
+           data-relacion="Suscripcion.clienteId → Cliente.id"
+           data-regla="BR-006 (consumo solo de suscriptores activos)"
+           data-metodos="Suscripcion(clienteId, tipsterId, plan, fechaInicio)"
+           data-eventos="—">
+          <g class="cuerpo">
+            <path d="M 1180,308 V 420 H 1280 V 760 H 1260" fill="none" stroke="#4f5d75" stroke-width="1"/>
+            <rect x="1168" y="292" width="16" height="12" rx="2" fill="#f5f5f5"/>
+            <text x="1176" y="302" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle" font-weight="600">N</text>
+            <rect x="1244" y="748" width="16" height="12" rx="2" fill="#f5f5f5"/>
+            <text x="1252" y="758" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle" font-weight="600">1</text>
+            <rect x="1188" y="686" width="60" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="1218" y="696" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em" class="etiqueta">PERTENECE</text>
+          </g>
+        </g>
+
+        <!-- ══ RELACIÓN L6 · Liga — Equipo (miembro) ═══════════════════════════ -->
+        <g class="relacion" data-titulo="Liga — Equipo (miembro)"
+           data-tipo="Composición · miembro del aggregate"
+           data-que="Los equipos viven dentro del aggregate Liga; se agregan desde la sincronización del calendario."
+           data-relacion="Liga.equipos :: List&lt;Equipo&gt;"
+           data-regla="—"
+           data-metodos="Liga.agregarEquipo(equipo)"
+           data-eventos="—">
+          <g class="cuerpo">
+            <line x1="150" y1="324" x2="150" y2="460" stroke="#4f5d75" stroke-width="0.8" stroke-dasharray="4,3"/>
+            <rect x="112" y="380" width="76" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="150" y="390" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em" class="etiqueta">MIEMBRO</text>
+          </g>
+        </g>
+
+        <!-- ══ RELACIÓN L7 · Partido — Cuota (miembro) ═════════════════════════ -->
+        <g class="relacion" data-titulo="Partido — Cuota (miembro)"
+           data-tipo="Composición · miembro del aggregate"
+           data-que="Las cuotas viven dentro del aggregate Partido y llegan SOLO de la fuente de odds (nunca se mutan localmente)."
+           data-relacion="Partido.cuotas :: List&lt;Cuota&gt;"
+           data-regla="BR-007 (cuota &gt; 1.0, sino se descarta)"
+           data-metodos="Partido.actualizarCuotas(cuotas)"
+           data-eventos="CuotaActualizada">
+          <g class="cuerpo">
+            <line x1="440" y1="356" x2="440" y2="460" stroke="#4f5d75" stroke-width="0.8" stroke-dasharray="4,3"/>
+            <rect x="402" y="396" width="76" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="440" y="406" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em" class="etiqueta">MIEMBRO</text>
+          </g>
+        </g>
+
+        <!-- ══ RELACIÓN L8 · Pronostico — SeleccionPronostico (miembro) ═══════ -->
+        <g class="relacion" data-titulo="Pronostico — SeleccionPronostico (miembro)"
+           data-tipo="Composición · miembro del aggregate"
+           data-que="La selección es un value object que vive dentro del pronóstico y ata el mercado a su resultado esperado."
+           data-relacion="Pronostico.seleccion :: SeleccionPronostico"
+           data-regla="coherencia mercado · selección"
+           data-metodos="SeleccionPronostico(mercado, resultadoEsperado)"
+           data-eventos="—">
+          <g class="cuerpo">
+            <line x1="700" y1="340" x2="700" y2="460" stroke="#4f5d75" stroke-width="0.8" stroke-dasharray="4,3"/>
+            <rect x="662" y="388" width="76" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="700" y="398" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em" class="etiqueta">MIEMBRO</text>
+          </g>
+        </g>
+
+        <!-- ── Entity: Liga (aggregate root) ─────────────────────────────────── -->
+        <g class="clase" data-titulo="Liga" data-tipo="Aggregate root · domain.model"
+           data-regla="BR-001 · BR-002 · BR-008"
+           data-que="Competición deportiva (ej: Premier League). Frontera de consistencia de posiciones, equipos y estado."
+           data-relacion="tiene List&lt;Partido&gt; vía Partido.ligaId · List&lt;Equipo&gt; · List&lt;PosicionTabla&gt;"
+           data-metodos="activar() · agregarEquipo() · actualizarPosiciones() · pullEventos()"
+           data-eventos="LigaActivada">
+          <g class="cuerpo">
+            <rect class="marco" x="60" y="100" width="260" height="224" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+            <rect x="60" y="100" width="260" height="40" rx="6" fill="rgba(45,49,66,0.05)" stroke="none"/>
+            <rect x="60" y="132" width="260" height="8" fill="rgba(45,49,66,0.05)"/>
+            <line x1="60" y1="140" x2="320" y2="140" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+            <text x="76" y="116" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">ENTITY · AGGREGATE ROOT</text>
+            <text class="titulo-texto" x="76" y="132" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', sans-serif">Liga</text>
+            <text x="76" y="160" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace"># id</text>
+            <text x="304" y="160" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">uuid</text>
+            <text x="76" y="180" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">nombre</text>
+            <text x="304" y="180" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">text</text>
+            <text x="76" y="200" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">pais</text>
+            <text x="304" y="200" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">text</text>
+            <text x="76" y="220" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">temporada</text>
+            <text x="304" y="220" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">VO Temporada</text>
+            <text x="76" y="240" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">equipos</text>
+            <text x="304" y="240" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">List&lt;Equipo&gt;</text>
+            <text x="76" y="260" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">posiciones</text>
+            <text x="304" y="260" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">List&lt;PosicionTabla&gt;</text>
+            <text x="76" y="280" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">estado</text>
+            <text x="304" y="280" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">enum</text>
+            <text x="76" y="304" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.1em">BR-001 · BR-002 · BR-008</text>
+          </g>
+        </g>
+
+        <!-- ── Entity: Partido (aggregate root) ───────────────────────────────── -->
+        <g class="clase" data-titulo="Partido" data-tipo="Aggregate root · domain.model"
+           data-regla="BR-003 · BR-007"
+           data-que="Enfrentamiento entre dos equipos en una fecha. El resultado solo se asigna al finalizar (BR-003) y las cuotas llegan solo de la fuente de odds."
+           data-relacion="pertenece a Liga vía ligaId · genera Pronostico vía partidoId · List&lt;Cuota&gt;"
+           data-metodos="actualizarCuotas() · iniciar() · finalizar() · asignarResultado() · pullEventos()"
+           data-eventos="PartidoProgramado · CuotaActualizada">
+          <g class="cuerpo">
+            <rect class="marco" x="340" y="100" width="260" height="256" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+            <rect x="340" y="100" width="260" height="40" rx="6" fill="rgba(45,49,66,0.05)" stroke="none"/>
+            <rect x="340" y="132" width="260" height="8" fill="rgba(45,49,66,0.05)"/>
+            <line x1="340" y1="140" x2="600" y2="140" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+            <text x="356" y="116" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">ENTITY · AGGREGATE ROOT</text>
+            <text class="titulo-texto" x="356" y="132" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', sans-serif">Partido</text>
+            <text x="356" y="160" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace"># id</text>
+            <text x="584" y="160" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">uuid</text>
+            <text x="356" y="180" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace">→ liga_id</text>
+            <text x="584" y="180" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">uuid</text>
+            <text x="356" y="200" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">equipoLocal</text>
+            <text x="584" y="200" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">Equipo</text>
+            <text x="356" y="220" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">equipoVisitante</text>
+            <text x="584" y="220" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">Equipo</text>
+            <text x="356" y="240" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">fechaProgramada</text>
+            <text x="584" y="240" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">VO FechaProgramada</text>
+            <text x="356" y="260" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">resultado</text>
+            <text x="584" y="260" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">VO Resultado · 0..1</text>
+            <text x="356" y="280" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">cuotas</text>
+            <text x="584" y="280" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">List&lt;Cuota&gt;</text>
+            <text x="356" y="300" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">estado</text>
+            <text x="584" y="300" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">enum</text>
+            <text x="356" y="324" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.1em">BR-003 · BR-007</text>
+          </g>
+        </g>
+
+        <!-- ── Entity: Pronostico (aggregate root · focal) ────────────────────── -->
+        <g class="clase" data-titulo="Pronostico" data-tipo="Aggregate root · domain.model"
+           data-regla="BR-004 · BR-005"
+           data-que="Opinión del tipster sobre un partido (selección + cuota). Se publica solo con partido jugable y cuota vigente (BR-004); publicado no se edita, solo se anula (BR-005)."
+           data-relacion="pertenece a Tipster vía tipsterId · apunta a Partido vía partidoId"
+           data-metodos="publicar() · anular() · registrarResultadoFinal() · pullEventos()"
+           data-eventos="PronosticoPublicado">
+          <g class="cuerpo">
+            <rect class="marco" x="620" y="100" width="260" height="240" rx="6" fill="rgba(235,108,54,0.04)" stroke="#eb6c36" stroke-width="1.2"/>
+            <rect x="620" y="100" width="260" height="40" rx="6" fill="rgba(235,108,54,0.10)" stroke="none"/>
+            <rect x="620" y="132" width="260" height="8" fill="rgba(235,108,54,0.10)"/>
+            <line x1="620" y1="140" x2="880" y2="140" stroke="rgba(235,108,54,0.40)" stroke-width="1"/>
+            <text x="636" y="116" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">ENTITY · AGGREGATE ROOT</text>
+            <text class="titulo-texto" x="636" y="132" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', sans-serif">Pronostico</text>
+            <text x="636" y="160" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace"># id</text>
+            <text x="864" y="160" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">uuid</text>
+            <text x="636" y="180" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace">→ tipster_id</text>
+            <text x="864" y="180" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">uuid</text>
+            <text x="636" y="200" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace">→ partido_id</text>
+            <text x="864" y="200" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">uuid</text>
+            <text x="636" y="220" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">seleccion</text>
+            <text x="864" y="220" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">VO SeleccionPronostico</text>
+            <text x="636" y="240" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">cuota</text>
+            <text x="864" y="240" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">VO Cuota</text>
+            <text x="636" y="260" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">resultadoFinal</text>
+            <text x="864" y="260" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">VO Resultado · 0..1</text>
+            <text x="636" y="280" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">estado</text>
+            <text x="864" y="280" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">enum</text>
+            <text x="636" y="304" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.1em">BR-004 · BR-005</text>
+          </g>
+        </g>
+
+        <!-- ── Entity: Suscripcion (aggregate root) ───────────────────────────── -->
+        <g class="clase" data-titulo="Suscripcion" data-tipo="Aggregate root · domain.model"
+           data-regla="BR-006 · expira en fechaFin"
+           data-que="Relación paga entre un cliente y un tipster con su plan. El acceso a pronósticos depende de estar activa y dentro del periodo de vigencia (BR-006)."
+           data-relacion="pertenece a Cliente vía clienteId · apunta a Tipster vía tipsterId"
+           data-metodos="estaActiva() · cancelar() · expirar() · pullEventos()"
+           data-eventos="SuscripcionCreada">
+          <g class="cuerpo">
+            <rect class="marco" x="1000" y="100" width="260" height="208" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+            <rect x="1000" y="100" width="260" height="40" rx="6" fill="rgba(45,49,66,0.05)" stroke="none"/>
+            <rect x="1000" y="132" width="260" height="8" fill="rgba(45,49,66,0.05)"/>
+            <line x1="1000" y1="140" x2="1260" y2="140" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+            <text x="1016" y="116" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">ENTITY · AGGREGATE ROOT</text>
+            <text class="titulo-texto" x="1016" y="132" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', sans-serif">Suscripcion</text>
+            <text x="1016" y="160" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace"># id</text>
+            <text x="1244" y="160" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">uuid</text>
+            <text x="1016" y="180" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace">→ cliente_id</text>
+            <text x="1244" y="180" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">uuid</text>
+            <text x="1016" y="200" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace">→ tipster_id</text>
+            <text x="1244" y="200" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">uuid</text>
+            <text x="1016" y="220" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">plan</text>
+            <text x="1244" y="220" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">VO Plan</text>
+            <text x="1016" y="240" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">fechaInicio</text>
+            <text x="1244" y="240" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">datetime</text>
+            <text x="1016" y="260" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">fechaFin</text>
+            <text x="1244" y="260" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">datetime</text>
+            <text x="1016" y="280" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">estado</text>
+            <text x="1244" y="280" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">enum</text>
+            <text x="1016" y="304" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.1em">BR-006 · EXPIRA EN fechaFin</text>
+          </g>
+        </g>
+
+        <!-- ── Entity: Equipo ─────────────────────────────────────────────────── -->
+        <g class="clase" data-titulo="Equipo" data-tipo="Entity · domain.model"
+           data-regla="—"
+           data-que="Club que participa en una liga. Tiene identidad propia (id) que permanece aunque sus atributos cambien."
+           data-relacion="miembro de Liga.equipos · referenciado por Partido (local/visitante)"
+           data-metodos="—"
+           data-eventos="—">
+          <g class="cuerpo">
+            <rect class="marco" x="60" y="460" width="260" height="96" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+            <rect x="60" y="460" width="260" height="40" rx="6" fill="rgba(45,49,66,0.04)" stroke="none"/>
+            <rect x="60" y="492" width="260" height="8" fill="rgba(45,49,66,0.04)"/>
+            <line x1="60" y1="500" x2="320" y2="500" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+            <text x="76" y="476" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">ENTITY</text>
+            <text class="titulo-texto" x="76" y="492" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', sans-serif">Equipo</text>
+            <text x="76" y="520" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace"># id</text>
+            <text x="304" y="520" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">uuid</text>
+            <text x="76" y="540" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">nombre</text>
+            <text x="304" y="540" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">text</text>
+          </g>
+        </g>
+
+        <!-- ── Value object: Cuota ────────────────────────────────────────────── -->
+        <g class="clase" data-titulo="Cuota" data-tipo="Value object · domain.model"
+           data-regla="BR-007"
+           data-que="Multiplicador de una apuesta para un mercado (ej: 1.85 para «local gana»). Patrón de VO del proyecto: inmutable, validación en el constructor."
+           data-relacion="miembro de Partido.cuotas · usada por Pronostico.cuota"
+           data-metodos="valor()"
+           data-eventos="—">
+          <g class="cuerpo">
+            <rect class="marco" x="340" y="460" width="260" height="92" rx="6" fill="rgba(45,49,66,0.03)" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3"/>
+            <rect x="340" y="460" width="260" height="40" rx="6" fill="rgba(45,49,66,0.05)" stroke="none"/>
+            <rect x="340" y="492" width="260" height="8" fill="rgba(45,49,66,0.05)"/>
+            <line x1="340" y1="500" x2="600" y2="500" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+            <text x="356" y="476" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">VALUE OBJECT</text>
+            <text class="titulo-texto" x="356" y="492" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', sans-serif">Cuota</text>
+            <text x="356" y="520" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">valor</text>
+            <text x="584" y="520" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">BigDecimal · &gt; 1.0</text>
+            <text x="356" y="540" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.1em">BR-007</text>
+          </g>
+        </g>
+
+        <!-- ── Value object: SeleccionPronostico ──────────────────────────────── -->
+        <g class="clase" data-titulo="SeleccionPronostico" data-tipo="Value object · domain.model"
+           data-regla="coherencia mercado · selección"
+           data-que="Ata la selección a su mercado: en 1X2 solo «1», «X» o «2»; en doble oportunidad «1X», «12» o «X2»; en over/under «over» o «under»."
+           data-relacion="miembro de Pronostico.seleccion"
+           data-metodos="mercado() · resultadoEsperado()"
+           data-eventos="—">
+          <g class="cuerpo">
+            <rect class="marco" x="620" y="460" width="260" height="96" rx="6" fill="rgba(45,49,66,0.03)" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3"/>
+            <rect x="620" y="460" width="260" height="40" rx="6" fill="rgba(45,49,66,0.05)" stroke="none"/>
+            <rect x="620" y="492" width="260" height="8" fill="rgba(45,49,66,0.05)"/>
+            <line x1="620" y1="500" x2="880" y2="500" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+            <text x="636" y="476" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">VALUE OBJECT</text>
+            <text class="titulo-texto" x="636" y="492" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', sans-serif">SeleccionPronostico</text>
+            <text x="636" y="520" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">mercado</text>
+            <text x="864" y="520" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">enum Mercado</text>
+            <text x="636" y="540" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">resultadoEsperado</text>
+            <text x="864" y="540" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">text · según mercado</text>
+          </g>
+        </g>
+
+        <!-- ── Entity: Tipster ────────────────────────────────────────────────── -->
+        <g class="clase" data-titulo="Tipster" data-tipo="Entity · domain.model"
+           data-regla="—"
+           data-que="Usuario que crea y publica pronósticos. Referenciado por id desde Pronostico y Suscripcion. La auth completa llega en FASE 11 (Security/JWT)."
+           data-relacion="tiene List&lt;Pronostico&gt; vía tipsterId · tiene List&lt;Suscripcion&gt; vía tipsterId"
+           data-metodos="—"
+           data-eventos="—">
+          <g class="cuerpo">
+            <rect class="marco" x="1000" y="460" width="260" height="132" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+            <rect x="1000" y="460" width="260" height="40" rx="6" fill="rgba(45,49,66,0.04)" stroke="none"/>
+            <rect x="1000" y="492" width="260" height="8" fill="rgba(45,49,66,0.04)"/>
+            <line x1="1000" y1="500" x2="1260" y2="500" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+            <text x="1016" y="476" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">ENTITY</text>
+            <text class="titulo-texto" x="1016" y="492" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', sans-serif">Tipster</text>
+            <text x="1016" y="520" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace"># id</text>
+            <text x="1244" y="520" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">uuid</text>
+            <text x="1016" y="540" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">nombre</text>
+            <text x="1244" y="540" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">text</text>
+            <text x="1016" y="560" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">email</text>
+            <text x="1244" y="560" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">VO Email</text>
+            <text x="1016" y="580" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">rol</text>
+            <text x="1244" y="580" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">enum Rol</text>
+          </g>
+        </g>
+
+        <!-- ── Value object: PosicionTabla ────────────────────────────────────── -->
+        <g class="clase" data-titulo="PosicionTabla" data-tipo="Value object · domain.model"
+           data-regla="BR-008"
+           data-que="Fila de la tabla de posiciones: equipo, posición y estadísticas. Valida la consistencia aritmética (puntos = 3·ganados + 1·empatados y jugados = G+E+P)."
+           data-relacion="miembro de Liga.posiciones"
+           data-metodos="—"
+           data-eventos="—">
+          <g class="cuerpo">
+            <rect class="marco" x="60" y="700" width="260" height="152" rx="6" fill="rgba(45,49,66,0.03)" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3"/>
+            <rect x="60" y="700" width="260" height="40" rx="6" fill="rgba(45,49,66,0.05)" stroke="none"/>
+            <rect x="60" y="732" width="260" height="8" fill="rgba(45,49,66,0.05)"/>
+            <line x1="60" y1="740" x2="320" y2="740" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+            <text x="76" y="716" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">VALUE OBJECT</text>
+            <text class="titulo-texto" x="76" y="732" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', sans-serif">PosicionTabla</text>
+            <text x="76" y="760" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">equipo</text>
+            <text x="304" y="760" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">Equipo</text>
+            <text x="76" y="780" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">posicion</text>
+            <text x="304" y="780" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">int</text>
+            <text x="76" y="800" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">jugados · G/E/P</text>
+            <text x="304" y="800" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">int</text>
+            <text x="76" y="820" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">goles F / C</text>
+            <text x="304" y="820" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">int</text>
+            <text x="76" y="840" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">puntos</text>
+            <text x="304" y="840" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">3·G+E (BR-008)</text>
+          </g>
+        </g>
+
+        <!-- ── Entity: Cliente ────────────────────────────────────────────────── -->
+        <g class="clase" data-titulo="Cliente" data-tipo="Entity · domain.model"
+           data-regla="BR-006 (al cruzar con Suscripcion)"
+           data-que="Usuario que consume pronósticos de tipsters mediante suscripciones. Solo ve pronósticos de tipsters con suscripción activa (BR-006)."
+           data-relacion="tiene List&lt;Suscripcion&gt; vía clienteId"
+           data-metodos="—"
+           data-eventos="—">
+          <g class="cuerpo">
+            <rect class="marco" x="1000" y="700" width="260" height="148" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+            <rect x="1000" y="700" width="260" height="40" rx="6" fill="rgba(45,49,66,0.04)" stroke="none"/>
+            <rect x="1000" y="732" width="260" height="8" fill="rgba(45,49,66,0.04)"/>
+            <line x1="1000" y1="740" x2="1260" y2="740" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+            <text x="1016" y="716" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">ENTITY</text>
+            <text class="titulo-texto" x="1016" y="732" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', sans-serif">Cliente</text>
+            <text x="1016" y="760" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace"># id</text>
+            <text x="1244" y="760" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">uuid</text>
+            <text x="1016" y="780" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">nombre</text>
+            <text x="1244" y="780" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">text</text>
+            <text x="1016" y="800" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">email</text>
+            <text x="1244" y="800" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">VO Email</text>
+            <text x="1016" y="820" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">rol</text>
+            <text x="1244" y="820" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">enum Rol</text>
+          </g>
+        </g>
+
+        <!-- ── Legend ─────────────────────────────────────────────────────────── -->
+        <line x1="40" y1="884" x2="1280" y2="884" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <text x="40" y="900" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">LEGEND</text>
+
+        <rect x="40" y="912" width="14" height="10" rx="2" fill="rgba(235,108,54,0.04)" stroke="#eb6c36" stroke-width="1"/>
+        <text x="60" y="920" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Aggregate root (focal)</text>
+
+        <rect x="228" y="912" width="14" height="10" rx="2" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+        <text x="248" y="920" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Aggregate root</text>
+
+        <rect x="380" y="912" width="14" height="10" rx="2" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="400" y="920" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Entity</text>
+
+        <rect x="464" y="912" width="14" height="10" rx="2" fill="rgba(45,49,66,0.03)" stroke="#4f5d75" stroke-width="1" stroke-dasharray="3,2"/>
+        <text x="484" y="920" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Value object</text>
+
+        <text x="604" y="920" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace" font-weight="600">#</text>
+        <text x="620" y="920" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Identidad</text>
+
+        <text x="700" y="920" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" font-weight="600">→</text>
+        <text x="716" y="920" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Ref. por id</text>
+
+        <text x="808" y="920" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" font-weight="600">1 / N</text>
+        <text x="840" y="920" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Cardinalidad</text>
+
+        <text x="936" y="920" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" font-weight="600">BR-0xx</text>
+        <text x="984" y="920" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Regla de negocio</text>
+
+        <line x1="1084" y1="917" x2="1144" y2="917" stroke="#4f5d75" stroke-width="0.8" stroke-dasharray="4,3"/>
+        <text x="1152" y="920" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Miembro del aggregate</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- ── Dialog modal ───────────────────────────────────────────────────────── -->
+  <div id="overlay" role="presentation">
+    <div id="dialogo" role="dialog" aria-modal="true" aria-labelledby="dlg-titulo">
+      <div class="dlg-cabecera">
+        <div>
+          <div class="dlg-titulo" id="dlg-titulo"></div>
+          <div class="dlg-tipo" id="dlg-tipo"></div>
+        </div>
+        <button id="dlg-cerrar" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="dlg-fila"><span class="dlg-etiqueta">QUÉ</span><span class="dlg-valor" id="dlg-que"></span></div>
+      <div class="dlg-fila"><span class="dlg-etiqueta">RELACIÓN</span><span class="dlg-valor" id="dlg-relacion"></span></div>
+      <div class="dlg-fila"><span class="dlg-etiqueta">REGLAS</span><span class="dlg-valor" id="dlg-regla"></span></div>
+      <div class="dlg-fila"><span class="dlg-etiqueta">MÉTODOS</span><span class="dlg-valor" id="dlg-metodos"></span></div>
+      <div class="dlg-fila"><span class="dlg-etiqueta">EVENTOS</span><span class="dlg-valor" id="dlg-eventos"></span></div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var overlay = document.getElementById('overlay');
+      var dialogo = document.getElementById('dialogo');
+      var dlgCerrar = document.getElementById('dlg-cerrar');
+      var campos = {
+        titulo: document.getElementById('dlg-titulo'),
+        tipo: document.getElementById('dlg-tipo'),
+        que: document.getElementById('dlg-que'),
+        relacion: document.getElementById('dlg-relacion'),
+        regla: document.getElementById('dlg-regla'),
+        metodos: document.getElementById('dlg-metodos'),
+        eventos: document.getElementById('dlg-eventos')
+      };
+
+      function abrir(el) {
+        campos.titulo.textContent = el.getAttribute('data-titulo');
+        campos.tipo.textContent = el.getAttribute('data-tipo');
+        campos.que.textContent = el.getAttribute('data-que');
+        campos.relacion.textContent = el.getAttribute('data-relacion');
+        campos.regla.textContent = el.getAttribute('data-regla');
+        campos.metodos.textContent = el.getAttribute('data-metodos');
+        campos.eventos.textContent = el.getAttribute('data-eventos');
+        overlay.classList.add('abierto');
+        bloquearScroll();
+        dlgCerrar.focus();
+      }
+
+      function cerrar() {
+        overlay.classList.remove('abierto');
+        liberarScroll();
+      }
+
+      // [POR QUÉ]: Al bloquear el scroll de fondo con overflow:hidden la barra
+      // desaparece y el contenido salta a la derecha. Con `scrollbar-gutter:
+      // stable` (CSS) el espacio ya está reservado y no salta. En navegadores
+      // sin soporte, se mide el ancho de la barra ANTES de ocultarla y se
+      // compensa con padding-right para que no haya corte.
+      var soportaScrollbarGutter = window.CSS && CSS.supports && CSS.supports('scrollbar-gutter', 'stable');
+
+      function bloquearScroll() {
+        if (!soportaScrollbarGutter) {
+          var anchoBarra = window.innerWidth - document.documentElement.clientWidth;
+          document.body.style.paddingRight = anchoBarra + 'px';
+        }
+        document.documentElement.style.overflow = 'hidden';
+      }
+
+      function liberarScroll() {
+        document.body.style.paddingRight = '';
+        document.documentElement.style.overflow = '';
+      }
+
+      // Click sobre clases y relaciones abre el dialog.
+      document.querySelectorAll('.clase, .relacion').forEach(function (el) {
+        el.addEventListener('click', function () { abrir(el); });
+      });
+
+      // Cierre: botón, click fuera del dialog, tecla Escape.
+      dlgCerrar.addEventListener('click', cerrar);
+      overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) cerrar();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && overlay.classList.contains('abierto')) cerrar();
+      });
+    })();
+  </script>
+</body>
+</html>
