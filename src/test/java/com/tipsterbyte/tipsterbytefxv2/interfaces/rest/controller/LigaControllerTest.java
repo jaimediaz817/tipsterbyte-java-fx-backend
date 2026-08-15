@@ -80,7 +80,7 @@ class LigaControllerTest {
                         .contentType("application/json")
                         .content("""
                                 {"urlPosiciones": "https://flashscore.com/tabla"}"""))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.mensaje").value("Liga no encontrada: " + ligaId));
     }
 

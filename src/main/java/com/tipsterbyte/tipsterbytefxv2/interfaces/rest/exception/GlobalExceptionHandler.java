@@ -2,7 +2,7 @@
 // [QUÉ]: Manejador global de excepciones REST (@RestControllerAdvice) que traduce
 //        excepciones de dominio y de validación a respuestas HTTP con ApiError.
 // [POR QUÉ]: Centraliza el mapeo error→status: DomainException (reglas BR-xx) → 422
-//            Unprocessable Entity; validación de la request → 400 con detalles por
+//            Unprocessable Content; validación de la request → 400 con detalles por
 //            campo; JSON malformado o enum inválido → 400; resto → 500.
 // [ALTERNATIVAS]: try/catch en cada controller; se descarta por duplicar lógica y
 //                 mezclar el contrato de error con la lógica del endpoint.
@@ -32,7 +32,7 @@ public class GlobalExceptionHandler {
     // [QUÉ]: Traduce una violación de regla de negocio (DomainException, BR-xx) a 422.
     @ExceptionHandler(DomainException.class)
     public ResponseEntity<ApiError> manejarDomainException(DomainException ex, HttpServletRequest request) {
-        return construir(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), request);
+        return construir(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage(), request);
     }
 
     // [QUÉ]: Traduce errores de validación de un @Valid request body a 400 con el

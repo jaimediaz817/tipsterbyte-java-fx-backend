@@ -73,7 +73,7 @@ class PartidoControllerTest {
                         .contentType("application/json")
                         .content("""
                                 {"golesLocal": 2, "golesVisitante": 1}"""))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.mensaje").value("El resultado ya fue registrado y no se modifica (BR-003)"));
     }
 }
