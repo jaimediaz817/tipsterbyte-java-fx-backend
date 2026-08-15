@@ -31,6 +31,7 @@ FASE 19 CI/CD
 FASE 20 AWS / Deployment
 FASE 21 Architecture Review
 FASE 22 Preparación para entrevista
+FASE T1 Frontend Angular 22 (transversal, proyecto hermano)
 ```
 
 ---
@@ -179,6 +180,29 @@ FASE 22 Preparación para entrevista
 ### FASE 22 — Preparación para entrevista
 - Por cada concepto: qué es, por qué, qué problema resuelve, alternativas, ventajas, desventajas, cuándo NO usarlo, cómo lo implementamos, cómo defenderlo en entrevista.
 
+### FASE T1 — Frontend Angular 22 (transversal, proyecto hermano) ✅ (plan)
+- **Contexto**: el frontend **no vive en `ecosistema_java`**; es un **proyecto hermano** en el mismo ecosistema (`LABORATORIO_retos_Laborales`), por ejemplo `ecosistema_angular`. Consume la REST API expuesta por este backend (`/api/v1/**`, 13 CU + auth JWT + cache). Esta fase es **transversal**: se planifica junto con las fases backend, no en secuencia, y su documentación vive aquí como contexto (arquitectura, endpoints consumidos, convenciones).
+- **Stack (a confirmar al iniciar)**: Angular 22 (CLI `@angular/cli@22.1.4`), TypeScript, Angular Router, consumo HTTP con interceptores JWT. Node.js ≥ 22.22.3.
+- **Comandos Git Bash para crear el proyecto Angular 22** (ejecutar desde `LABORATORIO_retos_Laborales`):
+  ```bash
+  # 1. Verificar Node (requerido ≥ 22.22.3)
+  node --version
+  npm --version
+
+  # 2. Instalar Angular CLI 22 (una vez por máquina o vía npx)
+  npm install -g @angular/cli@22
+
+  # 3. Crear el workspace/app (sin prompts: CSS, sin SSR, con routing)
+  ng new ecosistema_angular --style=css --ssr=false --routing --skip-git
+
+  # 4. Entrar y levantar dev server (http://localhost:4200)
+  cd ecosistema_angular
+  ng serve --open
+  ```
+- **Alternativas descartadas**: React+Vite y Vue (por elección del usuario se va a Angular 22); Thymeleaf (server-side, contaminaría la separación de capas del backend).
+- **Relaciones**: consume CU-01..13 vía controllers (`LigaController`, `PartidoController`, `PronosticoController`, `SuscripcionController`, `FuenteExtraccionController`, `AuthController`); usa `app.jwt` para auth y `app.cache` de forma transparente.
+- **Estado**: PLANIFICADA (se abre al completar o en paralelo con FASE 13+; requiere aprobación del usuario y configuración previa de skills de Angular).
+
 ---
 
 ## Orden de trabajo (regla de oro)
@@ -192,3 +216,5 @@ FASE 22 Preparación para entrevista
 7. Se ejecuta la siguiente fase.
 
 > **Nunca** se pide "construye el proyecto completo".
+
+> **FASE T1** es transversal: puede ejecutarse en paralelo a las fases backend. La creación del repo Angular y sus skills viven en el proyecto hermano; aquí solo se mantiene el contexto de consumo de API.
