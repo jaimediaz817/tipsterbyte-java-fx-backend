@@ -114,8 +114,15 @@ FASE 22 Preparación para entrevista
 - **Verificado**: `docker compose up -d` → contenedor healthy → `./gradlew build` (173 tests, Testcontainers intacto) → `bootRun` conecta a `jdbc:postgresql://localhost:5434/tipsterbytefxv2_dev` → Actuator UP y `GET /api/v1/fuentes` → 200.
 - **Estado**: COMPLETADA.
 
-### FASE 10 — Testing
+### FASE 10 — Testing ✅
 - Unit (domain, use cases), Integration (app, infra), Controller tests, Testcontainers.
+- **Cobertura**: 195 tests en verde. Se cerraron los huecos de FASE 8/8.5:
+  - **Domain**: `FechaProgramadaTest`, `MercadoTest`, `TipoFuenteExtraccionTest`, `DomainExceptionTest` (eventos ya cubiertos vía aggregates/use cases).
+  - **Interfaces**: `GlobalExceptionHandlerTest` (6 casos: DomainException→422, validación→400, JSON malformado→400, query param faltante→400, genérico→500, estructura ApiError).
+  - **Infrastructure**: `UseCaseConfigTest` (los 10 use cases como beans con contexto Spring real).
+  - **Integration (app+infra)**: `SincronizarCatalogoUseCaseIntegrationTest` — CU-10 con adapters JPA reales contra PostgreSQL (Testcontainers), proveedores #1/#5 mockeados; valida persistencia e idempotencia.
+  - Spring 7: `@MockBean` (eliminado en Spring Boot 4) se reemplaza por `@MockitoBean` (`org.springframework.test.context.bean.override.mockito`).
+- **Estado**: COMPLETADA.
 
 ### FASE 11 — Spring Security + JWT
 - Login, autenticación, JWT, roles/permisos, hashing de contraseñas, filters.
