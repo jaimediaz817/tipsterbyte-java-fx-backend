@@ -1,6 +1,7 @@
 package com.tipsterbyte.tipsterbytefxv2.application.usecase;
 
 import com.tipsterbyte.tipsterbytefxv2.application.dto.PosicionFuente;
+import com.tipsterbyte.tipsterbytefxv2.application.port.CacheLecturas;
 import com.tipsterbyte.tipsterbytefxv2.application.port.LigaRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorPosiciones;
 import com.tipsterbyte.tipsterbytefxv2.domain.DomainException;
@@ -35,12 +36,14 @@ class SincronizarPosicionesUseCaseTest {
     private LigaRepository ligaRepository;
     @Mock
     private ProveedorPosiciones proveedorPosiciones;
+    @Mock
+    private CacheLecturas cacheLecturas;
 
     private SincronizarPosicionesUseCase casoDeUso;
 
     @BeforeEach
     void setUp() {
-        casoDeUso = new SincronizarPosicionesUseCase(ligaRepository, proveedorPosiciones);
+        casoDeUso = new SincronizarPosicionesUseCase(ligaRepository, proveedorPosiciones, cacheLecturas);
     }
 
     private Liga ligaActiva() {
@@ -117,5 +120,17 @@ class SincronizarPosicionesUseCaseTest {
 
         assertEquals(1, liga.equipos().size());
         assertEquals("Atlético", liga.equipos().get(0).nombre());
+    }
+
+    @Test
+    void debe_invalidar_cache_de_posiciones_antes_de_consultar_fuente() {
+        Liga liga = ligaActiva();
+        when(ligaRepository.buscarPorId(liga.id())).thenReturn(Optional.of(liga));
+        when(proveedorPosiciones.obtenerPosiciones(liga.id())).thenReturn(List.of(
+                new PosicionFuente("Real Madrid", 1, 5, 3, 1, 1, 10, 4, 10)));
+
+        casoDeUso.ejecutar(liga.id());
+
+        verify(cacheLecturas).eliminar("posiciones:" + liga.id());
     }
 }

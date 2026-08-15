@@ -57,6 +57,19 @@ dependencies {
 	runtimeOnly 'org.postgresql:postgresql'
 	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
 	// ─────────────────────────────────────────────
+	// [QUÉ]: Cliente Redis para el cache-aside de lecturas de fuentes externas.
+	// [POR QUÉ]: FASE 12 implementa cache-aside sobre los proveedores de posiciones,
+	//            calendario y cuotas (evita golpear el scraper en cada sincronización);
+	//            Spring Data Redis aporta el StringRedisTemplate con TTL por clave.
+	// [ALTERNATIVAS]: Caffeine (L1 local) como cache único; se descarta en FASE 12 para
+	//                 no perder el valor de cache compartido/durable de Redis y porque el
+	//                 plan lo define; queda previsto como L1 opcional en un futuro
+	//                 CompositeCacheAdapter (FASE 17) sin tocar los casos de uso.
+	// [RELACIONES]: infrastructure.cache.RedisCacheAdapter + decoradores
+	//               ProveedorXxxCacheable (FASE 12).
+	// ─────────────────────────────────────────────
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+	// ─────────────────────────────────────────────
 	// [QUÉ]: Soporte Testcontainers para tests de integración de los adapters JPA.
 	// [POR QUÉ]: Los repository adapters se prueban contra un PostgreSQL real en
 	//            contenedor (regla testing.md), no contra la BD local de dev.
@@ -67,6 +80,10 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
 	testImplementation 'org.testcontainers:testcontainers-postgresql:2.0.5'
 	testImplementation 'org.testcontainers:testcontainers-junit-jupiter:2.0.5'
+	// [POR QUÉ]: Los tests de cache (RedisCacheAdapterTest) levantan un Redis real con
+	//             GenericContainer("redis:7-alpine") desde el core org.testcontainers;
+	//             NO existe módulo testcontainers-redis en la línea 2.0.5 (los módulos
+	//             específicos se renombraron). El core ya viene de las líneas anteriores.
 	testImplementation 'org.springframework.boot:spring-boot-starter-actuator-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'

@@ -1,15 +1,17 @@
 // ─────────────────────────────────────────────
-// [QUÉ]: Test de integración del wiring REST (UseCaseConfig): verifica que los 10
+// [QUÉ]: Test de integración del wiring REST (UseCaseConfig): verifica que los 13
 //        casos de uso quedan registrados como beans de Spring con el contexto real.
 // [POR QUÉ]: Los use cases son POJOs sin anotaciones; UseCaseConfig los declara con
 //            sus dependencias. Este test garantiza que el wiring completo (controllers
 //            → use cases → puertos → adapters) arranca sin beans faltantes.
 // [ALTERNATIVAS]: Verificar solo por reflection en UseCaseConfig; se descarta porque
 //                 no valida que Spring resuelva realmente las dependencias.
-// [RELACIONES]: CU-01..11 → UseCaseConfig → adapters de infrastructure.
+// [RELACIONES]: CU-01..13 → UseCaseConfig → adapters de infrastructure (incluye
+//               CacheLecturas NoOp en tests, FASE 12).
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.infrastructure.config;
 
+import com.tipsterbyte.tipsterbytefxv2.application.port.CacheLecturas;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.ActivarLigaUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.AutenticarUsuarioUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.ConsultarPronosticosUseCase;
@@ -40,7 +42,7 @@ class UseCaseConfigTest {
     private ApplicationContext context;
 
     @Test
-    void debe_registrar_los_12_casos_de_uso_como_beans() {
+    void debe_registrar_los_13_casos_de_uso_como_beans() {
         assertNotNull(context.getBean(ActivarLigaUseCase.class));
         assertNotNull(context.getBean(SincronizarPosicionesUseCase.class));
         assertNotNull(context.getBean(SincronizarCalendarioUseCase.class));
@@ -54,5 +56,10 @@ class UseCaseConfigTest {
         assertNotNull(context.getBean(GestionarFuenteExtraccionUseCase.class));
         assertNotNull(context.getBean(RegistrarUsuarioUseCase.class));
         assertNotNull(context.getBean(AutenticarUsuarioUseCase.class));
+    }
+
+    @Test
+    void debe_registrar_cache_lecturas_no_op_en_tests() {
+        assertNotNull(context.getBean(CacheLecturas.class));
     }
 }

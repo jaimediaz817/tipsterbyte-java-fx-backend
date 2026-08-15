@@ -32,8 +32,24 @@ services:
       retries: 10
       start_period: 10s
 
+  redis:
+    image: redis:7-alpine
+    container_name: tipsterbytefxv2-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_tipsterbytefxv2_data:/data
+    networks:
+      - tipsterbytefxv2-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   pg_tipsterbytefxv2_data:
+  redis_tipsterbytefxv2_data:
 
 networks:
   tipsterbytefxv2-net:

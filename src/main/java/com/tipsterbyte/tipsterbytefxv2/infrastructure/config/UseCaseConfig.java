@@ -13,6 +13,7 @@
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.infrastructure.config;
 
+import com.tipsterbyte.tipsterbytefxv2.application.port.CacheLecturas;
 import com.tipsterbyte.tipsterbytefxv2.application.port.DetalleFuenteExtraccionRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.FuenteExtraccionRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.LigaRepository;
@@ -55,26 +56,29 @@ public class UseCaseConfig {
         return new ActivarLigaUseCase(ligaRepository, fuenteRepository, detalleRepository);
     }
 
-    // [QUÉ]: Bean de CU-01 (sincronizar posiciones).
+    // [QUÉ]: Bean de CU-01 (sincronizar posiciones, con invalidación de cache FASE 12).
     @Bean
     public SincronizarPosicionesUseCase sincronizarPosicionesUseCase(LigaRepository ligaRepository,
-                                                                     ProveedorPosiciones proveedorPosiciones) {
-        return new SincronizarPosicionesUseCase(ligaRepository, proveedorPosiciones);
+                                                                     ProveedorPosiciones proveedorPosiciones,
+                                                                     CacheLecturas cacheLecturas) {
+        return new SincronizarPosicionesUseCase(ligaRepository, proveedorPosiciones, cacheLecturas);
     }
 
-    // [QUÉ]: Bean de CU-02 (sincronizar calendario).
+    // [QUÉ]: Bean de CU-02 (sincronizar calendario, con invalidación de cache FASE 12).
     @Bean
     public SincronizarCalendarioUseCase sincronizarCalendarioUseCase(LigaRepository ligaRepository,
                                                                      PartidoRepository partidoRepository,
-                                                                     ProveedorCalendario proveedorCalendario) {
-        return new SincronizarCalendarioUseCase(ligaRepository, partidoRepository, proveedorCalendario);
+                                                                     ProveedorCalendario proveedorCalendario,
+                                                                     CacheLecturas cacheLecturas) {
+        return new SincronizarCalendarioUseCase(ligaRepository, partidoRepository, proveedorCalendario, cacheLecturas);
     }
 
-    // [QUÉ]: Bean de CU-03 (sincronizar cuotas).
+    // [QUÉ]: Bean de CU-03 (sincronizar cuotas, con invalidación de cache FASE 12).
     @Bean
     public SincronizarCuotasUseCase sincronizarCuotasUseCase(PartidoRepository partidoRepository,
-                                                             ProveedorCuotas proveedorCuotas) {
-        return new SincronizarCuotasUseCase(partidoRepository, proveedorCuotas);
+                                                             ProveedorCuotas proveedorCuotas,
+                                                             CacheLecturas cacheLecturas) {
+        return new SincronizarCuotasUseCase(partidoRepository, proveedorCuotas, cacheLecturas);
     }
 
     // [QUÉ]: Bean de CU-05 (registrar resultado de partido).

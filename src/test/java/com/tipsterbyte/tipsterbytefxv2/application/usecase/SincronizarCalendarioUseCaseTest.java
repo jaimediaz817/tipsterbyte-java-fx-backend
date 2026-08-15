@@ -1,6 +1,7 @@
 package com.tipsterbyte.tipsterbytefxv2.application.usecase;
 
 import com.tipsterbyte.tipsterbytefxv2.application.dto.PartidoFuente;
+import com.tipsterbyte.tipsterbytefxv2.application.port.CacheLecturas;
 import com.tipsterbyte.tipsterbytefxv2.application.port.LigaRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PartidoRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorCalendario;
@@ -37,12 +38,14 @@ class SincronizarCalendarioUseCaseTest {
     private PartidoRepository partidoRepository;
     @Mock
     private ProveedorCalendario proveedorCalendario;
+    @Mock
+    private CacheLecturas cacheLecturas;
 
     private SincronizarCalendarioUseCase casoDeUso;
 
     @BeforeEach
     void setUp() {
-        casoDeUso = new SincronizarCalendarioUseCase(ligaRepository, partidoRepository, proveedorCalendario);
+        casoDeUso = new SincronizarCalendarioUseCase(ligaRepository, partidoRepository, proveedorCalendario, cacheLecturas);
     }
 
     private Liga ligaActiva() {
@@ -85,5 +88,16 @@ class SincronizarCalendarioUseCaseTest {
 
         assertThrows(DomainException.class, () -> casoDeUso.ejecutar(id));
         verify(partidoRepository, never()).guardar(any());
+    }
+
+    @Test
+    void debe_invalidar_cache_de_calendario_antes_de_consultar_fuente() {
+        Liga liga = ligaActiva();
+        when(ligaRepository.buscarPorId(liga.id())).thenReturn(Optional.of(liga));
+        when(proveedorCalendario.obtenerCalendario(liga.id())).thenReturn(List.of());
+
+        casoDeUso.ejecutar(liga.id());
+
+        verify(cacheLecturas).eliminar("calendario:" + liga.id());
     }
 }

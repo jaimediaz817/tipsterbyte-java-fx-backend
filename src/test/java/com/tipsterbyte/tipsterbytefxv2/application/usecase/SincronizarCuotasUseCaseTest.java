@@ -1,6 +1,7 @@
 package com.tipsterbyte.tipsterbytefxv2.application.usecase;
 
 import com.tipsterbyte.tipsterbytefxv2.application.dto.CuotaFuente;
+import com.tipsterbyte.tipsterbytefxv2.application.port.CacheLecturas;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PartidoRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorCuotas;
 import com.tipsterbyte.tipsterbytefxv2.domain.DomainException;
@@ -36,12 +37,14 @@ class SincronizarCuotasUseCaseTest {
     private PartidoRepository partidoRepository;
     @Mock
     private ProveedorCuotas proveedorCuotas;
+    @Mock
+    private CacheLecturas cacheLecturas;
 
     private SincronizarCuotasUseCase casoDeUso;
 
     @BeforeEach
     void setUp() {
-        casoDeUso = new SincronizarCuotasUseCase(partidoRepository, proveedorCuotas);
+        casoDeUso = new SincronizarCuotasUseCase(partidoRepository, proveedorCuotas, cacheLecturas);
     }
 
     private Partido partidoProximo(UUID ligaId) {
@@ -103,5 +106,18 @@ class SincronizarCuotasUseCaseTest {
 
         assertTrue(eventos.isEmpty());
         verify(proveedorCuotas, never()).obtenerCuotas(any());
+    }
+
+    @Test
+    void debe_invalidar_cache_de_cuotas_antes_de_consultar_fuente() {
+        UUID ligaId = UUID.randomUUID();
+        Partido partido = partidoProximo(ligaId);
+        when(partidoRepository.buscarProximosPorLiga(ligaId)).thenReturn(List.of(partido));
+        when(proveedorCuotas.obtenerCuotas(partido.id())).thenReturn(List.of(
+                new CuotaFuente(Mercado.UNO_X_DOS, new BigDecimal("1.85"))));
+
+        casoDeUso.ejecutar(ligaId);
+
+        verify(cacheLecturas).eliminar("cuotas:" + partido.id());
     }
 }

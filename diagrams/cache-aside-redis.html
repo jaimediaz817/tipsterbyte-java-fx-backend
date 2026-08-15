@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cache-aside Redis · tipsterbyte-fx-v2</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #f5f5f5;
+      --color-ink:     #2d3142;
+      --color-muted:   #4f5d75;
+      --color-accent:  #eb6c36;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      padding: 3rem 2rem;
+    }
+
+    /* [POR QUÉ]: reserva siempre el espacio de la barra de scroll (aunque no
+       haya scroll o esté oculta). Evita el salto horizontal al abrir/cerrar el
+       modal. Los navegadores sin soporte usan el fallback JS (bloquearScroll). */
+    html { scrollbar-gutter: stable; }
+
+    .frame { max-width: 1360px; width: 100%; margin: 0 auto; }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 0.4rem;
+    }
+
+    .sub {
+      font-size: 0.85rem;
+      color: var(--color-muted);
+      margin-bottom: 1.5rem;
+      max-width: 780px;
+      line-height: 1.5;
+    }
+
+    /* [POR QUÉ]: el SVG tiene un viewBox de 1320px de ancho. En pantallas más
+       angostas se comprimiría y los textos de las relaciones se solaparían.
+       Este lienzo permite scroll horizontal cuando no cabe, manteniendo el
+       ancho natural del diagrama. */
+    .lienzo { overflow-x: auto; margin-top: 1.5rem; }
+
+    svg { width: 100%; min-width: 1320px; display: block; }
+
+    /* ── Interactividad por click ─────────────────────────────────── */
+    /* El hover NO oculta nada: solo indica que es clicable. */
+    .clase, .relacion { cursor: pointer; }
+    .clase .cuerpo, .relacion .cuerpo { opacity: 1; transition: opacity 0.12s ease; }
+    .clase:hover .marco { stroke-width: 2; }
+    .clase:hover .titulo-texto { text-decoration: underline; text-underline-offset: 3px; }
+    .relacion:hover line, .relacion:hover path { stroke: #eb6c36; stroke-width: 1.6; }
+    .relacion:hover .etiqueta { fill: #eb6c36; font-weight: 600; }
+
+    /* ── Dialog modal ─────────────────────────────────────────────── */
+    #overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      background: rgba(45,49,66,0.35);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    #overlay.abierto { display: flex; }
+
+    #dialogo {
+      background: #ffffff;
+      border-radius: 8px;
+      border-top: 3px solid var(--color-accent);
+      box-shadow: 0 24px 64px rgba(45,49,66,0.28);
+      width: 100%;
+      max-width: 560px;
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 20px 22px;
+    }
+
+    #dialogo .dlg-cabecera {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+    #dialogo .dlg-titulo {
+      font-family: var(--font-serif);
+      font-size: 1.35rem;
+      line-height: 1.1;
+      color: var(--color-ink);
+    }
+    #dialogo .dlg-tipo {
+      font-family: var(--font-mono);
+      font-size: 8px;
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--color-accent);
+      margin-top: 4px;
+    }
+    #dialogo #dlg-cerrar {
+      border: none;
+      background: rgba(45,49,66,0.06);
+      color: var(--color-ink);
+      font-size: 18px;
+      line-height: 1;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      flex: 0 0 auto;
+    }
+    #dialogo #dlg-cerrar:hover { background: rgba(45,49,66,0.12); }
+
+    #dialogo .dlg-fila {
+      display: flex;
+      gap: 12px;
+      padding: 9px 0;
+      border-top: 1px solid rgba(45,49,66,0.08);
+      font-size: 12.5px;
+      line-height: 1.5;
+    }
+    #dialogo .dlg-fila:first-of-type { border-top: none; }
+    #dialogo .dlg-etiqueta {
+      flex: 0 0 auto;
+      min-width: 74px;
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      padding-top: 3px;
+    }
+    #dialogo .dlg-valor { color: var(--color-ink); }
+    #dialogo .dlg-valor code {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      background: rgba(45,49,66,0.06);
+      border-radius: 3px;
+      padding: 0 4px;
+      white-space: nowrap;
+    }
+    #dialogo .dlg-br {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--color-accent);
+      border: 1px solid rgba(235,108,54,0.4);
+      background: rgba(235,108,54,0.06);
+      border-radius: 3px;
+      padding: 1px 5px;
+      margin: 1px 3px 1px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">PATRÓN · CACHE-ASIDE</p>
+    <h1>Cache-aside Redis para fuentes externas · tipsterbyte-fx-v2</h1>
+    <p class="sub">Implementado en FASE 12: los proveedores de posiciones (CU-01), calendario (CU-02) y cuotas (CU-03) se envuelven con decoradores cacheables (<em>ProveedorXxxCacheable</em>) que consultan primero el cache Redis por el puerto <code>CacheLecturas</code> y, si hay miss, delegan en el adapter real del scraper. Al sincronizar, el caso de uso <strong>elimina la clave</strong> antes de consultar para forzar datos frescos y re-poblar el cache. <strong>Haz click en cualquier nodo o flecha</strong> para abrir un panel con su detalle.</p>
+
+    <div class="lienzo">
+    <svg viewBox="0 0 1320 960" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="ca-title ca-desc">
+      <title id="ca-title">Cache-aside Redis sobre los proveedores de fuentes externas · tipsterbyte-fx-v2</title>
+      <desc id="ca-desc">Flujo cache-aside FASE 12: el caso de uso de sincronización (CU-01/02/03) invalida la clave en cache, consulta el proveedor (decorador cacheable) que primero lee Redis vía CacheLecturas y en miss delega en el adapter real que llama al scraper Python; las claves posiciones/calendario/cuotas se guardan con TTL. Con app.cache.enabled=false se usa NoOpCacheLecturas. Al hacer click en un nodo o relación se muestra un panel con su detalle.</desc>
+        <defs>
+          <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="0.9" fill="rgba(45,49,66,0.10)"/>
+          </pattern>
+          <marker id="flecha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#4f5d75"/>
+          </marker>
+        </defs>
+
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+        <rect width="100%" height="100%" fill="url(#dots)" opacity="0.55"/>
+
+        <!-- ══ NODO INICIO · Cliente / Frontend ════════════════════════════════ -->
+        <g class="clase" data-titulo="Cliente / Frontend"
+           data-tipo="Actor externo · consumidor REST"
+           data-que="Frontend (Angular, pendiente de desarrollo) o cliente HTTP. Dispara la sincronización de posiciones, calendario o cuotas de una liga activa a través del controller de la capa interfaces. No conoce el cache: la transparencia es responsabilidad de los decoradores de infrastructure."
+           data-relacion="→ LigaController / PartidoController → CU-01/02/03 (Sincronizar*UseCase)"
+           data-regla="—"
+           data-metodos="sincronizarPosiciones(ligaId) · sincronizarCalendario(ligaId) · sincronizarCuotas(ligaId)"
+           data-eventos="—">
+          <g class="cuerpo">
+            <rect class="marco" x="540" y="40" width="240" height="48" rx="24" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+            <text class="titulo-texto" x="660" y="72" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Cliente / Frontend</text>
+          </g>
+        </g>
+
+        <!-- ══ NODO A · Casos de uso de sincronización ═════════════════════════ -->
+        <g class="clase" data-titulo="CU-01 · CU-02 · CU-03 — Sincronizar*UseCase"
+           data-tipo="application.usecase · orquestación"
+           data-que="Los tres casos de uso de sincronización (CU-01 posiciones, CU-02 calendario, CU-03 cuotas) ejecutan la regla BR-002 (no extraer de ligas inactivas), invalidan el cache de la liga/partido y consultan el proveedor. Desde FASE 12 inyectan CacheLecturas para eliminar la clave antes de consultar: la sincronización siempre trae datos frescos de la fuente y re-puebla Redis."
+           data-relacion="→ CacheLecturas.eliminar(CacheClaves.*) · → ProveedorPosiciones/Calendario/Cuotas (decorado) · → LigaRepository/PartidoRepository"
+           data-regla="BR-002 (liga activa) · BR-007 (cuota &gt; 1.0 en VO Cuota)"
+           data-metodos="ejecutar(UUID ligaId) → List&lt;DomainEvent&gt;"
+           data-eventos="PartidoProgramado (CU-02) · CuotaActualizada (CU-03)"
+          <g class="cuerpo">
+            <rect class="marco" x="80" y="180" width="320" height="140" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+            <rect x="80" y="180" width="320" height="30" rx="6" fill="rgba(45,49,66,0.05)" stroke="none"/>
+            <rect x="80" y="204" width="320" height="6" fill="rgba(45,49,66,0.05)"/>
+            <line x1="80" y1="210" x2="400" y2="210" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+            <text x="96" y="200" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">APPLICATION · USECASE</text>
+            <text class="titulo-texto" x="96" y="226" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', sans-serif">CU-01 · CU-02 · CU-03</text>
+            <text x="96" y="250" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">SincronizarPosicionesUseCase</text>
+            <text x="96" y="268" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">SincronizarCalendarioUseCase</text>
+            <text x="96" y="286" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">SincronizarCuotasUseCase</text>
+            <text x="96" y="308" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.1em">INVALIDA CLAVE → CONSULTA PROVEEDOR</text>
+          </g>
+        </g>
+
+        <!-- ══ NODO B · Decorador cacheable (focal) ════════════════════════════ -->
+        <g class="clase" data-titulo="ProveedorPosicionesCacheable · Calendario · Cuotas"
+           data-tipo="infrastructure.adapter · cache-aside · @Primary"
+           data-que="Decoradores que implementan los puertos ProveedorPosiciones/Calendario/Cuotas y envuelven los adapters reales. Cada uno lee primero el cache con CacheLecturas.obtener(clave): si hay hit, deserializa el JSON (ObjectMapper Jackson 3) y no golpea el scraper; si hay miss, delega en el adapter real, serializa la lista a JSON y la guarda con su TTL. Se registran solo cuando app.cache.enabled=true y son @Primary frente al adapter real."
+           data-relacion="→ CacheLecturas (obtener/guardar) · → ProveedorPosicionesCacheable envuelve FlashscorePosicionesAdapter · Calendario envuelve SoccerwayCalendarioAdapter · Cuotas envuelve WplayCuotasAdapter"
+           data-regla="TTL por tipo (app.cache.ttl-posiciones/calendario/cuotas-seg)"
+           data-metodos="obtenerPosiciones(UUID) · obtenerCalendario(UUID) · obtenerCuotas(UUID)"
+           data-eventos="—"
+          <g class="cuerpo">
+            <rect class="marco" x="500" y="180" width="320" height="140" rx="6" fill="rgba(235,108,54,0.08)" stroke="#eb6c36" stroke-width="1.6"/>
+            <rect x="500" y="180" width="320" height="30" rx="6" fill="rgba(235,108,54,0.14)" stroke="none"/>
+            <rect x="500" y="204" width="320" height="6" fill="rgba(235,108,54,0.14)"/>
+            <line x1="500" y1="210" x2="820" y2="210" stroke="rgba(235,108,54,0.45)" stroke-width="1"/>
+            <text x="516" y="200" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">CACHE-ASIDE · @PRIMARY</text>
+            <text class="titulo-texto" x="516" y="226" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', sans-serif">ProveedorXxxCacheable</text>
+            <text x="516" y="250" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">Posiciones · Calendario · Cuotas</text>
+            <text x="516" y="268" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">1. obtener(clave) → hit?</text>
+            <text x="516" y="286" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">2. miss → delega en adapter real</text>
+            <text x="516" y="308" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.1em">3. guardar(clave, JSON, TTL)</text>
+          </g>
+        </g>
+
+        <!-- ══ NODO C · Puerto CacheLecturas ════════════════════════════════════ -->
+        <g class="clase" data-titulo="CacheLecturas · puerto"
+           data-tipo="application.port · contrato de cache"
+           data-que="Puerto de la capa application que define el contrato de cache genérico: obtener(clave) → Optional&lt;String&gt;, guardar(clave, valor, ttl) y eliminar(clave). Los casos de uso (invalidación) y los decoradores (lectura/escritura) dependen SOLO de esta interfaz, nunca de Redis o Caffeine directamente: cambiarlo o añadir un nivel L1 (FASE 17) no toca application."
+           data-relacion="→ CacheClaves (claves canónicas posiciones/calendario/cuotas) · implementado por RedisCacheAdapter y NoOpCacheLecturas"
+           data-regla="—"
+           data-metodos="obtener(String) · guardar(String, String, Duration) · eliminar(String)"
+           data-eventos="—"
+          <g class="cuerpo">
+            <rect class="marco" x="500" y="500" width="320" height="100" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+            <rect x="500" y="500" width="320" height="30" rx="6" fill="rgba(45,49,66,0.05)" stroke="none"/>
+            <rect x="500" y="524" width="320" height="6" fill="rgba(45,49,66,0.05)"/>
+            <line x1="500" y1="530" x2="820" y2="530" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+            <text x="516" y="520" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">APPLICATION · PORT</text>
+            <text class="titulo-texto" x="516" y="546" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', sans-serif">CacheLecturas</text>
+            <text x="516" y="572" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">obtener · guardar · eliminar</text>
+            <text x="516" y="590" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">+ CacheClaves (claves canónicas)</text>
+          </g>
+        </g>
+
+        <!-- ══ NODO D · Redis ══════════════════════════════════════════════════ -->
+        <g class="clase" data-titulo="Redis · RedisCacheAdapter"
+           data-tipo="infrastructure.cache · store con TTL"
+           data-que="RedisCacheAdapter implementa CacheLecturas sobre Redis usando StringRedisTemplate (spring-boot-starter-data-redis). Guarda el JSON de la lista de DTOs con expiración (TTL): el valor muere solo tras app.cache.ttl-*-seg. En dev corre en docker-compose (redis:7-alpine) expuesto en localhost:6380, aislado como la BD (decisión FASE 9)."
+           data-relacion="implementa CacheLecturas · StringRedisTemplate.opsForValue() set/get/delete con Duration"
+           data-regla="app.cache.enabled=true · TTLs configurables por tipo"
+           data-metodos="obtener(clave) · guardar(clave, valor, ttl) · eliminar(clave)"
+           data-eventos="—"
+          <g class="cuerpo">
+            <rect class="marco" x="920" y="500" width="320" height="100" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1.2"/>
+            <rect x="920" y="500" width="320" height="30" rx="6" fill="rgba(45,49,66,0.08)" stroke="none"/>
+            <rect x="920" y="524" width="320" height="6" fill="rgba(45,49,66,0.08)"/>
+            <line x1="920" y1="530" x2="1240" y2="530" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+            <text x="936" y="520" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">STORE · REDIS</text>
+            <text class="titulo-texto" x="936" y="546" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', sans-serif">Redis 7 · localhost:6380</text>
+            <text x="936" y="572" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">StringRedisTemplate</text>
+            <text x="936" y="590" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">SET clave JSON EX ttl</text>
+          </g>
+        </g>
+
+        <!-- ══ NODO E · Adapter real ═══════════════════════════════════════════ -->
+        <g class="clase" data-titulo="Adapters reales · Flashscore / Soccerway / Wplay"
+           data-tipo="infrastructure.adapter · @Component"
+           data-que="Adapters @Component que implementan los puertos y consumen los endpoints del proyecto Python de extracción: FlashscorePosicionesAdapter (#3 ext-position-table-by-league-stable), SoccerwayCalendarioAdapter (#4 ext-calendar-league-by-league-v2) y WplayCuotasAdapter (#2 ext-next-matches-wplay-by-league). Resuelven la URL (path_to_scrape) por liga vía DetalleFuenteExtraccionRepository (CU-04/CU-11). El decorador los envuelve; siguen siendo beans con su nombre (flashscorePosicionesAdapter, etc.) para el @Qualifier."
+           data-relacion="envuelto por ProveedorXxxCacheable (@Qualifier) · → RestClient (FuentesExternasConfig) → http://127.0.0.1:8001"
+           data-regla="URL de fuente activa asociada por liga (CU-04/CU-11)"
+           data-metodos="obtenerPosiciones(ligaId) · obtenerCalendario(ligaId) · obtenerCuotas(partidoId)"
+           data-eventos="—"
+          <g class="cuerpo">
+            <rect class="marco" x="80" y="560" width="320" height="120" rx="6" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1.2"/>
+            <rect x="80" y="560" width="320" height="30" rx="6" fill="rgba(45,49,66,0.05)" stroke="none"/>
+            <rect x="80" y="584" width="320" height="6" fill="rgba(45,49,66,0.05)"/>
+            <line x1="80" y1="590" x2="400" y2="590" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+            <text x="96" y="580" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">ADAPTERS REALES · SCRAPER</text>
+            <text class="titulo-texto" x="96" y="606" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', sans-serif">Flashscore · Soccerway · Wplay</text>
+            <text x="96" y="630" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">#3 posiciones · #4 calendario · #2 cuotas</text>
+            <text x="96" y="648" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">resuelve path_to_scrape por liga</text>
+            <text x="96" y="666" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">RestClient → proyecto Python</text>
+          </g>
+        </g>
+
+        <!-- ══ NODO F · Fuente externa ══════════════════════════════════════════ -->
+        <g class="clase" data-titulo="Proyecto Python de extracción · :8001"
+           data-tipo="Fuente externa · endpoints ext-*"
+           data-que="Backend Python (contexto tipsterByte_fx) que scrapea Soccerway y Wplay y expone los endpoints ext-* en http://127.0.0.1:8001: #3 tabla de posiciones, #4 calendario, #2 cuotas. Es el origen de datos real; golpearlo en cada sincronización es costoso, por eso el cache-aside con TTL lo protege."
+           data-relacion="→ RestClient (FuentesExternasConfig) · parámetro path_to_scrape"
+           data-regla="—"
+           data-metodos="GET /ext-*?path_to_scrape=..."
+           data-eventos="—"
+          <g class="cuerpo">
+            <rect class="marco" x="80" y="800" width="320" height="76" rx="6" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1.2"/>
+            <rect x="80" y="800" width="320" height="30" rx="6" fill="rgba(45,49,66,0.05)" stroke="none"/>
+            <rect x="80" y="824" width="320" height="6" fill="rgba(45,49,66,0.05)"/>
+            <line x1="80" y1="830" x2="400" y2="830" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+            <text x="96" y="820" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">FUENTE EXTERNA</text>
+            <text class="titulo-texto" x="96" y="848" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', sans-serif">Proyecto Python</text>
+            <text x="96" y="866" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">http://127.0.0.1:8001 · ext-*</text>
+          </g>
+        </g>
+
+        <!-- ══ NODO G · NoOpCacheLecturas ═══════════════════════════════════════ -->
+        <g class="clase" data-titulo="NoOpCacheLecturas"
+           data-tipo="infrastructure.cache · cache desactivado"
+           data-que="Implementación NoOp de CacheLecturas que se registra cuando app.cache.enabled=false (tests sin contenedor Redis o despliegue sin cache): obtener devuelve Optional.empty, guardar/eliminar no hacen nada. Así los casos de uso y los decoradores siguen funcionando sin tocar código. En tests el flag evita arrancar Redis (regla testing.md)."
+           data-relacion="implementa CacheLecturas · @ConditionalOnProperty(app.cache.enabled=false) · alternativo a RedisCacheAdapter"
+           data-regla="app.cache.enabled=false"
+           data-metodos="obtener → empty · guardar/eliminar → no-op"
+           data-eventos="—"
+          <g class="cuerpo">
+            <rect class="marco" x="500" y="800" width="280" height="48" rx="24" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
+            <text class="titulo-texto" x="640" y="832" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">NoOpCacheLecturas</text>
+          </g>
+        </g>
+
+        <!-- ══ RELACIÓN R1 · Cliente → CU ══════════════════════════════════════ -->
+        <g class="relacion" data-titulo="Cliente → CU-01/02/03"
+           data-tipo="Flujo · llamada REST"
+           data-que="El cliente invoca la sincronización a través de los controllers (LigaController/PartidoController). Cada caso de uso recibe el UUID de la liga (y para cuotas opera sobre los partidos próximos de esa liga)."
+           data-relacion="POST/PUT /api/v1/** → Sincronizar*UseCase.ejecutar(ligaId)"
+           data-regla="—"
+           data-metodos="ejecutar(UUID ligaId)"
+           data-eventos="—">
+          <g class="cuerpo">
+            <path d="M660,88 L660,132 L240,132 L240,174" fill="none" stroke="#4f5d75" stroke-width="1" marker-end="url(#flecha)"/>
+            <rect x="556" y="122" width="136" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="624" y="132" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.1em" class="etiqueta">EJECUTA SYNC</text>
+          </g>
+        </g>
+
+        <!-- ══ RELACIÓN R2 · CU → Decorador ═════════════════════════════════════ -->
+        <g class="relacion" data-titulo="CU → ProveedorXxxCacheable"
+           data-tipo="Flujo · consulta del puerto"
+           data-que="El caso de uso inyecta el puerto (ProveedorPosiciones/Calendario/Cuotas) que en runtime resuelve al decorador cacheable (@Primary cuando app.cache.enabled=true). La capa application no sabe que hay cache."
+           data-relacion="CU-01 → ProveedorPosiciones (bean ProveedorPosicionesCacheable) · CU-02 → ProveedorCalendario · CU-03 → ProveedorCuotas"
+           data-regla="—"
+           data-metodos="obtenerPosiciones(ligaId) · obtenerCalendario(ligaId) · obtenerCuotas(partidoId)"
+           data-eventos="—">
+          <g class="cuerpo">
+            <line x1="400" y1="250" x2="494" y2="250" stroke="#4f5d75" stroke-width="1" marker-end="url(#flecha)"/>
+            <rect x="416" y="230" width="156" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="494" y="240" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.1em" class="etiqueta">CONSULTA PROVEEDOR</text>
+          </g>
+        </g>
+
+        <!-- ══ RELACIÓN R3 · Decorador → CacheLecturas ══════════════════════════ -->
+        <g class="relacion" data-titulo="Decorador → CacheLecturas"
+           data-tipo="Flujo · lectura del cache"
+           data-que="Primero se consulta el cache: obtener(clave). Si devuelve un JSON, se deserializa con ObjectMapper (Jackson 3) y se devuelve sin tocar el scraper (hit). Si no, continúa al adapter real (miss)."
+           data-relacion="CacheClaves.posiciones(ligaId) · CacheClaves.calendario(ligaId) · CacheClaves.cuotas(partidoId) → CacheLecturas.obtener(clave)"
+           data-regla="—"
+           data-metodos="obtener(String clave) → Optional&lt;String&gt;"
+           data-eventos="—">
+          <g class="cuerpo">
+            <line x1="660" y1="320" x2="660" y2="494" stroke="#4f5d75" stroke-width="1" marker-end="url(#flecha)"/>
+            <rect x="672" y="396" width="140" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="742" y="406" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.1em" class="etiqueta">GET CLAVE</text>
+          </g>
+        </g>
+
+        <!-- ══ RELACIÓN R4 · CacheLecturas → Redis ══════════════════════════════ -->
+        <g class="relacion" data-titulo="CacheLecturas → RedisCacheAdapter"
+           data-tipo="Flujo · implementación del puerto"
+           data-que="El puerto se materializa en RedisCacheAdapter (StringRedisTemplate). La lectura/escritura real contra Redis (SET con expiración) pasa por este adapter. Con cache activo es el único bean de CacheLecturas."
+           data-relacion="RedisCacheAdapter implements CacheLecturas · StringRedisTemplate.opsForValue()"
+           data-regla="app.cache.enabled=true · TTL por tipo"
+           data-metodos="guardar(clave, JSON, Duration) · obtener(clave) · eliminar(clave)"
+           data-eventos="—">
+          <g class="cuerpo">
+            <line x1="820" y1="550" x2="914" y2="550" stroke="#4f5d75" stroke-width="1" marker-end="url(#flecha)"/>
+            <rect x="836" y="530" width="140" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="906" y="540" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.1em" class="etiqueta">SET/GET TTL</text>
+          </g>
+        </g>
+
+        <!-- ══ RELACIÓN R5 · Decorador → Adapter real (miss) ════════════════════ -->
+        <g class="relacion" data-titulo="Miss → Adapter real"
+           data-tipo="Flujo · delegación en la fuente"
+           data-que="Si el cache no tiene la clave (miss), el decorador delega en el adapter real envuelto (el bean @Component con su nombre). Al volver, serializa la lista a JSON y la guarda en el cache con el TTL configurado (write-back en cache-aside)."
+           data-relacion="ProveedorPosicionesCacheable → @Qualifier('flashscorePosicionesAdapter') → obtenerPosiciones(ligaId)"
+           data-regla="—"
+           data-metodos="delegado.obtener*(...) → guardar(clave, JSON, ttl)"
+           data-eventos="—">
+          <g class="cuerpo">
+            <path d="M500,320 L500,360 L460,360 L460,620 L404,620" fill="none" stroke="#4f5d75" stroke-width="1" marker-end="url(#flecha)"/>
+            <rect x="468" y="470" width="116" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="526" y="480" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.1em" class="etiqueta">MISS · DELEGA</text>
+          </g>
+        </g>
+
+        <!-- ══ RELACIÓN R6 · Adapter real → Fuente ══════════════════════════════ -->
+        <g class="relacion" data-titulo="Adapter real → Proyecto Python"
+           data-tipo="Flujo · llamada HTTP externa"
+           data-que="El adapter real resuelve la URL (path_to_scrape) asociada a la liga (CU-04/CU-11) y llama al endpoint ext-* correspondiente del proyecto Python con RestClient. Es el único punto que toca el scraper."
+           data-relacion="RestClient.get().uri('/ext-*', path_to_scrape) → 127.0.0.1:8001"
+           data-regla="URL de fuente activa por liga"
+           data-metodos="GET /ext-position-table-by-league-stable · /ext-calendar-league-by-league-v2 · /ext-next-matches-wplay-by-league"
+           data-eventos="—">
+          <g class="cuerpo">
+            <line x1="240" y1="680" x2="240" y2="794" stroke="#4f5d75" stroke-width="1" marker-end="url(#flecha)"/>
+            <rect x="252" y="726" width="116" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="310" y="736" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.1em" class="etiqueta">HTTP /ext-*</text>
+          </g>
+        </g>
+
+        <!-- ══ RELACIÓN R7 · CacheLecturas → NoOp (cache off) ══════════════════ -->
+        <g class="relacion" data-titulo="CacheLecturas → NoOpCacheLecturas"
+           data-tipo="Flujo · cache desactivado"
+           data-que="Con app.cache.enabled=false, NoOpCacheLecturas es el bean de CacheLecturas: obtener siempre devuelve vacío y guardar/eliminar son no-ops. Los decoradores no se registran (ConditionalOnProperty) y los casos de uso invalidan sin efecto. Usado en tests sin contenedor Redis."
+           data-relacion="NoOpCacheLecturas implements CacheLecturas · @ConditionalOnProperty(app.cache.enabled=false)"
+           data-regla="—"
+           data-metodos="obtener → Optional.empty() · guardar/eliminar → no-op"
+           data-eventos="—">
+          <g class="cuerpo">
+            <line x1="640" y1="600" x2="640" y2="794" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#flecha)"/>
+            <rect x="652" y="690" width="120" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="712" y="700" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.1em" class="etiqueta">CACHE OFF</text>
+          </g>
+        </g>
+    </svg>
+    </div>
+  </div>
+
+  <div id="overlay" aria-hidden="true">
+    <div id="dialogo" role="dialog" aria-modal="true" aria-labelledby="dlg-titulo">
+      <div class="dlg-cabecera">
+        <div>
+          <div class="dlg-titulo" id="dlg-titulo"></div>
+          <div class="dlg-tipo" id="dlg-tipo"></div>
+        </div>
+        <button id="dlg-cerrar" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="dlg-fila"><span class="dlg-etiqueta">QUÉ</span><span class="dlg-valor" id="dlg-que"></span></div>
+      <div class="dlg-fila"><span class="dlg-etiqueta">RELACIÓN</span><span class="dlg-valor" id="dlg-relacion"></span></div>
+      <div class="dlg-fila"><span class="dlg-etiqueta">REGLAS</span><span class="dlg-valor" id="dlg-regla"></span></div>
+      <div class="dlg-fila"><span class="dlg-etiqueta">MÉTODOS</span><span class="dlg-valor" id="dlg-metodos"></span></div>
+      <div class="dlg-fila"><span class="dlg-etiqueta">EVENTOS</span><span class="dlg-valor" id="dlg-eventos"></span></div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var overlay = document.getElementById('overlay');
+      var dialogo = document.getElementById('dialogo');
+      var dlgCerrar = document.getElementById('dlg-cerrar');
+      var campos = {
+        titulo: document.getElementById('dlg-titulo'),
+        tipo: document.getElementById('dlg-tipo'),
+        que: document.getElementById('dlg-que'),
+        relacion: document.getElementById('dlg-relacion'),
+        regla: document.getElementById('dlg-regla'),
+        metodos: document.getElementById('dlg-metodos'),
+        eventos: document.getElementById('dlg-eventos')
+      };
+
+      function abrir(el) {
+        campos.titulo.textContent = el.getAttribute('data-titulo');
+        campos.tipo.textContent = el.getAttribute('data-tipo');
+        campos.que.textContent = el.getAttribute('data-que');
+        campos.relacion.textContent = el.getAttribute('data-relacion');
+        campos.regla.textContent = el.getAttribute('data-regla');
+        campos.metodos.textContent = el.getAttribute('data-metodos');
+        campos.eventos.textContent = el.getAttribute('data-eventos');
+        overlay.classList.add('abierto');
+        bloquearScroll();
+        dlgCerrar.focus();
+      }
+
+      function cerrar() {
+        overlay.classList.remove('abierto');
+        liberarScroll();
+      }
+
+      // [POR QUÉ]: Al bloquear el scroll de fondo con overflow:hidden la barra
+      // desaparece y el contenido salta a la derecha. Con `scrollbar-gutter:
+      // stable` (CSS) el espacio ya está reservado y no salta. En navegadores
+      // sin soporte, se mide el ancho de la barra ANTES de ocultarla y se
+      // compensa con padding-right para que no haya corte.
+      var soportaScrollbarGutter = window.CSS && CSS.supports && CSS.supports('scrollbar-gutter', 'stable');
+
+      function bloquearScroll() {
+        if (!soportaScrollbarGutter) {
+          var anchoBarra = window.innerWidth - document.documentElement.clientWidth;
+          document.body.style.paddingRight = anchoBarra + 'px';
+        }
+        document.documentElement.style.overflow = 'hidden';
+      }
+
+      function liberarScroll() {
+        document.body.style.paddingRight = '';
+        document.documentElement.style.overflow = '';
+      }
+
+      // Click sobre clases y relaciones abre el dialog.
+      document.querySelectorAll('.clase, .relacion').forEach(function (el) {
+        el.addEventListener('click', function () { abrir(el); });
+      });
+
+      // Cierre: botón, click fuera del dialog, tecla Escape.
+      dlgCerrar.addEventListener('click', cerrar);
+      overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) cerrar();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && overlay.classList.contains('abierto')) cerrar();
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -126,7 +126,7 @@ FASE 22 Preparación para entrevista
 
 ### FASE 11 — Spring Security + JWT ✅
 - **Dominio**: nueva entity `Usuario` (id, nombre, `Email` VO, passwordHash, `Rol`, activo). Decisión: el password/credenciales NO se añaden a `Tipster`/`Cliente` (perfiles de negocio sin credenciales); se usa una entidad de auth independiente.
-- **Application**: puertos `UsuarioRepository`, `PasswordHasher`, `TokenEmisor` (sin acoplar dominio a BCrypt/JJWT); DTOs `RegistrarUsuarioComando`, `AutenticarUsuarioComando`, `AutenticacionResultado`; nuevos casos de uso CU-12 `RegistrarUsuarioUseCase` y CU-13 `AutenticarUsuarioUseCase` (total **12 use cases**, registrados en `UseCaseConfig`).
+- **Application**: puertos `UsuarioRepository`, `PasswordHasher`, `TokenEmisor` (sin acoplar dominio a BCrypt/JJWT); DTOs `RegistrarUsuarioComando`, `AutenticarUsuarioComando`, `AutenticacionResultado`; nuevos casos de uso CU-12 `RegistrarUsuarioUseCase` y CU-13 `AutenticarUsuarioUseCase` (total **13 use cases**, registrados en `UseCaseConfig`).
 - **Infrastructure**: `UsuarioEntity` + `UsuarioJpaRepository` + `UsuarioRepositoryJpaAdapter` (tabla `usuarios`, email UNIQUE + CHECK rol); `BcryptPasswordHasher`; `JwtTokenEmisor` (jjwt 0.12.6, HS256, claims subject/email/rol); `JwtAuthenticationFilter`; `SecurityConfig` (stateless, csrf off, `AuthenticationEntryPoint` → 401).
 - **Interfaces**: `AuthController` — `POST /api/v1/auth/registro` (201) y `POST /api/v1/auth/login` (200 → `AuthResponse{token, rol, email}`; credenciales inválidas → 422).
 - **Política de autorización** (`authorizeHttpRequests`): públicos `/api/v1/auth/**` y `/actuator/health`; `GET /api/v1/fuentes` → 3 roles; `/api/v1/ligas/**` y `/api/v1/partidos/**` → ADMIN+TIPSTER; `/api/v1/pronosticos/**` → 3 roles; `/api/v1/suscripciones/**` → CLIENTE; resto autenticado. 401 sin/inválido, 403 rol insuficiente.
@@ -136,8 +136,17 @@ FASE 22 Preparación para entrevista
 - **Cobertura**: 224 tests en verde (+29): `UsuarioTest`, `RegistrarUsuarioUseCaseTest`, `AutenticarUsuarioUseCaseTest`, `JwtTokenEmisorTest`, `AuthControllerTest`, `UsuarioRepositoryJpaAdapterTest` (Testcontainers), `SecurityFlowIntegrationTest` (registro→login→recurso protegido, 401, token inválido, 422).
 - **Estado**: COMPLETADA.
 
-### FASE 12 — Redis
-- Cache-aside para lecturas de alta frecuencia. TTL, invalidación.
+### FASE 12 — Redis ✅
+- **Decisión (acordada con el usuario)**: Redis puro, sin Caffeine en FASE 12. Caffeine (L1 local) queda como opcional para un futuro `CompositeCacheAdapter` (FASE 17); como el cache vive detrás del puerto `CacheLecturas`, subir de nivel solo implica un adapter nuevo sin tocar application.
+- **Patrón**: cache-aside sobre los **proveedores** (no sobre el front): los decoradores `ProveedorPosicionesCacheable` / `ProveedorCalendarioCacheable` / `ProveedorCuotasCacheable` envuelven los adapters reales (`FlashscorePosicionesAdapter` #3, `SoccerwayCalendarioAdapter` #4, `WplayCuotasAdapter` #2) y protegen al scraper Python; la **invalidación al sincronizar** en CU-01/02/03 elimina la clave antes de consultar → la sincronización trae datos frescos y re-puebla el cache.
+- **Application**: puerto `CacheLecturas` (`obtener/guardar/eliminar`) + `CacheClaves` (claves canónicas `posiciones:{ligaId}`, `calendario:{ligaId}`, `cuotas:{partidoId}`). Los 3 `Sincronizar*UseCase` inyectan `CacheLecturas` y hacen `eliminar(CacheClaves.*)` al inicio.
+- **Infrastructure**: `RedisCacheAdapter` (StringRedisTemplate + TTL, `@ConditionalOnProperty(app.cache.enabled=true)`) y `NoOpCacheLecturas` (registrada solo con `app.cache.enabled=false`, e.g. tests). Decoradores `@Primary` + `@ConditionalOnProperty` que serializan/deserializan los DTOs de fuente con Jackson 3 (`ObjectMapper` bean de Spring; `TypeReference` de `tools.jackson.core.type`). Wiring en `UseCaseConfig` pasa `CacheLecturas` a los 3 use cases de sync.
+- **Configuración**: `app.cache.enabled` (env `APP_CACHE_ENABLED`, default true), `app.cache.ttl-posiciones-seg` (300), `app.cache.ttl-calendario-seg` (300), `app.cache.ttl-cuotas-seg` (120), `spring.data.redis.host/port` (default `localhost:6380`).
+- **Docker**: servicio `redis:7-alpine` en `docker-compose.yml` (`tipsterbytefxv2-redis`, `6380:6379`, volumen `redis_tipsterbytefxv2_data`, red `tipsterbytefxv2-net`, healthcheck `redis-cli ping`) — aislado como la BD (decisión FASE 9).
+- **Tests**: `src/test/resources/application.properties` replica el principal con `app.cache.enabled=false` (los tests de contexto Spring no requieren Redis). Nuevos: `RedisCacheAdapterTest` (Testcontainers Redis con `GenericContainer redis:7-alpine` vía `RedisTestConfiguration`; NO existe `testcontainers-redis` en la línea 2.0.5), `RedisCacheAdapterTest` valida get/put/evict/TTL, `ProveedorPosiciones/Calendario/CuotasCacheableTest` (hit/miss/serialización), `CacheClavesTest`, `NoOpCacheLecturasTest`, + invalidación en los 3 `Sincronizar*UseCaseTest` y bean NoOp en `UseCaseConfigTest`.
+- **Diagrama interactivo**: `diagrams/cache-aside-redis.html` (clicable, mismo patrón que `modelo-dominio.html`).
+- **Cobertura**: 246 tests en verde (+22). `./gradlew test` OK.
+- **Estado**: COMPLETADA.
 
 ### FASE 13 — RabbitMQ
 - Event-driven: domain events → exchange → queue → consumer (notificaciones).
