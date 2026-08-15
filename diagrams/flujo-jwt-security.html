@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flujo JWT + Spring Security · tipsterbyte-fx-v2</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #f5f5f5;
+      --color-ink:     #2d3142;
+      --color-muted:   #4f5d75;
+      --color-accent:  #eb6c36;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      padding: 3rem 2rem;
+    }
+
+    /* [POR QUÉ]: reserva siempre el espacio de la barra de scroll (aunque no
+       haya scroll o esté oculta). Evita el salto horizontal al abrir/cerrar el
+       modal. Los navegadores sin soporte usan el fallback JS (bloquearScroll). */
+    html { scrollbar-gutter: stable; }
+
+    .frame { max-width: 1360px; width: 100%; margin: 0 auto; }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 0.4rem;
+    }
+
+    .sub {
+      font-size: 0.85rem;
+      color: var(--color-muted);
+      margin-bottom: 1.5rem;
+      max-width: 780px;
+      line-height: 1.5;
+    }
+
+    /* [POR QUÉ]: el SVG tiene un viewBox de 1320px de ancho. En pantallas más
+       angostas se comprimiría y los textos de las relaciones se solaparían.
+       Este lienzo permite scroll horizontal cuando no cabe, manteniendo el
+       ancho natural del diagrama. */
+    .lienzo { overflow-x: auto; margin-top: 1.5rem; }
+
+    svg { width: 100%; min-width: 1320px; display: block; }
+
+    /* ── Interactividad por click ─────────────────────────────────── */
+    /* El hover NO oculta nada: solo indica que es clicable. */
+    .clase, .relacion { cursor: pointer; }
+    .clase .cuerpo, .relacion .cuerpo { opacity: 1; transition: opacity 0.12s ease; }
+    .clase:hover .marco { stroke-width: 2; }
+    .clase:hover .titulo-texto { text-decoration: underline; text-underline-offset: 3px; }
+    .relacion:hover line, .relacion:hover path { stroke: #eb6c36; stroke-width: 1.6; }
+    .relacion:hover .etiqueta { fill: #eb6c36; font-weight: 600; }
+
+    /* ── Dialog modal ─────────────────────────────────────────────── */
+    #overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      background: rgba(45,49,66,0.35);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    #overlay.abierto { display: flex; }
+
+    #dialogo {
+      background: #ffffff;
+      border-radius: 8px;
+      border-top: 3px solid var(--color-accent);
+      box-shadow: 0 24px 64px rgba(45,49,66,0.28);
+      width: 100%;
+      max-width: 560px;
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 20px 22px;
+    }
+
+    #dialogo .dlg-cabecera {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+    #dialogo .dlg-titulo {
+      font-family: var(--font-serif);
+      font-size: 1.35rem;
+      line-height: 1.1;
+      color: var(--color-ink);
+    }
+    #dialogo .dlg-tipo {
+      font-family: var(--font-mono);
+      font-size: 8px;
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--color-accent);
+      margin-top: 4px;
+    }
+    #dialogo #dlg-cerrar {
+      border: none;
+      background: rgba(45,49,66,0.06);
+      color: var(--color-ink);
+      font-size: 18px;
+      line-height: 1;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      flex: 0 0 auto;
+    }
+    #dialogo #dlg-cerrar:hover { background: rgba(45,49,66,0.12); }
+
+    #dialogo .dlg-fila {
+      display: flex;
+      gap: 12px;
+      padding: 9px 0;
+      border-top: 1px solid rgba(45,49,66,0.08);
+      font-size: 12.5px;
+      line-height: 1.5;
+    }
+    #dialogo .dlg-fila:first-of-type { border-top: none; }
+    #dialogo .dlg-etiqueta {
+      flex: 0 0 auto;
+      min-width: 74px;
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      padding-top: 3px;
+    }
+    #dialogo .dlg-valor { color: var(--color-ink); }
+    #dialogo .dlg-valor code {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      background: rgba(45,49,66,0.06);
+      border-radius: 3px;
+      padding: 0 4px;
+      white-space: nowrap;
+    }
+    #dialogo .dlg-br {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--color-accent);
+      border: 1px solid rgba(235,108,54,0.4);
+      background: rgba(235,108,54,0.06);
+      border-radius: 3px;
+      padding: 1px 5px;
+      margin: 1px 3px 1px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">FLUJO · Security + JWT</p>
+    <h1>Autenticación y autorización JWT · tipsterbyte-fx-v2</h1>
+    <p class="sub">Implementado en FASE 11 (Spring Security + JWT): registro (CU-12) y login (CU-13) públicos en <em>/api/v1/auth/**</em>, token JWT firmado HS256 con el rol del usuario, y una <em>SecurityFilterChain</em> stateless que valida el token y decide por rol (ADMIN / TIPSTER / CLIENTE). <strong>Haz click en cualquier nodo o flecha</strong> para abrir un panel con su detalle.</p>
+
+    <div class="lienzo">
+    <svg viewBox="0 0 1320 1240" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="fj-title fj-desc">
+      <title id="fj-title">Flujo de autenticación y autorización JWT · tipsterbyte-fx-v2</title>
+      <desc id="fj-desc">Flujo de seguridad: el cliente registra (CU-12) o inicia sesión (CU-13), recibe un JWT firmado, y cada request protegido pasa por la SecurityFilterChain (JwtAuthenticationFilter) que valida el token y autoriza por rol, devolviendo 200 o 401/403. Al hacer click en un nodo o relación se muestra un panel con su detalle.</desc>
+        <defs>
+          <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="0.9" fill="rgba(45,49,66,0.10)"/>
+          </pattern>
+          <marker id="flecha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#4f5d75"/>
+          </marker>
+        </defs>
+
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+        <rect width="100%" height="100%" fill="url(#dots)" opacity="0.55"/>
+
+        <!-- ══ NODO INICIO · Cliente / Frontend ════════════════════════════════ -->
+        <g class="clase" data-titulo="Cliente / Frontend"
+           data-tipo="Actor externo · consumidor REST"
+           data-que="Frontend (Angular, pendiente de desarrollo) o cliente HTTP que consume la API. Invoca los endpoints /api/v1/auth/** (públicos) para registrarse o iniciar sesión, y adjunta el token JWT en el header Authorization en cada request a los recursos protegidos."
+           data-relacion="→ AuthController (POST /api/v1/auth/registro) · → AuthController (POST /api/v1/auth/login) · → GET /api/v1/** con Authorization: Bearer"
+           data-regla="—"
+           data-metodos="registrar(usuario) · login(email, password) · consumirRecursos(con token)"
+           data-eventos="—">
+          <g class="cuerpo">
+            <rect class="marco" x="450" y="52" width="220" height="56" rx="28" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+            <text class="titulo-texto" x="560" y="86" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Cliente / Frontend</text>
+          </g>
+        </g>
+
+        <!-- ══ NODO A · Registro (público) ═════════════════════════════════════ -->
+        <g class="clase" data-titulo="POST /api/v1/auth/registro"
+           data-tipo="Endpoint público · CU-12 · application"
+           data-que="Registra un nuevo Usuario con rol (TIPSTER/CLIENTE/ADMIN). El caso de uso CU-12 encripta la contraseña con PasswordHasher (BCrypt) y persiste vía UsuarioRepository en la tabla usuarios (email único). Respuesta 201."
+           data-relacion="AuthController → RegistrarUsuarioUseCase (CU-12) → PasswordHasher (BcryptPasswordHasher) → UsuarioRepository"
+           data-regla="email único · contraseña mín. 8 caracteres · rol en {TIPSTER, CLIENTE, ADMIN}"
+           data-metodos="registrar(RegistrarUsuarioRequest) · ejecutar(RegistrarUsuarioComando)"
+           data-eventos="—">
+          <g class="cuerpo">
+            <rect class="marco" x="180" y="190" width="360" height="140" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+            <rect x="180" y="190" width="360" height="30" rx="6" fill="rgba(45,49,66,0.05)" stroke="none"/>
+            <rect x="180" y="214" width="360" height="6" fill="rgba(45,49,66,0.05)"/>
+            <line x1="180" y1="220" x2="540" y2="220" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+            <text x="196" y="210" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">ENDPOINT · PÚBLICO</text>
+            <text class="titulo-texto" x="196" y="236" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', sans-serif">Registro</text>
+            <text x="196" y="262" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">POST /api/v1/auth/registro</text>
+            <text x="196" y="282" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">CU-12 RegistrarUsuarioUseCase</text>
+            <text x="196" y="302" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">→ PasswordHasher (BCrypt)</text>
+            <text x="196" y="322" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.1em">BR: EMAIL ÚNICO · ROL VÁLIDO</text>
+          </g>
+        </g>
+
+        <!-- ══ NODO B · Login (público) ════════════════════════════════════════ -->
+        <g class="clase" data-titulo="POST /api/v1/auth/login"
+           data-tipo="Endpoint público · CU-13 · application"
+           data-que="Autentica con email+contraseña. El caso de uso CU-13 verifica el hash con PasswordHasher.verificar() y, si es correcto, TokenEmisor firma el JWT (HS256) con subject = id del usuario y claim rol. Credenciales inválidas → 422. Respuesta 200 con AuthResponse{token, rol, email}."
+           data-relacion="AuthController → AutenticarUsuarioUseCase (CU-13) → PasswordHasher + UsuarioRepository + TokenEmisor (JwtTokenEmisor)"
+           data-regla="422 si credenciales inválidas · expiración configurable app.jwt.expiration-ms"
+           data-metodos="login(LoginRequest) · ejecutar(AutenticarUsuarioComando) · emitirToken(Usuario)"
+           data-eventos="—">
+          <g class="cuerpo">
+            <rect class="marco" x="780" y="190" width="360" height="140" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+            <rect x="780" y="190" width="360" height="30" rx="6" fill="rgba(45,49,66,0.05)" stroke="none"/>
+            <rect x="780" y="214" width="360" height="6" fill="rgba(45,49,66,0.05)"/>
+            <line x1="780" y1="220" x2="1140" y2="220" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+            <text x="796" y="210" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">ENDPOINT · PÚBLICO</text>
+            <text class="titulo-texto" x="796" y="236" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', sans-serif">Login</text>
+            <text x="796" y="262" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">POST /api/v1/auth/login</text>
+            <text x="796" y="282" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">CU-13 AutenticarUsuarioUseCase</text>
+            <text x="796" y="302" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">→ verificar hash · TokenEmisor</text>
+            <text x="796" y="322" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.1em">BR: 422 CREDENCIALES INVÁLIDAS</text>
+          </g>
+        </g>
+
+        <!-- ══ NODO C · AuthResponse ═══════════════════════════════════════════ -->
+        <g class="clase" data-titulo="AuthResponse { token }"
+           data-tipo="DTO · interfaces.rest"
+           data-que="Respuesta de registro (201) y de login (200). Entrega el token JWT firmado y el rol asignado. El cliente lo conserva y lo reenvía en cada request protegido."
+           data-relacion="AuthController → AuthResponse · token ← TokenEmisor"
+           data-regla="—"
+           data-metodos="AuthResponse(token, rol, email)"
+           data-eventos="—">
+          <g class="cuerpo">
+            <rect class="marco" x="480" y="410" width="360" height="100" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+            <rect x="480" y="410" width="360" height="30" rx="6" fill="rgba(45,49,66,0.05)" stroke="none"/>
+            <rect x="480" y="434" width="360" height="6" fill="rgba(45,49,66,0.05)"/>
+            <line x1="480" y1="440" x2="840" y2="440" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+            <text x="496" y="430" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">DTO · INTERFACES</text>
+            <text class="titulo-texto" x="496" y="456" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', sans-serif">AuthResponse</text>
+            <text x="496" y="482" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">{ token, rol, email }</text>
+            <text x="496" y="502" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.1em">201 REGISTRO · 200 LOGIN</text>
+          </g>
+        </g>
+
+        <!-- ══ NODO D · Request autenticado ════════════════════════════════════ -->
+        <g class="clase" data-titulo="GET /api/v1/** · Authorization: Bearer"
+           data-tipo="Request autenticado"
+           data-que="El cliente repite cada request a un recurso protegido adjuntando el header 'Authorization: Bearer &lt;token&gt;'. La SecurityFilterChain intercepta la petición ANTES de llegar al controller."
+           data-relacion="Cliente → SecurityFilterChain → JwtAuthenticationFilter"
+           data-regla="—"
+           data-metodos="Authorization: Bearer {jwt}"
+           data-eventos="—">
+          <g class="cuerpo">
+            <rect class="marco" x="480" y="570" width="360" height="90" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+            <rect x="480" y="570" width="360" height="30" rx="6" fill="rgba(45,49,66,0.05)" stroke="none"/>
+            <rect x="480" y="594" width="360" height="6" fill="rgba(45,49,66,0.05)"/>
+            <line x1="480" y1="600" x2="840" y2="600" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+            <text x="496" y="590" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">REQUEST AUTENTICADO</text>
+            <text class="titulo-texto" x="496" y="616" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', sans-serif">GET /api/v1/**</text>
+            <text x="496" y="646" fill="#eb6c36" font-size="10" font-family="'Geist Mono', monospace" letter-spacing="0.06em">Authorization: Bearer &lt;token&gt;</text>
+          </g>
+        </g>
+
+        <!-- ══ NODO E · SecurityFilterChain (camino feliz, acento) ══════════════ -->
+        <g class="clase" data-titulo="SecurityFilterChain · JwtAuthenticationFilter"
+           data-tipo="infrastructure.security · límite de confianza"
+           data-que="Cadena de filtros stateless (csrf desactivado, sin sesión). JwtAuthenticationFilter extrae el token del header, valida firma y expiración con TokenEmisor, carga el principal (Usuario) y lo inyecta en el SecurityContext con la autoridad ROLE_&lt;rol&gt;. Si el token falta o es inválido, el AuthenticationEntryPoint responde 401."
+           data-relacion="JwtAuthenticationFilter → TokenEmisor (JwtTokenEmisor) + UsuarioRepository · SecurityConfig.securityFilterChain(HttpSecurity)"
+           data-regla="stateless · csrf off · 401 si falta/inválido (AuthenticationEntryPoint)"
+           data-metodos="doFilterInternal() · securityFilterChain(HttpSecurity)"
+           data-eventos="—">
+          <g class="cuerpo">
+            <rect class="marco" x="440" y="720" width="440" height="90" rx="6" fill="rgba(235,108,54,0.08)" stroke="#eb6c36" stroke-width="1.6"/>
+            <rect x="440" y="720" width="440" height="30" rx="6" fill="rgba(235,108,54,0.14)" stroke="none"/>
+            <rect x="440" y="744" width="440" height="6" fill="rgba(235,108,54,0.14)"/>
+            <line x1="440" y1="750" x2="880" y2="750" stroke="rgba(235,108,54,0.45)" stroke-width="1"/>
+            <text x="456" y="740" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">SECURITY · LÍMITE DE CONFIANZA</text>
+            <text class="titulo-texto" x="456" y="766" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', sans-serif">SecurityFilterChain</text>
+            <text x="456" y="792" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">JwtAuthenticationFilter valida firma · expiración</text>
+          </g>
+        </g>
+
+        <!-- ══ NODO F · Decisión: ¿rol autorizado? ══════════════════════════════ -->
+        <g class="clase" data-titulo="¿El rol cubre el recurso? · authorizeHttpRequests"
+           data-tipo="Decisión · SecurityConfig"
+           data-que="Política de autorización por patrón de URL: /api/v1/auth/** y /actuator/health públicos; GET /api/v1/fuentes → 3 roles; /api/v1/ligas/** y /api/v1/partidos/** → ADMIN+TIPSTER; /api/v1/pronosticos/** → 3 roles; /api/v1/suscripciones/** → CLIENTE; el resto requiere autenticación."
+           data-relacion="SecurityConfig.securityFilterChain() → .authorizeHttpRequests()"
+           data-regla="hasRole / anyRole por patrón de URL"
+           data-metodos="securityFilterChain(HttpSecurity) · hasRole('ROLE_ADMIN')"
+           data-eventos="—">
+          <g class="cuerpo">
+            <path class="marco" d="M660,870 L790,950 L660,1030 L530,950 Z" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+            <text x="660" y="946" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">¿El rol cubre</text>
+            <text x="660" y="964" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">el recurso?</text>
+          </g>
+        </g>
+
+        <!-- ══ NODO G · 200 OK ═════════════════════════════════════════════════ -->
+        <g class="clase" data-titulo="200 · recurso servido"
+           data-tipo="Respuesta autorizada"
+           data-que="El SecurityContext contiene el principal y el rol cubre el recurso: se delega en el controller y el caso de uso, respondiendo 200 (o el código HTTP propio del recurso)."
+           data-relacion="SecurityFilterChain → Controller → UseCase → response 200"
+           data-regla="—"
+           data-metodos="—"
+           data-eventos="—">
+          <g class="cuerpo">
+            <rect class="marco" x="880" y="920" width="200" height="60" rx="30" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+            <text class="titulo-texto" x="980" y="956" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">200 · recurso servido</text>
+          </g>
+        </g>
+
+        <!-- ══ NODO H · 401/403 ═════════════════════════════════════════════════ -->
+        <g class="clase" data-titulo="401 sin/inválido · 403 rol insuficiente"
+           data-tipo="Respuesta no autorizada"
+           data-que="401: falta el token o es inválido/expirado (AuthenticationEntryPoint configurado en SecurityConfig). 403: el token es válido pero el rol del usuario no cubre el recurso solicitado."
+           data-relacion="SecurityFilterChain → AuthenticationEntryPoint / AccessDeniedHandler → response 401/403"
+           data-regla="401 (autenticación) vs 403 (autorización)"
+           data-metodos="authenticationEntryPoint() · accessDeniedHandler()"
+           data-eventos="—">
+          <g class="cuerpo">
+            <rect class="marco" x="520" y="1120" width="280" height="56" rx="28" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+            <text class="titulo-texto" x="660" y="1154" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">401 · 403 no autorizado</text>
+          </g>
+        </g>
+
+        <!-- ══ RELACIÓN R1 · Inicio → Registro ══════════════════════════════════ -->
+        <g class="relacion" data-titulo="Cliente → Registro"
+           data-tipo="Flujo · llamada HTTP pública"
+           data-que="El cliente envía nombre, email, contraseña y rol a /api/v1/auth/registro. Endpoint público (permitAll): no requiere token."
+           data-relacion="POST /api/v1/auth/registro → AuthController → CU-12"
+           data-regla="—"
+           data-metodos="registrar(RegistrarUsuarioRequest)"
+           data-eventos="—">
+          <g class="cuerpo">
+            <path d="M540,108 L540,150 L360,150 L360,184" fill="none" stroke="#4f5d75" stroke-width="1" marker-end="url(#flecha)"/>
+            <rect x="368" y="140" width="128" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="432" y="150" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.1em" class="etiqueta">REGISTRO · PÚBLICO</text>
+          </g>
+        </g>
+
+        <!-- ══ RELACIÓN R2 · Inicio → Login ═════════════════════════════════════ -->
+        <g class="relacion" data-titulo="Cliente → Login"
+           data-tipo="Flujo · llamada HTTP pública"
+           data-que="El cliente envía email y contraseña a /api/v1/auth/login. Endpoint público (permitAll): no requiere token."
+           data-relacion="POST /api/v1/auth/login → AuthController → CU-13"
+           data-regla="—"
+           data-metodos="login(LoginRequest)"
+           data-eventos="—">
+          <g class="cuerpo">
+            <path d="M580,108 L580,150 L960,150 L960,184" fill="none" stroke="#4f5d75" stroke-width="1" marker-end="url(#flecha)"/>
+            <rect x="884" y="140" width="128" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="948" y="150" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.1em" class="etiqueta">LOGIN · PÚBLICO</text>
+          </g>
+        </g>
+
+        <!-- ══ RELACIÓN R3 · Registro → AuthResponse ════════════════════════════ -->
+        <g class="relacion" data-titulo="Registro → AuthResponse"
+           data-tipo="Flujo · respuesta"
+           data-que="Si el email no existe y los datos son válidos, el usuario queda persistido y se responde 201 con el token y el rol asignado."
+           data-relacion="CU-12 → UsuarioRepository (INSERT usuarios) → 201 + AuthResponse"
+           data-regla="—"
+           data-metodos="ejecutar(RegistrarUsuarioComando)"
+           data-eventos="—">
+          <g class="cuerpo">
+            <path d="M360,330 L360,370 L600,370 L600,404" fill="none" stroke="#4f5d75" stroke-width="1" marker-end="url(#flecha)"/>
+            <rect x="412" y="360" width="136" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="480" y="370" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.1em" class="etiqueta">201 · USUARIO CREADO</text>
+          </g>
+        </g>
+
+        <!-- ══ RELACIÓN R4 · Login → AuthResponse ═══════════════════════════════ -->
+        <g class="relacion" data-titulo="Login → AuthResponse"
+           data-tipo="Flujo · respuesta"
+           data-que="Si el hash coincide, CU-13 firma el JWT con el rol del usuario y responde 200 con AuthResponse{token, rol, email}. Si no, responde 422."
+           data-relacion="CU-13 → TokenEmisor (JWT HS256) → 200 + AuthResponse · 422 si credenciales inválidas"
+           data-regla="—"
+           data-metodos="ejecutar(AutenticarUsuarioComando) · emitirToken(Usuario)"
+           data-eventos="—">
+          <g class="cuerpo">
+            <path d="M960,330 L960,370 L720,370 L720,404" fill="none" stroke="#4f5d75" stroke-width="1" marker-end="url(#flecha)"/>
+            <rect x="752" y="360" width="160" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="832" y="370" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.1em" class="etiqueta">200 · JWT FIRMADO</text>
+          </g>
+        </g>
+
+        <!-- ══ RELACIÓN R5 · AuthResponse → Request autenticado ════════════════ -->
+        <g class="relacion" data-titulo="AuthResponse → Request Bearer"
+           data-tipo="Flujo · uso del token"
+           data-que="El cliente guarda el token y lo adjunta en el header Authorization de los requests posteriores a recursos protegidos."
+           data-relacion="AuthResponse.token → GET /api/v1/** con Authorization: Bearer"
+           data-regla="—"
+           data-metodos="—"
+           data-eventos="—">
+          <g class="cuerpo">
+            <line x1="660" y1="510" x2="660" y2="564" stroke="#4f5d75" stroke-width="1" marker-end="url(#flecha)"/>
+            <rect x="672" y="526" width="120" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="732" y="536" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.1em" class="etiqueta">GUARDAR TOKEN</text>
+          </g>
+        </g>
+
+        <!-- ══ RELACIÓN R6 · Request → SecurityFilterChain ══════════════════════ -->
+        <g class="relacion" data-titulo="Request → SecurityFilterChain"
+           data-tipo="Flujo · interceptación"
+           data-que="La SecurityFilterChain (stateless, csrf off) intercepta la petición. JwtAuthenticationFilter extrae el token y valida su firma y expiración."
+           data-relacion="Authorization: Bearer <token> → JwtAuthenticationFilter"
+           data-regla="—"
+           data-metodos="doFilterInternal()"
+           data-eventos="—">
+          <g class="cuerpo">
+            <line x1="660" y1="660" x2="660" y2="714" stroke="#4f5d75" stroke-width="1" marker-end="url(#flecha)"/>
+            <rect x="672" y="676" width="120" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="732" y="686" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.1em" class="etiqueta">BEARER TOKEN</text>
+          </g>
+        </g>
+
+        <!-- ══ RELACIÓN R7 · Filtro → Decisión ══════════════════════════════════ -->
+        <g class="relacion" data-titulo="SecurityFilterChain → Decisión de rol"
+           data-tipo="Flujo · autorización"
+           data-que="Con el principal autenticado y su ROLE_&lt;rol&gt; en el SecurityContext, authorizeHttpRequests evalúa si el patrón de URL del recurso admite ese rol."
+           data-relacion="SecurityContext (ROLE_<rol>) → authorizeHttpRequests(hasRole/anyRole)"
+           data-regla="—"
+           data-metodos="securityFilterChain(HttpSecurity)"
+           data-eventos="—">
+          <g class="cuerpo">
+            <line x1="660" y1="810" x2="660" y2="864" stroke="#4f5d75" stroke-width="1" marker-end="url(#flecha)"/>
+            <rect x="672" y="826" width="132" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="738" y="836" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.1em" class="etiqueta">PRINCIPAL + ROLE_</text>
+          </g>
+        </g>
+
+        <!-- ══ RELACIÓN R8 · Decisión → 200 (Sí) ════════════════════════════════ -->
+        <g class="relacion" data-titulo="Sí → 200 · recurso servido"
+           data-tipo="Flujo · rama autorizada"
+           data-que="El rol del principal cubre el recurso: la petición continúa hacia el controller y el caso de uso, que responden 200 (camino feliz)."
+           data-relacion="authorizeHttpRequests (autorizado) → Controller → UseCase → 200"
+           data-regla="—"
+           data-metodos="—"
+           data-eventos="—">
+          <g class="cuerpo">
+            <line x1="790" y1="950" x2="874" y2="950" stroke="#eb6c36" stroke-width="1.4" marker-end="url(#flecha)"/>
+            <rect x="812" y="930" width="36" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="830" y="940" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.1em" class="etiqueta">SÍ</text>
+          </g>
+        </g>
+
+        <!-- ══ RELACIÓN R9 · Decisión → 401/403 (No) ════════════════════════════ -->
+        <g class="relacion" data-titulo="No → 401/403"
+           data-tipo="Flujo · rama denegada"
+           data-que="El rol no cubre el recurso (403) o el token es inválido/faltante (401, gestionado antes por el AuthenticationEntryPoint)."
+           data-relacion="authorizeHttpRequests (denegado) → AuthenticationEntryPoint / AccessDeniedHandler → 401/403"
+           data-regla="—"
+           data-metodos="authenticationEntryPoint() · accessDeniedHandler()"
+           data-eventos="—">
+          <g class="cuerpo">
+            <line x1="660" y1="1030" x2="660" y2="1114" stroke="#4f5d75" stroke-width="1" marker-end="url(#flecha)"/>
+            <rect x="672" y="1062" width="96" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="720" y="1072" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.1em" class="etiqueta">NO · 401/403</text>
+          </g>
+        </g>
+    </svg>
+    </div>
+  </div>
+
+  <div id="overlay" aria-hidden="true">
+    <div id="dialogo" role="dialog" aria-modal="true" aria-labelledby="dlg-titulo">
+      <div class="dlg-cabecera">
+        <div>
+          <div class="dlg-titulo" id="dlg-titulo"></div>
+          <div class="dlg-tipo" id="dlg-tipo"></div>
+        </div>
+        <button id="dlg-cerrar" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="dlg-fila"><span class="dlg-etiqueta">QUÉ</span><span class="dlg-valor" id="dlg-que"></span></div>
+      <div class="dlg-fila"><span class="dlg-etiqueta">RELACIÓN</span><span class="dlg-valor" id="dlg-relacion"></span></div>
+      <div class="dlg-fila"><span class="dlg-etiqueta">REGLAS</span><span class="dlg-valor" id="dlg-regla"></span></div>
+      <div class="dlg-fila"><span class="dlg-etiqueta">MÉTODOS</span><span class="dlg-valor" id="dlg-metodos"></span></div>
+      <div class="dlg-fila"><span class="dlg-etiqueta">EVENTOS</span><span class="dlg-valor" id="dlg-eventos"></span></div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var overlay = document.getElementById('overlay');
+      var dialogo = document.getElementById('dialogo');
+      var dlgCerrar = document.getElementById('dlg-cerrar');
+      var campos = {
+        titulo: document.getElementById('dlg-titulo'),
+        tipo: document.getElementById('dlg-tipo'),
+        que: document.getElementById('dlg-que'),
+        relacion: document.getElementById('dlg-relacion'),
+        regla: document.getElementById('dlg-regla'),
+        metodos: document.getElementById('dlg-metodos'),
+        eventos: document.getElementById('dlg-eventos')
+      };
+
+      function abrir(el) {
+        campos.titulo.textContent = el.getAttribute('data-titulo');
+        campos.tipo.textContent = el.getAttribute('data-tipo');
+        campos.que.textContent = el.getAttribute('data-que');
+        campos.relacion.textContent = el.getAttribute('data-relacion');
+        campos.regla.textContent = el.getAttribute('data-regla');
+        campos.metodos.textContent = el.getAttribute('data-metodos');
+        campos.eventos.textContent = el.getAttribute('data-eventos');
+        overlay.classList.add('abierto');
+        bloquearScroll();
+        dlgCerrar.focus();
+      }
+
+      function cerrar() {
+        overlay.classList.remove('abierto');
+        liberarScroll();
+      }
+
+      // [POR QUÉ]: Al bloquear el scroll de fondo con overflow:hidden la barra
+      // desaparece y el contenido salta a la derecha. Con `scrollbar-gutter:
+      // stable` (CSS) el espacio ya está reservado y no salta. En navegadores
+      // sin soporte, se mide el ancho de la barra ANTES de ocultarla y se
+      // compensa con padding-right para que no haya corte.
+      var soportaScrollbarGutter = window.CSS && CSS.supports && CSS.supports('scrollbar-gutter', 'stable');
+
+      function bloquearScroll() {
+        if (!soportaScrollbarGutter) {
+          var anchoBarra = window.innerWidth - document.documentElement.clientWidth;
+          document.body.style.paddingRight = anchoBarra + 'px';
+        }
+        document.documentElement.style.overflow = 'hidden';
+      }
+
+      function liberarScroll() {
+        document.body.style.paddingRight = '';
+        document.documentElement.style.overflow = '';
+      }
+
+      // Click sobre clases y relaciones abre el dialog.
+      document.querySelectorAll('.clase, .relacion').forEach(function (el) {
+        el.addEventListener('click', function () { abrir(el); });
+      });
+
+      // Cierre: botón, click fuera del dialog, tecla Escape.
+      dlgCerrar.addEventListener('click', cerrar);
+      overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) cerrar();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && overlay.classList.contains('abierto')) cerrar();
+      });
+    })();
+  </script>
+</body>
+</html>

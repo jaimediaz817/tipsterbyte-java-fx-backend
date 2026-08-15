@@ -18,6 +18,7 @@ import com.tipsterbyte.tipsterbytefxv2.application.port.FuenteExtraccionReposito
 import com.tipsterbyte.tipsterbytefxv2.application.port.LigaRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PaisRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PartidoRepository;
+import com.tipsterbyte.tipsterbytefxv2.application.port.PasswordHasher;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PronosticoRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorCalendario;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorCuotas;
@@ -25,13 +26,17 @@ import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorLigasPorPais;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorPaises;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorPosiciones;
 import com.tipsterbyte.tipsterbytefxv2.application.port.SuscripcionRepository;
+import com.tipsterbyte.tipsterbytefxv2.application.port.TokenEmisor;
+import com.tipsterbyte.tipsterbytefxv2.application.port.UsuarioRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.ActivarLigaUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.AutenticarUsuarioUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.ConsultarPronosticosUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.CrearPronosticoUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.CrearSuscripcionUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.GestionarFuenteExtraccionUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.PublicarPronosticoUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.RegistrarResultadoUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.RegistrarUsuarioUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCalendarioUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCatalogoUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCuotasUseCase;
@@ -121,5 +126,20 @@ public class UseCaseConfig {
             FuenteExtraccionRepository fuenteRepository,
             DetalleFuenteExtraccionRepository detalleRepository) {
         return new GestionarFuenteExtraccionUseCase(fuenteRepository, detalleRepository);
+    }
+
+    // [QUÉ]: Bean de CU-12 (registro de usuario autenticable con BCrypt).
+    @Bean
+    public RegistrarUsuarioUseCase registrarUsuarioUseCase(UsuarioRepository usuarioRepository,
+                                                           PasswordHasher passwordHasher) {
+        return new RegistrarUsuarioUseCase(usuarioRepository, passwordHasher);
+    }
+
+    // [QUÉ]: Bean de CU-13 (login y emisión de JWT).
+    @Bean
+    public AutenticarUsuarioUseCase autenticarUsuarioUseCase(UsuarioRepository usuarioRepository,
+                                                             PasswordHasher passwordHasher,
+                                                             TokenEmisor tokenEmisor) {
+        return new AutenticarUsuarioUseCase(usuarioRepository, passwordHasher, tokenEmisor);
     }
 }

@@ -124,8 +124,17 @@ FASE 22 Preparación para entrevista
   - Spring 7: `@MockBean` (eliminado en Spring Boot 4) se reemplaza por `@MockitoBean` (`org.springframework.test.context.bean.override.mockito`).
 - **Estado**: COMPLETADA.
 
-### FASE 11 — Spring Security + JWT
-- Login, autenticación, JWT, roles/permisos, hashing de contraseñas, filters.
+### FASE 11 — Spring Security + JWT ✅
+- **Dominio**: nueva entity `Usuario` (id, nombre, `Email` VO, passwordHash, `Rol`, activo). Decisión: el password/credenciales NO se añaden a `Tipster`/`Cliente` (perfiles de negocio sin credenciales); se usa una entidad de auth independiente.
+- **Application**: puertos `UsuarioRepository`, `PasswordHasher`, `TokenEmisor` (sin acoplar dominio a BCrypt/JJWT); DTOs `RegistrarUsuarioComando`, `AutenticarUsuarioComando`, `AutenticacionResultado`; nuevos casos de uso CU-12 `RegistrarUsuarioUseCase` y CU-13 `AutenticarUsuarioUseCase` (total **12 use cases**, registrados en `UseCaseConfig`).
+- **Infrastructure**: `UsuarioEntity` + `UsuarioJpaRepository` + `UsuarioRepositoryJpaAdapter` (tabla `usuarios`, email UNIQUE + CHECK rol); `BcryptPasswordHasher`; `JwtTokenEmisor` (jjwt 0.12.6, HS256, claims subject/email/rol); `JwtAuthenticationFilter`; `SecurityConfig` (stateless, csrf off, `AuthenticationEntryPoint` → 401).
+- **Interfaces**: `AuthController` — `POST /api/v1/auth/registro` (201) y `POST /api/v1/auth/login` (200 → `AuthResponse{token, rol, email}`; credenciales inválidas → 422).
+- **Política de autorización** (`authorizeHttpRequests`): públicos `/api/v1/auth/**` y `/actuator/health`; `GET /api/v1/fuentes` → 3 roles; `/api/v1/ligas/**` y `/api/v1/partidos/**` → ADMIN+TIPSTER; `/api/v1/pronosticos/**` → 3 roles; `/api/v1/suscripciones/**` → CLIENTE; resto autenticado. 401 sin/inválido, 403 rol insuficiente.
+- **Configuración**: `app.jwt.secret` (dev ≥256 bits) y `app.jwt.expiration-ms` (dev 86400000), env-overridable.
+- **Dependencias**: `spring-boot-starter-security`, `jjwt-api/impl/jackson:0.12.6`.
+- **Diagrama interactivo**: `diagrams/flujo-jwt-security.html` (clicable, mismo patrón que `modelo-dominio.html`).
+- **Cobertura**: 224 tests en verde (+29): `UsuarioTest`, `RegistrarUsuarioUseCaseTest`, `AutenticarUsuarioUseCaseTest`, `JwtTokenEmisorTest`, `AuthControllerTest`, `UsuarioRepositoryJpaAdapterTest` (Testcontainers), `SecurityFlowIntegrationTest` (registro→login→recurso protegido, 401, token inválido, 422).
+- **Estado**: COMPLETADA.
 
 ### FASE 12 — Redis
 - Cache-aside para lecturas de alta frecuencia. TTL, invalidación.

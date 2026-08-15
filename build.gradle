@@ -22,6 +22,29 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	// ─────────────────────────────────────────────
+	// [QUÉ]: Seguridad HTTP de Spring: cadena de filtros, autenticación y autorización.
+	// [POR QUÉ]: FASE 11 añade login/JWT stateless con roles (TIPSTER/CLIENTE/ADMIN).
+	//            Spring Security es el estándar del proceso de selección (ADR-003) y
+	//            provee BCrypt para el hashing de contraseñas.
+	// [ALTERNATIVAS]: Interceptores propios o servlet filters manuales; se descartan
+	//                 porque reinvientan el modelo de autorización sin ganar nada.
+	// [RELACIONES]: infrastructure.security (SecurityConfig, JwtAuthenticationFilter),
+	//               JwtTokenEmisor, BcryptPasswordHasher (FASE 11).
+	// ─────────────────────────────────────────────
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	// ─────────────────────────────────────────────
+	// [QUÉ]: Librería JJWT para crear y validar tokens JWT (HS256).
+	// [POR QUÉ]: FASE 11 emite un JWT firmado en login y lo valida en cada request.
+	//            jjwt-api (compilación) + jjwt-impl y jjwt-jackson (runtime) evitan
+	//            acoplar dependencias de implementación al código.
+	// [ALTERNATIVAS]: spring-security-oauth2-jose (Nimbus); se descarta porque JJWT es
+	//                 más directo para emitir/validar HS256 y ampliamente conocido.
+	// [RELACIONES]: JwtTokenEmisor, JwtAuthenticationFilter (FASE 11).
+	// ─────────────────────────────────────────────
+	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+	// ─────────────────────────────────────────────
 	// [QUÉ]: Persistencia relacional con JPA/Hibernate sobre PostgreSQL (FASE 8).
 	// [POR QUÉ]: Los repository ports (application.port.XxxRepository) se implementan
 	//            con Spring Data JPA + PostgreSQL 17. PostgreSQL es el motor objetivo

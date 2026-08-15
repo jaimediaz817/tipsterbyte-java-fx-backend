@@ -11,12 +11,14 @@
 package com.tipsterbyte.tipsterbytefxv2.infrastructure.config;
 
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.ActivarLigaUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.AutenticarUsuarioUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.ConsultarPronosticosUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.CrearPronosticoUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.CrearSuscripcionUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.GestionarFuenteExtraccionUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.PublicarPronosticoUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.RegistrarResultadoUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.RegistrarUsuarioUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCalendarioUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCatalogoUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCuotasUseCase;
@@ -38,7 +40,7 @@ class UseCaseConfigTest {
     private ApplicationContext context;
 
     @Test
-    void debe_registrar_los_10_casos_de_uso_como_beans() {
+    void debe_registrar_los_12_casos_de_uso_como_beans() {
         assertNotNull(context.getBean(ActivarLigaUseCase.class));
         assertNotNull(context.getBean(SincronizarPosicionesUseCase.class));
         assertNotNull(context.getBean(SincronizarCalendarioUseCase.class));
@@ -50,5 +52,7 @@ class UseCaseConfigTest {
         assertNotNull(context.getBean(CrearSuscripcionUseCase.class));
         assertNotNull(context.getBean(SincronizarCatalogoUseCase.class));
         assertNotNull(context.getBean(GestionarFuenteExtraccionUseCase.class));
+        assertNotNull(context.getBean(RegistrarUsuarioUseCase.class));
+        assertNotNull(context.getBean(AutenticarUsuarioUseCase.class));
     }
 }
