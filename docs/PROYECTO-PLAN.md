@@ -107,8 +107,12 @@ FASE 22 Preparación para entrevista
 2. **✅ Adapters de datos deportivos (`#2`, `#3`, `#4`)** — COMPLETADO: DTOs según esquema real; dominio extendido: `Cuota`+`mercado` (canónico `Cuota(Mercado, BigDecimal)`; overload `Cuota(BigDecimal)`→`UNO_X_DOS`), `PosicionTabla`+`ultimosResultados` (clave 1 = más reciente, `1`=G/`0`=E/`-1`=P) persistidos en `PosicionTablaEntity` (`ultimos_resultados` VARCHAR "G,E,P,G,G"), `ResultadoReciente` (G/E/P), catálogo de fuentes `FuenteExtraccion`/`DetalleFuenteExtraccion` (tablas `fuentes_extraccion`, `detalle_fuentes_extraccion` con unique (liga_id, tipo)); puertos `FuenteExtraccionRepository`/`DetalleFuenteExtraccionRepository`; CU-11 `GestionarFuenteExtraccionUseCase`; CU-04 reescrito con `ActivarLigaComando` (3 URLs → crea detalles y activa, BR-001); adapters HTTP `FlashscorePosicionesAdapter`, `SoccerwayCalendarioAdapter` (solo crea partidos), `WplayCuotasAdapter` (6 `CuotaFuente`: 3 UNO_X_DOS + 3 DOBLE_OPORTUNIDAD); tests con fixtures reales.
 3. **✅ Wiring REST** — COMPLETADO: `app.api.rest.enabled=${APP_API_REST_ENABLED:true}`; `UseCaseConfig` registra los 10 use cases como beans (los use cases son POJOs sin anotaciones Spring); endpoints de catálogo de fuentes (`POST/GET /api/v1/fuentes`, `PUT/GET /api/v1/ligas/{ligaId}/fuentes`) + `LigaController` con `ActivarLigaRequest` (3 URLs). 173 tests en verde.
 
-### FASE 9 — Docker
-- PostgreSQL en docker-compose. Volumes, networks, healthcheck.
+### FASE 9 — Docker ✅
+- **`docker-compose.yml`** en la raíz con el servicio `postgres:17` **aislado**: puerto `5434:5432`, base `tipsterbytefxv2_dev`, usuario `postgres`, volumen nombrado `pg_tipsterbytefxv2_data`, red `tipsterbytefxv2-net` y `healthcheck` (`pg_isready`).
+- **Decisión de aislamiento**: NO se usa ni modifica la BD compartida del proyecto Python (`db_pg_tipsterbyte_fx_dev` en `localhost:5433`); cada proyecto corre sobre su propia BD.
+- `application.properties`: defaults del datasource actualizados a `DB_PORT:5434` / `DB_NAME:tipsterbytefxv2_dev` (siguen siendo env-overridable).
+- **Verificado**: `docker compose up -d` → contenedor healthy → `./gradlew build` (173 tests, Testcontainers intacto) → `bootRun` conecta a `jdbc:postgresql://localhost:5434/tipsterbytefxv2_dev` → Actuator UP y `GET /api/v1/fuentes` → 200.
+- **Estado**: COMPLETADA.
 
 ### FASE 10 — Testing
 - Unit (domain, use cases), Integration (app, infra), Controller tests, Testcontainers.

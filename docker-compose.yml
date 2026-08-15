@@ -1,0 +1,39 @@
+# ─────────────────────────────────────────────
+# [QUÉ]: Levanta el PostgreSQL 17 de desarrollo de tipsterbyte-fx-v2 de forma aislada.
+# [POR QUÉ]: FASE 9 dockeriza la BD de dev con recursos propios (volumen, red y puerto
+#            5434) para NO interferir con la BD compartida del proyecto Python
+#            (db_pg_tipsterbyte_fx_dev en localhost:5433). El datasource de la app
+#            apunta a este contenedor por defecto (application.properties).
+# [ALTERNATIVAS]: Reutilizar el contenedor :5433 del backend Python; se descarta porque
+#                 el usuario pidió aislamiento total: cada proyecto usa su propia BD.
+# [RELACIONES]: spring.datasource.* (application.properties), FASE 8/9 de
+#               docs/PROYECTO-PLAN.md. Testcontainers (tests) NO usa este contenedor.
+# ─────────────────────────────────────────────
+name: tipsterbytefxv2
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: tipsterbytefxv2-postgres
+    environment:
+      POSTGRES_DB: tipsterbytefxv2_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - pg_tipsterbytefxv2_data:/var/lib/postgresql/data
+    networks:
+      - tipsterbytefxv2-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d tipsterbytefxv2_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  pg_tipsterbytefxv2_data:
+
+networks:
+  tipsterbytefxv2-net:
