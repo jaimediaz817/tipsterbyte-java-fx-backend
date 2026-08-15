@@ -203,6 +203,30 @@ FASE T1 Frontend Angular 22 (transversal, proyecto hermano)
 - **Relaciones**: consume CU-01..13 vía controllers (`LigaController`, `PartidoController`, `PronosticoController`, `SuscripcionController`, `FuenteExtraccionController`, `AuthController`); usa `app.jwt` para auth y `app.cache` de forma transparente.
 - **Estado**: PLANIFICADA (se abre al completar o en paralelo con FASE 13+; requiere aprobación del usuario y configuración previa de skills de Angular).
 
+### FASE T1-b — API de consulta para el frontend (transversal) ✅ (plan)
+- **Contexto**: el backend expone hoy los flujos de **escritura/sincronización/auth**, pero Angular necesita una capa de **lectura (GETs)** para mostrar datos. Esta fase transversal entrega esa superficie SIN tocar el dominio: solo controllers, DTOs de respuesta y (si hace falta) métodos de consulta en repositorios que ya existen.
+- **Catálogo de endpoints GET a exponer** (todos `app.api.rest.enabled=true`, JWT según política actual):
+  | Endpoint | Fuente de datos (ya existe) | Qué devuelve |
+  | --- | --- | --- |
+  | `GET /api/v1/ligas` | `LigaRepository.buscarActivas()` (LigaRepository:23) + buscarPorId | Lista de ligas con `id`, `nombre`, `pais`, `estado` |
+  | `GET /api/v1/ligas/{ligaId}` | `LigaRepository.buscarPorId` + `Liga.posiciones()` | Detalle de liga + tabla de posiciones |
+  | `GET /api/v1/ligas/{ligaId}/posiciones` | `Liga.posiciones()` → `PosicionTabla` | Tabla (equipo, posición, J/G/E/P, GF/GC, pts, racha últimos 5) |
+  | `GET /api/v1/partidos?ligaId=` | `PartidoRepository.buscarPorLiga()` (PartidoRepository:23) | Partidos de la liga con equipos y estado |
+  | `GET /api/v1/partidos?ligaId=&fecha=` | `PartidoRepository.buscarPorLigaYFecha()` (PartidoRepository:31) | Partidos de la liga en una fecha |
+  | `GET /api/v1/partidos?ligaId=&proximos=true` | `PartidoRepository.buscarProximosPorLiga()` (PartidoRepository:27) | Próximos partidos (para cuotas) |
+  | `GET /api/v1/partidos/{partidoId}/cuotas` | `Partido.cuotas()` → `List<Cuota>` | Cuotas del partido por mercado |
+  | `GET /api/v1/ligas/{ligaId}/fuentes` | **ya existe** (CU-11, FuenteExtraccionController:81) | Detalles de fuentes de la liga |
+  | `GET /api/v1/fuentes` | **ya existe** (CU-11, FuenteExtraccionController:60) | Catálogo de fuentes |
+  | `GET /api/v1/pronosticos?clienteId=&ligaId=&fecha=` | **ya existe** (CU-08, PronosticoController:85) | Pronósticos publicados |
+  | `GET /api/v1/suscripciones?clienteId=` | `SuscripcionRepository.buscarActivasPorCliente()` (SuscripcionRepository:20) | Suscripciones activas del cliente |
+- **Nuevos DTOs de respuesta** (en `interfaces/rest/dto/response/`): `LigaResponse`, `PosicionTablaResponse` (equipo + stats + `ultimosResultados` como lista de `ResultadoReciente`), `PartidoResponse` (equipos, fecha, estado, resultado), `CuotaResponse` (mercado, valor). Reutilizar `FuenteExtraccionResponse`, `PronosticoPublicoDto` y `AuthResponse`.
+- **CORS** (imprescindible para Angular en `:4200`): configurar `CorsConfigurationSource` en `SecurityConfig` (orígenes permitidos `http://localhost:4200`, métodos GET/POST/PUT, headers `Authorization` + `Content-Type`) o `WebMvcConfigurer.addCorsMappings`. Hoy **no existe** ninguna configuración CORS.
+- **Flujo del administrador (explorar fuentes → activar liga)**: el frontend usa `GET /ligas` (ver ligas), `GET /ligas/{id}/fuentes` + `PUT /ligas/{id}/fuentes/{tipo}` (asociar URL por tipo, guardando una a una como decide el usuario) y `POST /ligas/{id}/activacion` con las 3 URLs (activación **manual** a conciencia, decisión del usuario; NO auto-activación). El sistema deja la puerta abierta a 4ª/5ª/6ª fuente sin romper BR-001.
+- **No se toca**: dominio, agregados, BR-001..008, casos de uso de escritura. Solo si un GET requiere datos no consultables hoy, se agrega un método de consulta al puerto correspondiente (ej. `LigaRepository`).
+- **Tests**: unitarios de mappers a DTO (sin Spring) + tests de controllers con MockMvc para cada GET nuevo (patrón existente de FASE 10).
+- **Relaciones**: la consume FASE T1 (Angular 22); depende de los puertos de repositorio y de `app.api.rest.enabled`.
+- **Estado**: PLANIFICADA (se implementa junto con FASE T1 o antes de iniciar el frontend).
+
 ---
 
 ## Orden de trabajo (regla de oro)
@@ -217,4 +241,4 @@ FASE T1 Frontend Angular 22 (transversal, proyecto hermano)
 
 > **Nunca** se pide "construye el proyecto completo".
 
-> **FASE T1** es transversal: puede ejecutarse en paralelo a las fases backend. La creación del repo Angular y sus skills viven en el proyecto hermano; aquí solo se mantiene el contexto de consumo de API.
+> **FASE T1** es transversal: puede ejecutarse en paralelo a las fases backend. La creación del repo Angular y sus skills viven en el proyecto hermano; aquí solo se mantiene el contexto de consumo de API. **FASE T1-b** (GETs de consulta + CORS) es la habilitadora para que el frontend tenga datos que mostrar.
