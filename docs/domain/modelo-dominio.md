@@ -22,6 +22,10 @@
    ┌────▼────┐            ┌─────▼──────┐           ┌──────▼─────┐
    │ Equipo  │            │   Cuota    │           │ Suscripcion│
    └─────────┘            └────────────┘           └────────────┘
+        │
+   ┌────▼────┐
+   │  Pais   │  (catálogo · CU-10 · FASE 8.5)
+   └─────────┘
 ```
 
 ---
@@ -52,8 +56,10 @@
 | --- | --- |
 | `id` | Identity |
 | `nombre` | Value Object |
-| `pais` | Value Object |
+| `pais` | Value Object (nombre denormalizado; ↔ catálogo `Pais`) |
 | `temporada` | Value Object (`Temporada`) |
+| `urlSoccerway` | Opcional — path_to_scrape del calendario (fuente #5) |
+| `apiId` | Opcional — id en API-Football (fuente #5) |
 | `equipos` | Lista de `Equipo` (Entity) |
 | `posiciones` | Tabla de posiciones (`List<PosicionTabla>`) |
 | `estado` | enum: `BORRADOR`, `ACTIVA`, `INACTIVA` |
@@ -126,6 +132,7 @@
 ## Entities
 
 - **Equipo**: tiene identidad propia (id), pertenece a una liga. Cambia (nombre, estadio, etc.) pero mantiene su identidad.
+- **Pais** (catálogo, FASE 8.5): tiene identidad propia (id) y vive fuera de los aggregates. Es la tabla maestra de países del catálogo (CU-10, fuente #1) con `nombre`, `isoAlpha2`, `continente`, `code`, `href`, `mapeado`. `Liga.pais` conserva el nombre denormalizado.
 - **Tipster**: entidad usuario con rol que crea pronósticos.
 - **Cliente**: entidad usuario que consume pronósticos mediante suscripciones.
 

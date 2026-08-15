@@ -52,6 +52,12 @@ public class LigaRepositoryJpaAdapter implements LigaRepository {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Optional<Liga> buscarPorUrlSoccerway(String urlSoccerway) {
+        return jpaRepository.findByUrlSoccerway(urlSoccerway).map(this::toDominio);
+    }
+
+    @Override
     @Transactional
     public void guardar(Liga liga) {
         LigaEntity entidad = toEntity(liga);
@@ -66,18 +72,20 @@ public class LigaRepositoryJpaAdapter implements LigaRepository {
                 .map(p -> new PosicionTabla(
                         new Equipo(p.getEquipo().getId(), p.getEquipo().getNombre()),
                         p.getPosicion(), p.getJugados(), p.getGanados(), p.getEmpatados(),
-                        p.getPerdidos(), p.getGolesFavor(), p.getGolesContra(), p.getPuntos()))
+                        p.getPerdidos(), p.getGolesFavor(), p.getGolesContra(), p.getPuntos(),
+                        p.getUltimosResultados()))
                 .toList();
         return Liga.reconstruir(
                 entidad.getId(), entidad.getNombre(), entidad.getPais(),
                 new Temporada(entidad.getTemporadaAnioInicio(), entidad.getTemporadaAnioFin()),
-                entidad.getEstado(), equipos, posiciones);
+                entidad.getEstado(), entidad.getUrlSoccerway(), entidad.getApiId(), equipos, posiciones);
     }
 
     private LigaEntity toEntity(Liga liga) {
         LigaEntity entidad = new LigaEntity(
                 liga.id(), liga.nombre(), liga.pais(),
-                liga.temporada().anioInicio(), liga.temporada().anioFin(), liga.estado());
+                liga.temporada().anioInicio(), liga.temporada().anioFin(),
+                liga.urlSoccerway(), liga.apiId(), liga.estado());
         java.util.Map<UUID, EquipoEntity> equiposById = new java.util.HashMap<>();
         for (Equipo equipo : liga.equipos()) {
             EquipoEntity equipoEntity = new EquipoEntity(equipo.id(), equipo.nombre());
@@ -90,7 +98,7 @@ public class LigaRepositoryJpaAdapter implements LigaRepository {
             entidad.agregarPosicion(new PosicionTablaEntity(
                     equipoEntity, posicion.posicion(), posicion.jugados(), posicion.ganados(),
                     posicion.empatados(), posicion.perdidos(), posicion.golesFavor(),
-                    posicion.golesContra(), posicion.puntos()));
+                    posicion.golesContra(), posicion.puntos(), posicion.ultimosResultados()));
         }
         return entidad;
     }

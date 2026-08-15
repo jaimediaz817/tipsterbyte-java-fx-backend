@@ -26,6 +26,8 @@ public final class Liga {
     private final String nombre;
     private final String pais;
     private final Temporada temporada;
+    private final String urlSoccerway;
+    private final String apiId;
     private final List<Equipo> equipos;
     private final List<PosicionTabla> posiciones;
     private EstadoLiga estado;
@@ -33,12 +35,18 @@ public final class Liga {
 
     // [QUÉ]: Construye una liga en estado BORRADOR, sin equipos ni posiciones.
     public Liga(String nombre, String pais, Temporada temporada) {
-        this(UUID.randomUUID(), nombre, pais, temporada, EstadoLiga.BORRADOR);
+        this(UUID.randomUUID(), nombre, pais, temporada, EstadoLiga.BORRADOR, null, null, List.of(), List.of());
+    }
+
+    // [QUÉ]: Construye una liga de catálogo (CU-10) con los datos de la fuente #5:
+    //        url de Soccerway (path_to_scrape del calendario) y api_id opcional.
+    public Liga(String nombre, String pais, Temporada temporada, String urlSoccerway, String apiId) {
+        this(UUID.randomUUID(), nombre, pais, temporada, EstadoLiga.BORRADOR, urlSoccerway, apiId, List.of(), List.of());
     }
 
     // [QUÉ]: Construye una liga con identidad y estado provistos (reconstrucción desde persistencia).
     public Liga(UUID id, String nombre, String pais, Temporada temporada, EstadoLiga estado) {
-        this(id, nombre, pais, temporada, estado, List.of(), List.of());
+        this(id, nombre, pais, temporada, estado, null, null, List.of(), List.of());
     }
 
     // [QUÉ]: Factory de reconstrucción completa del aggregate desde persistencia (FASE 8).
@@ -52,11 +60,18 @@ public final class Liga {
     // [RELACIONES]: Usado por LigaRepositoryJpaAdapter (FASE 8).
     public static Liga reconstruir(UUID id, String nombre, String pais, Temporada temporada,
                                    EstadoLiga estado, List<Equipo> equipos, List<PosicionTabla> posiciones) {
-        return new Liga(id, nombre, pais, temporada, estado, equipos, posiciones);
+        return new Liga(id, nombre, pais, temporada, estado, null, null, equipos, posiciones);
+    }
+
+    // [QUÉ]: Factory de reconstrucción con datos de la fuente (#5): restaura también
+    //        urlSoccerway y apiId para conservar el path_to_scrape del calendario.
+    public static Liga reconstruir(UUID id, String nombre, String pais, Temporada temporada, EstadoLiga estado,
+                                   String urlSoccerway, String apiId, List<Equipo> equipos, List<PosicionTabla> posiciones) {
+        return new Liga(id, nombre, pais, temporada, estado, urlSoccerway, apiId, equipos, posiciones);
     }
 
     private Liga(UUID id, String nombre, String pais, Temporada temporada, EstadoLiga estado,
-                 List<Equipo> equipos, List<PosicionTabla> posiciones) {
+                 String urlSoccerway, String apiId, List<Equipo> equipos, List<PosicionTabla> posiciones) {
         if (id == null) {
             throw new DomainException("Liga requiere id");
         }
@@ -73,6 +88,8 @@ public final class Liga {
         this.nombre = nombre;
         this.pais = pais;
         this.temporada = temporada;
+        this.urlSoccerway = urlSoccerway;
+        this.apiId = apiId;
         this.equipos = new ArrayList<>(equipos != null ? equipos : List.of());
         this.posiciones = new ArrayList<>(posiciones != null ? posiciones : List.of());
         this.estado = estado;
@@ -132,6 +149,16 @@ public final class Liga {
 
     public Temporada temporada() {
         return temporada;
+    }
+
+    // [QUÉ]: Devuelve la URL de Soccerway de la liga (path_to_scrape del calendario #4), si existe.
+    public String urlSoccerway() {
+        return urlSoccerway;
+    }
+
+    // [QUÉ]: Devuelve el id de la liga en API-Football si la fuente #5 lo entrega.
+    public String apiId() {
+        return apiId;
     }
 
     public EstadoLiga estado() {

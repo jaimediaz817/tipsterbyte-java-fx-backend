@@ -1,0 +1,125 @@
+// ─────────────────────────────────────────────
+// [QUÉ]: Configuración de infraestructura que registra los casos de uso de application
+//        como beans de Spring (wiring REST de FASE 8.5).
+// [POR QUÉ]: Los casos de uso son POJOs de la capa application (sin anotaciones de
+//            Spring) para mantener la Dependency Rule. Al activar app.api.rest.enabled
+//            los controllers exigen estos beans; esta configuración los declara
+//            explícitamente con sus dependencias (puertos adaptados por infrastructure).
+// [ALTERNATIVAS]: Anotar cada use case con @Component; se descarta porque acoplaría la
+//                 capa application a Spring. Un @Configuration central concentra el
+//                 wiring en infraestructura.
+// [RELACIONES]: Crea los beans que inyectan LigaController, PronosticoController,
+//               SuscripcionController, PartidoController y FuenteExtraccionController.
+// ─────────────────────────────────────────────
+package com.tipsterbyte.tipsterbytefxv2.infrastructure.config;
+
+import com.tipsterbyte.tipsterbytefxv2.application.port.DetalleFuenteExtraccionRepository;
+import com.tipsterbyte.tipsterbytefxv2.application.port.FuenteExtraccionRepository;
+import com.tipsterbyte.tipsterbytefxv2.application.port.LigaRepository;
+import com.tipsterbyte.tipsterbytefxv2.application.port.PaisRepository;
+import com.tipsterbyte.tipsterbytefxv2.application.port.PartidoRepository;
+import com.tipsterbyte.tipsterbytefxv2.application.port.PronosticoRepository;
+import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorCalendario;
+import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorCuotas;
+import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorLigasPorPais;
+import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorPaises;
+import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorPosiciones;
+import com.tipsterbyte.tipsterbytefxv2.application.port.SuscripcionRepository;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.ActivarLigaUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.ConsultarPronosticosUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.CrearPronosticoUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.CrearSuscripcionUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.GestionarFuenteExtraccionUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.PublicarPronosticoUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.RegistrarResultadoUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCalendarioUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCatalogoUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCuotasUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarPosicionesUseCase;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class UseCaseConfig {
+
+    // [QUÉ]: Bean de CU-04 (activar liga con URLs de fuentes).
+    @Bean
+    public ActivarLigaUseCase activarLigaUseCase(LigaRepository ligaRepository,
+                                                 FuenteExtraccionRepository fuenteRepository,
+                                                 DetalleFuenteExtraccionRepository detalleRepository) {
+        return new ActivarLigaUseCase(ligaRepository, fuenteRepository, detalleRepository);
+    }
+
+    // [QUÉ]: Bean de CU-01 (sincronizar posiciones).
+    @Bean
+    public SincronizarPosicionesUseCase sincronizarPosicionesUseCase(LigaRepository ligaRepository,
+                                                                     ProveedorPosiciones proveedorPosiciones) {
+        return new SincronizarPosicionesUseCase(ligaRepository, proveedorPosiciones);
+    }
+
+    // [QUÉ]: Bean de CU-02 (sincronizar calendario).
+    @Bean
+    public SincronizarCalendarioUseCase sincronizarCalendarioUseCase(LigaRepository ligaRepository,
+                                                                     PartidoRepository partidoRepository,
+                                                                     ProveedorCalendario proveedorCalendario) {
+        return new SincronizarCalendarioUseCase(ligaRepository, partidoRepository, proveedorCalendario);
+    }
+
+    // [QUÉ]: Bean de CU-03 (sincronizar cuotas).
+    @Bean
+    public SincronizarCuotasUseCase sincronizarCuotasUseCase(PartidoRepository partidoRepository,
+                                                             ProveedorCuotas proveedorCuotas) {
+        return new SincronizarCuotasUseCase(partidoRepository, proveedorCuotas);
+    }
+
+    // [QUÉ]: Bean de CU-05 (registrar resultado de partido).
+    @Bean
+    public RegistrarResultadoUseCase registrarResultadoUseCase(PartidoRepository partidoRepository) {
+        return new RegistrarResultadoUseCase(partidoRepository);
+    }
+
+    // [QUÉ]: Bean de CU-06 (crear pronóstico).
+    @Bean
+    public CrearPronosticoUseCase crearPronosticoUseCase(PronosticoRepository pronosticoRepository,
+                                                         PartidoRepository partidoRepository) {
+        return new CrearPronosticoUseCase(pronosticoRepository, partidoRepository);
+    }
+
+    // [QUÉ]: Bean de CU-07 (publicar pronóstico).
+    @Bean
+    public PublicarPronosticoUseCase publicarPronosticoUseCase(PronosticoRepository pronosticoRepository,
+                                                               PartidoRepository partidoRepository) {
+        return new PublicarPronosticoUseCase(pronosticoRepository, partidoRepository);
+    }
+
+    // [QUÉ]: Bean de CU-08 (consultar pronósticos públicos).
+    @Bean
+    public ConsultarPronosticosUseCase consultarPronosticosUseCase(SuscripcionRepository suscripcionRepository,
+                                                                   PartidoRepository partidoRepository,
+                                                                   PronosticoRepository pronosticoRepository) {
+        return new ConsultarPronosticosUseCase(suscripcionRepository, partidoRepository, pronosticoRepository);
+    }
+
+    // [QUÉ]: Bean de CU-09 (crear suscripción).
+    @Bean
+    public CrearSuscripcionUseCase crearSuscripcionUseCase(SuscripcionRepository suscripcionRepository) {
+        return new CrearSuscripcionUseCase(suscripcionRepository);
+    }
+
+    // [QUÉ]: Bean de CU-10 (sincronizar catálogo de países y ligas).
+    @Bean
+    public SincronizarCatalogoUseCase sincronizarCatalogoUseCase(ProveedorPaises proveedorPaises,
+                                                                 ProveedorLigasPorPais proveedorLigasPorPais,
+                                                                 PaisRepository paisRepository,
+                                                                 LigaRepository ligaRepository) {
+        return new SincronizarCatalogoUseCase(proveedorPaises, proveedorLigasPorPais, paisRepository, ligaRepository);
+    }
+
+    // [QUÉ]: Bean de CU-11 (gestionar catálogo de fuentes de extracción).
+    @Bean
+    public GestionarFuenteExtraccionUseCase gestionarFuenteExtraccionUseCase(
+            FuenteExtraccionRepository fuenteRepository,
+            DetalleFuenteExtraccionRepository detalleRepository) {
+        return new GestionarFuenteExtraccionUseCase(fuenteRepository, detalleRepository);
+    }
+}

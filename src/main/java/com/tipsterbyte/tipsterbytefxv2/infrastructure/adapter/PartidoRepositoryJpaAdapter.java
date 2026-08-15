@@ -80,7 +80,7 @@ public class PartidoRepositoryJpaAdapter implements PartidoRepository {
 
     private Partido toDominio(PartidoEntity entidad) {
         List<Cuota> cuotas = entidad.getCuotas().stream()
-                .map(c -> new Cuota(c.getValor()))
+                .map(c -> new Cuota(c.getMercado(), c.getValor()))
                 .toList();
         Resultado resultado = (entidad.getResultadoGolesLocal() != null
                 && entidad.getResultadoGolesVisitante() != null)
@@ -103,7 +103,7 @@ public class PartidoRepositoryJpaAdapter implements PartidoRepository {
                 partido.resultado() != null ? partido.resultado().golesLocal() : null,
                 partido.resultado() != null ? partido.resultado().golesVisitante() : null);
         for (Cuota cuota : partido.cuotas()) {
-            entidad.agregarCuota(new CuotaEntity(cuota.valor()));
+            entidad.agregarCuota(new CuotaEntity(cuota.mercado(), cuota.valor()));
         }
         return entidad;
     }

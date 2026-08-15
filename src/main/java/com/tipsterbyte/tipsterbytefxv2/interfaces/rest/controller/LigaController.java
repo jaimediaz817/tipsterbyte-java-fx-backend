@@ -1,18 +1,16 @@
 // ─────────────────────────────────────────────
-// [QUÉ]: Controller REST de ligas: expone CU-04 (activar liga) y las sincronizaciones
-//        CU-01 (posiciones), CU-02 (calendario) y CU-03 (cuotas).
+// [QUÉ]: Controller REST de ligas: expone CU-04 (activar liga con URLs de fuentes)
+//        y las sincronizaciones CU-01 (posiciones), CU-02 (calendario) y CU-03 (cuotas).
 // [POR QUÉ]: Es la puerta de entrada HTTP de los casos de uso del administrador sobre
 //            la ingesta de datos. Traduce request DTOs a comandos/DTOs de application.
-// [ALTERNATIVAS]: Un controller por caso de uso; se descarta porque agrupar por recurso
-//                 (liga) mantiene la API REST coherente y reduce clases. El bean solo
-//                 se registra si app.api.rest.enabled=true (FASE 8 habilita el wiring);
-//                 hasta entonces se ejercita con MockMvc standalone.
-// [RELACIONES]: CU-04 → ActivarLigaUseCase + DisponibilidadFuentes; CU-01/CU-02/CU-03 →
+//            El bean solo se registra si app.api.rest.enabled=true (FASE 8.5 habilita
+//            el wiring); hasta entonces se ejercita con MockMvc standalone.
+// [RELACIONES]: CU-04 → ActivarLigaUseCase + ActivarLigaComando; CU-01/CU-02/CU-03 →
 //               use cases de sincronización; → SincronizacionResponse.
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.interfaces.rest.controller;
 
-import com.tipsterbyte.tipsterbytefxv2.application.dto.DisponibilidadFuentes;
+import com.tipsterbyte.tipsterbytefxv2.application.dto.ActivarLigaComando;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.ActivarLigaUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCalendarioUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCuotasUseCase;
@@ -51,13 +49,14 @@ public class LigaController {
         this.sincronizarCuotasUseCase = sincronizarCuotasUseCase;
     }
 
-    // [QUÉ]: Endpoint POST /api/v1/ligas/{ligaId}/activacion — activa una liga (CU-04).
+    // [QUÉ]: Endpoint POST /api/v1/ligas/{ligaId}/activacion — activa una liga (CU-04)
+    //        asociando las URLs de sus fuentes de extracción.
     @PostMapping("/{ligaId}/activacion")
     public ResponseEntity<Void> activarLiga(@PathVariable UUID ligaId,
                                             @Valid @RequestBody ActivarLigaRequest request) {
-        DisponibilidadFuentes disponibilidad = new DisponibilidadFuentes(
-                request.posiciones(), request.calendario(), request.cuotas());
-        activarLigaUseCase.ejecutar(ligaId, disponibilidad);
+        ActivarLigaComando comando = new ActivarLigaComando(
+                request.urlPosiciones(), request.urlCalendario(), request.urlCuotas());
+        activarLigaUseCase.ejecutar(ligaId, comando);
         return ResponseEntity.noContent().build();
     }
 

@@ -74,4 +74,24 @@ class LigaRepositoryJpaAdapterTest extends AbstractRepositoryJpaAdapterTest {
         assertEquals(1, recuperada.posiciones().size());
         assertEquals(7, recuperada.posiciones().get(0).puntos());
     }
+
+    @Test
+    void debe_guardar_y_recuperar_liga_de_catalogo_con_datos_de_fuente() {
+        String url = "https://co.soccerway.com/espana/laliga-ea-sports/";
+        Liga liga = new Liga("LaLiga EA Sports", "España", new Temporada(2026, 2027), url, "1530");
+
+        ligaRepository.guardar(liga);
+
+        Liga recuperada = ligaRepository.buscarPorUrlSoccerway(url).orElseThrow();
+        assertEquals("LaLiga EA Sports", recuperada.nombre());
+        assertEquals("España", recuperada.pais());
+        assertEquals(url, recuperada.urlSoccerway());
+        assertEquals("1530", recuperada.apiId());
+        assertEquals(EstadoLiga.BORRADOR, recuperada.estado());
+    }
+
+    @Test
+    void debe_devolver_vacio_cuando_url_soccerway_no_existe() {
+        assertTrue(ligaRepository.buscarPorUrlSoccerway("https://co.soccerway.com/xyz/").isEmpty());
+    }
 }

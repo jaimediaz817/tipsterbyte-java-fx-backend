@@ -17,6 +17,8 @@
 | CU-07 | Publicar pronóstico | Tipster | Pronostico |
 | CU-08 | Consultar pronósticos por liga y fecha | Cliente | Pronostico |
 | CU-09 | Crear suscripción | Cliente | Suscripcion |
+| CU-10 | Sincronizar catálogo de países y ligas | Sistema (fuente) | Pais / Liga |
+| CU-11 | Gestionar fuentes de extracción | Administrador | FuenteExtraccion / DetalleFuenteExtraccion |
 
 ---
 
@@ -61,10 +63,16 @@
 
 **Actor**: Administrador.
 **Regla aplicada**: BR-001 (solo se activa si las fuentes están configuradas y operativas).
-**Flujo**:
-1. Verificar configuración de fuentes de la liga.
-2. Cambiar estado a `ACTIVA`.
-3. Emitir `LigaActivada`.
+**Flujo (FASE 8.5 paso 2)**:
+1. Recibir `ActivarLigaComando` con las 3 URLs reales de la liga: `urlPosiciones`, `urlCalendario`, `urlCuotas`.
+2. Buscar la fuente activa por tipo (`STANDINGS`, `CALENDAR`, `ODDS_WPLAY`).
+3. Crear un `DetalleFuenteExtraccion` por tipo con su URL (asociación liga↔fuente↔URL).
+4. Derivar la disponibilidad de cada fuente según si su URL está presente.
+5. Llamar `liga.activar(...)` → valida BR-001 y cambia a `ACTIVA`.
+6. Emitir `LigaActivada` y persistir liga + detalles.
+
+**Puertos**: `LigaRepository`, `FuenteExtraccionRepository`, `DetalleFuenteExtraccionRepository`.
+**DTO**: `ActivarLigaComando` (nuevo, con las 3 URLs).
 
 ### CU-05 — Registrar resultado de partido
 
@@ -110,6 +118,43 @@
 2. Crear `Suscripcion` en estado `ACTIVA`.
 3. Emitir `SuscripcionCreada`.
 
+### CU-10 — Sincronizar catálogo de países y ligas
+
+**Actor**: Sistema (fuentes reales `#1` y `#5`).
+**Agregados**: `Pais` (nuevo) / `Liga`.
+**Propósito**: poblar el catálogo base (países y ligas por país) para que luego las ligas candidatas puedan activarse (CU-04) y sincronizarse (CU-01/02/03).
+
+**Flujo**:
+1. Consultar países al endpoint `#1` (`/ext-soccerway-countries`) → `PaisFuente`.
+2. Persistir países nuevos en el catálogo.
+3. Por cada país, consultar ligas al endpoint `#5` (`/ext-soccerway-leagues-by-country?country_name=...&limit=...`) → `LigaFuente`.
+4. Mapear a `Liga` en estado `BORRADOR`, con `pais`, `temporada` (del campo `anio`), `urlSoccerway` (candidato a `path_to_scrape` de calendario) y `apiId` si viene.
+5. Persistir ligas nuevas; no duplicar las ya existentes.
+
+**Regla aplicada**: solo crea ligas en `BORRADOR`; la activación real queda para CU-04 (requiere fuentes operativas).
+
+**Puertos**: nuevo `PaisRepository` (catálogo) + `LigaRepository` existente.
+**DTOs**: `PaisFuente`, `LigaFuente` (nuevos en `application.dto`).
+**Fuentes**: adapters `SoccerwayPaisesAdapter` (#1) y `SoccerwayLigasPorPaisAdapter` (#5).
+
+### CU-11 — Gestionar fuentes de extracción
+
+**Actor**: Administrador.
+**Agregados**: `FuenteExtraccion` / `DetalleFuenteExtraccion` (nuevos en `domain.model`).
+**Propósito**: administrar el catálogo de fuentes (qué fuente sirve cada tipo de dato) y asociar a cada liga la URL real (`path_to_scrape`) de la fuente que la alimenta. Estas URLs son la entrada que los adapters HTTP usan para consultar posiciones, calendario y cuotas.
+
+**Flujo**:
+1. **Registrar fuente** (`registrarFuente`): crea `FuenteExtraccion` con nombre, tipo (`TipoFuenteExtraccion`) y estado; un solo registro por tipo (validación de unicidad).
+2. **Listar fuentes** (`listarFuentes`): devuelve el catálogo de fuentes del sistema.
+3. **Asociar URL** (`asociarUrlFuente`): crea o actualiza el `DetalleFuenteExtraccion` de la liga para ese tipo, guardando la URL real (no duplica si ya existe).
+4. **Listar detalles de liga** (`listarDetallesDeLiga`): devuelve las fuentes + URLs asociadas a una liga.
+
+**Reglas aplicadas**: un solo `DetalleFuenteExtraccion` por (liga, tipo) — se actualiza si ya existe.
+
+**Puertos**: `FuenteExtraccionRepository`, `DetalleFuenteExtraccionRepository` (nuevos).
+**DTOs**: `RegistrarFuenteComando`, `AsociarUrlFuenteComando`, `FuenteExtraccionResponse`.
+**Endpoints REST**: `POST /api/v1/fuentes`, `GET /api/v1/fuentes`, `PUT /api/v1/ligas/{ligaId}/fuentes/{tipo}`, `GET /api/v1/ligas/{ligaId}/fuentes`.
+
 ---
 
 ## Trazabilidad de puertos (ports) usados
@@ -120,6 +165,9 @@
 | `PartidoRepository` | Persistencia | Adapter JPA |
 | `PronosticoRepository` | Persistencia | Adapter JPA |
 | `SuscripcionRepository` | Persistencia | Adapter JPA |
-| `ProveedorPosiciones` | Salida externa | football-data.org / API-Football |
-| `ProveedorCalendario` | Salida externa | API-Football / football-data.org |
-| `ProveedorCuotas` | Salida externa | API-Football / The Odds API / SharpAPI |
+| `PaisRepository` | Persistencia | Adapter JPA |
+| `FuenteExtraccionRepository` | Persistencia | Adapter JPA |
+| `DetalleFuenteExtraccionRepository` | Persistencia | Adapter JPA |
+| `ProveedorPosiciones` | Salida externa | FlashscorePosicionesAdapter (fuente `#3`) |
+| `ProveedorCalendario` | Salida externa | SoccerwayCalendarioAdapter (fuente `#4`) |
+| `ProveedorCuotas` | Salida externa | WplayCuotasAdapter (fuente `#2`) |

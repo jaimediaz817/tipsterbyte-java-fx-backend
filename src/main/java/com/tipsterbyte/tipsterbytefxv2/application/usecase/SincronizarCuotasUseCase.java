@@ -40,7 +40,7 @@ public final class SincronizarCuotasUseCase {
         for (Partido partido : partidos) {
             List<CuotaFuente> fuentes = proveedorCuotas.obtenerCuotas(partido.id());
             List<Cuota> cuotas = fuentes.stream()
-                    .map(f -> new Cuota(f.valor())) // BR-007 validado en el VO
+                    .map(f -> new Cuota(f.mercado(), f.valor())) // BR-007 validado en el VO
                     .toList();
             partido.actualizarCuotas(cuotas);
             partidoRepository.guardar(partido);

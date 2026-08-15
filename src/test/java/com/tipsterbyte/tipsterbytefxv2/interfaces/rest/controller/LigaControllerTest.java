@@ -1,6 +1,6 @@
 package com.tipsterbyte.tipsterbytefxv2.interfaces.rest.controller;
 
-import com.tipsterbyte.tipsterbytefxv2.application.dto.DisponibilidadFuentes;
+import com.tipsterbyte.tipsterbytefxv2.application.dto.ActivarLigaComando;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.ActivarLigaUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCalendarioUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCuotasUseCase;
@@ -52,43 +52,36 @@ class LigaControllerTest {
     }
 
     @Test
-    void debe_activar_liga_y_devolver_204() throws Exception {
+    void debe_activar_liga_con_urls_y_devolver_204() throws Exception {
         UUID ligaId = UUID.randomUUID();
 
         mockMvc.perform(post("/api/v1/ligas/{id}/activacion", ligaId)
                         .contentType("application/json")
                         .content("""
-                                {"posiciones": true, "calendario": true, "cuotas": true}"""))
+                                {"urlPosiciones": "https://flashscore.com/tabla",
+                                 "urlCalendario": "https://soccerway.com/calendario",
+                                 "urlCuotas": "https://wplay.co/ligas"}"""))
                 .andExpect(status().isNoContent());
 
-        ArgumentCaptor<DisponibilidadFuentes> captor = ArgumentCaptor.forClass(DisponibilidadFuentes.class);
+        ArgumentCaptor<ActivarLigaComando> captor = ArgumentCaptor.forClass(ActivarLigaComando.class);
         verify(activarLigaUseCase).ejecutar(eq(ligaId), captor.capture());
-        assertEquals(true, captor.getValue().posiciones());
-        assertEquals(true, captor.getValue().calendario());
-        assertEquals(true, captor.getValue().cuotas());
+        assertEquals("https://flashscore.com/tabla", captor.getValue().urlPosiciones());
+        assertEquals("https://soccerway.com/calendario", captor.getValue().urlCalendario());
+        assertEquals("https://wplay.co/ligas", captor.getValue().urlCuotas());
     }
 
     @Test
     void debe_devolver_422_cuando_la_liga_no_existe() throws Exception {
         UUID ligaId = UUID.randomUUID();
-        when(activarLigaUseCase.ejecutar(eq(ligaId), any(DisponibilidadFuentes.class)))
+        when(activarLigaUseCase.ejecutar(eq(ligaId), any(ActivarLigaComando.class)))
                 .thenThrow(new DomainException("Liga no encontrada: " + ligaId));
 
         mockMvc.perform(post("/api/v1/ligas/{id}/activacion", ligaId)
                         .contentType("application/json")
                         .content("""
-                                {"posiciones": true, "calendario": true, "cuotas": true}"""))
+                                {"urlPosiciones": "https://flashscore.com/tabla"}"""))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.mensaje").value("Liga no encontrada: " + ligaId));
-    }
-
-    @Test
-    void debe_devolver_400_cuando_falta_campo_obligatorio() throws Exception {
-        mockMvc.perform(post("/api/v1/ligas/{id}/activacion", UUID.randomUUID())
-                        .contentType("application/json")
-                        .content("""
-                                {"posiciones": true}"""))
-                .andExpect(status().isBadRequest());
     }
 
     @Test

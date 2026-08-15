@@ -43,7 +43,7 @@ public final class CrearPronosticoUseCase {
         }
 
         SeleccionPronostico seleccion = new SeleccionPronostico(comando.mercado(), comando.resultadoEsperado());
-        Cuota cuota = new Cuota(comando.cuotaValor()); // BR-007: valor > 1.0
+        Cuota cuota = new Cuota(seleccion.mercado(), comando.cuotaValor()); // BR-007: valor > 1.0
         Pronostico pronostico = new Pronostico(comando.tipsterId(), comando.partidoId(), seleccion, cuota);
 
         pronosticoRepository.guardar(pronostico);

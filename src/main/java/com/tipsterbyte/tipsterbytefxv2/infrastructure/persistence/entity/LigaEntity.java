@@ -47,6 +47,14 @@ public class LigaEntity {
     @Column(name = "temporada_anio_fin", nullable = false)
     private int temporadaAnioFin;
 
+    // Datos de la fuente #5 (catálogo): URL de Soccerway (path_to_scrape del calendario #4)
+    // y api_id opcional de API-Football. Pueden ser nulos si la liga se creó manualmente.
+    @Column(name = "url_soccerway", length = 300)
+    private String urlSoccerway;
+
+    @Column(name = "api_id", length = 50)
+    private String apiId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "estado", nullable = false, length = 20)
     private EstadoLiga estado;
@@ -70,6 +78,20 @@ public class LigaEntity {
         this.pais = pais;
         this.temporadaAnioInicio = temporadaAnioInicio;
         this.temporadaAnioFin = temporadaAnioFin;
+        this.urlSoccerway = null;
+        this.apiId = null;
+        this.estado = estado;
+    }
+
+    public LigaEntity(UUID id, String nombre, String pais, int temporadaAnioInicio,
+                      int temporadaAnioFin, String urlSoccerway, String apiId, EstadoLiga estado) {
+        this.id = id;
+        this.nombre = nombre;
+        this.pais = pais;
+        this.temporadaAnioInicio = temporadaAnioInicio;
+        this.temporadaAnioFin = temporadaAnioFin;
+        this.urlSoccerway = urlSoccerway;
+        this.apiId = apiId;
         this.estado = estado;
     }
 
@@ -107,6 +129,14 @@ public class LigaEntity {
         return estado;
     }
 
+    public String getUrlSoccerway() {
+        return urlSoccerway;
+    }
+
+    public String getApiId() {
+        return apiId;
+    }
+
     public List<EquipoEntity> getEquipos() {
         return equipos;
     }
@@ -133,5 +163,13 @@ public class LigaEntity {
 
     public void setEstado(EstadoLiga estado) {
         this.estado = estado;
+    }
+
+    public void setUrlSoccerway(String urlSoccerway) {
+        this.urlSoccerway = urlSoccerway;
+    }
+
+    public void setApiId(String apiId) {
+        this.apiId = apiId;
     }
 }

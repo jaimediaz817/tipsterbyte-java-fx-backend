@@ -13,9 +13,12 @@ import com.tipsterbyte.tipsterbytefxv2.infrastructure.persistence.entity.LigaEnt
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface LigaJpaRepository extends JpaRepository<LigaEntity, UUID> {
 
     List<LigaEntity> findByEstado(EstadoLiga estado);
+
+    Optional<LigaEntity> findByUrlSoccerway(String urlSoccerway);
 }

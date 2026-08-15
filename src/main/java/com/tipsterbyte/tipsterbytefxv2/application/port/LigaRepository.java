@@ -22,6 +22,11 @@ public interface LigaRepository {
     // [QUÉ]: Recupera las ligas en estado ACTIVA (las que pueden sincronizarse).
     List<Liga> buscarActivas();
 
+    // [QUÉ]: Recupera una liga por su URL de Soccerway, o vacío si no existe.
+    // [POR QUÉ]: La fuente #5 entrega url_soccerway como clave natural; CU-10 la usa
+    //            para no duplicar ligas ya registradas en el catálogo.
+    Optional<Liga> buscarPorUrlSoccerway(String urlSoccerway);
+
     // [QUÉ]: Persiste una liga (crea o actualiza según exista el id).
     void guardar(Liga liga);
 

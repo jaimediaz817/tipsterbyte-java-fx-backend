@@ -68,6 +68,21 @@ class SincronizarCuotasUseCaseTest {
     }
 
     @Test
+    void debe_preservar_el_mercado_de_las_cuotas_de_la_fuente() {
+        UUID ligaId = UUID.randomUUID();
+        Partido partido = partidoProximo(ligaId);
+        when(partidoRepository.buscarProximosPorLiga(ligaId)).thenReturn(List.of(partido));
+        when(proveedorCuotas.obtenerCuotas(partido.id())).thenReturn(List.of(
+                new CuotaFuente(Mercado.UNO_X_DOS, new BigDecimal("1.85")),
+                new CuotaFuente(Mercado.DOBLE_OPORTUNIDAD, new BigDecimal("1.45"))));
+
+        casoDeUso.ejecutar(ligaId);
+
+        assertEquals(Mercado.UNO_X_DOS, partido.cuotas().get(0).mercado());
+        assertEquals(Mercado.DOBLE_OPORTUNIDAD, partido.cuotas().get(1).mercado());
+    }
+
+    @Test
     void debe_descartar_cuotas_invalidas_br007() {
         UUID ligaId = UUID.randomUUID();
         Partido partido = partidoProximo(ligaId);

@@ -8,6 +8,7 @@ import com.tipsterbyte.tipsterbytefxv2.domain.event.DomainEvent;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.EstadoLiga;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Liga;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.PosicionTabla;
+import com.tipsterbyte.tipsterbytefxv2.domain.model.ResultadoReciente;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Temporada;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -66,6 +67,22 @@ class SincronizarPosicionesUseCaseTest {
         assertEquals(2, liga.equipos().size());
         verify(ligaRepository).guardar(liga);
         assertTrue(eventos.isEmpty());
+    }
+
+    @Test
+    void debe_persistir_la_racha_de_ultimos_resultados_de_la_fuente() {
+        Liga liga = ligaActiva();
+        when(ligaRepository.buscarPorId(liga.id())).thenReturn(Optional.of(liga));
+        when(proveedorPosiciones.obtenerPosiciones(liga.id())).thenReturn(List.of(
+                new PosicionFuente("Real Madrid", 1, 5, 3, 1, 1, 10, 4, 10,
+                        List.of(ResultadoReciente.GANADO, ResultadoReciente.EMPATE,
+                                ResultadoReciente.PERDIDO, ResultadoReciente.GANADO, ResultadoReciente.GANADO))));
+
+        casoDeUso.ejecutar(liga.id());
+
+        PosicionTabla primera = liga.posiciones().get(0);
+        assertEquals(5, primera.ultimosResultados().size());
+        assertEquals(ResultadoReciente.GANADO, primera.ultimosResultados().get(0));
     }
 
     @Test

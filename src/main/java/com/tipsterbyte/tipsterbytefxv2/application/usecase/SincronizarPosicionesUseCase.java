@@ -45,7 +45,8 @@ public final class SincronizarPosicionesUseCase {
             Equipo equipo = resolverEquipo(liga, fuente.equipoNombre());
             posiciones.add(new PosicionTabla(
                     equipo, fuente.posicion(), fuente.jugados(), fuente.ganados(), fuente.empatados(),
-                    fuente.perdidos(), fuente.golesFavor(), fuente.golesContra(), fuente.puntos()));
+                    fuente.perdidos(), fuente.golesFavor(), fuente.golesContra(), fuente.puntos(),
+                    fuente.ultimosResultados()));
         }
 
         liga.actualizarPosiciones(posiciones); // BR-002 exigido aquí (liga debe estar ACTIVA)

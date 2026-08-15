@@ -184,12 +184,12 @@
   <div class="frame">
     <p class="eyebrow">ER · Diagram Design</p>
     <h1>Modelo de dominio · tipsterbyte-fx-v2</h1>
-    <p class="sub">Implementado en FASE 5 (Domain + DDD). Cuatro aggregates (<em>Liga</em>, <em>Partido</em>, <em>Pronostico</em>, <em>Suscripcion</em>) referenciados por id, con sus entities, VOs y reglas de negocio BR-001..008. <strong>Haz click en cualquier clase o relación</strong> para abrir un panel con su detalle.</p>
+    <p class="sub">Implementado en FASE 5 (Domain + DDD) y ampliado en FASE 8.5 con el catálogo: entity <em>Pais</em> (CU-10) y catálogo de fuentes <em>FuenteExtraccion</em>/<em>DetalleFuenteExtraccion</em> (CU-11, alimenta CU-04 con las URLs reales). Cuatro aggregates (<em>Liga</em>, <em>Partido</em>, <em>Pronostico</em>, <em>Suscripcion</em>) referenciados por id, con sus entities, VOs y reglas de negocio BR-001..008. <strong>Haz click en cualquier clase o relación</strong> para abrir un panel con su detalle.</p>
 
     <div class="lienzo">
-    <svg viewBox="0 0 1320 936" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="dm-title dm-desc">
+    <svg viewBox="0 0 1320 1100" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="dm-title dm-desc">
       <title id="dm-title">Modelo de dominio · tipsterbyte-fx-v2</title>
-      <desc id="dm-desc">Diagrama de entidad-relación del dominio: aggregates Liga, Partido, Pronostico y Suscripcion con sus entities, value objects y reglas de negocio BR-001 a BR-008. Al hacer click en una clase o relación se muestra un panel con su detalle.</desc>
+      <desc id="dm-desc">Diagrama de entidad-relación del dominio: aggregates Liga, Partido, Pronostico y Suscripcion con sus entities, value objects y reglas de negocio BR-001 a BR-008, más las entities de catálogo Pais (CU-10), FuenteExtraccion y DetalleFuenteExtraccion (CU-11). Al hacer click en una clase o relación se muestra un panel con su detalle.</desc>
         <defs>
           <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
             <circle cx="1" cy="1" r="0.9" fill="rgba(45,49,66,0.10)"/>
@@ -303,9 +303,28 @@
            data-metodos="Liga.agregarEquipo(equipo)"
            data-eventos="—">
           <g class="cuerpo">
-            <line x1="150" y1="324" x2="150" y2="460" stroke="#4f5d75" stroke-width="0.8" stroke-dasharray="4,3"/>
+            <line x1="150" y1="372" x2="150" y2="460" stroke="#4f5d75" stroke-width="0.8" stroke-dasharray="4,3"/>
             <rect x="112" y="380" width="76" height="14" rx="2" fill="#f5f5f5"/>
             <text x="150" y="390" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em" class="etiqueta">MIEMBRO</text>
+          </g>
+        </g>
+
+        <!-- ══ RELACIÓN L9 · Pais — Liga (1:N, ref. por nombre) ════════════════ -->
+        <g class="relacion" data-titulo="Pais — Liga"
+           data-tipo="Relación 1:N · ref. por nombre (catálogo)"
+           data-que="Un país del catálogo agrupa muchas ligas. Liga conserva el nombre del país denormalizado (Liga.pais), mientras Pais es la tabla maestra del catálogo alimentada por CU-10 (fuente #1)."
+           data-relacion="Liga.pais (nombre) → Pais.nombre"
+           data-regla="— (catálogo en BORRADOR; activación real en CU-04)"
+           data-metodos="CU-10 · SincronizarCatalogoUseCase"
+           data-eventos="—">
+          <g class="cuerpo">
+            <path d="M 320,372 H 330 V 700 H 340" fill="none" stroke="#4f5d75" stroke-width="1"/>
+            <rect x="296" y="360" width="16" height="12" rx="2" fill="#f5f5f5"/>
+            <text x="304" y="370" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle" font-weight="600">1</text>
+            <rect x="322" y="688" width="16" height="12" rx="2" fill="#f5f5f5"/>
+            <text x="330" y="698" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle" font-weight="600">N</text>
+            <rect x="292" y="528" width="76" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="330" y="538" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em" class="etiqueta">SE CATALOGA</text>
           </g>
         </g>
 
@@ -342,12 +361,12 @@
         <!-- ── Entity: Liga (aggregate root) ─────────────────────────────────── -->
         <g class="clase" data-titulo="Liga" data-tipo="Aggregate root · domain.model"
            data-regla="BR-001 · BR-002 · BR-008"
-           data-que="Competición deportiva (ej: Premier League). Frontera de consistencia de posiciones, equipos y estado."
-           data-relacion="tiene List&lt;Partido&gt; vía Partido.ligaId · List&lt;Equipo&gt; · List&lt;PosicionTabla&gt;"
+           data-que="Competición deportiva (ej: Premier League). Frontera de consistencia de posiciones, equipos y estado. Desde CU-10 (FASE 8.5) conserva también la URL de Soccerway (path_to_scrape del calendario #4) y el api_id opcional de API-Football. Sus fuentes se configuran con DetalleFuenteExtraccion (CU-04/CU-11)."
+           data-relacion="tiene List&lt;Partido&gt; vía Partido.ligaId · List&lt;Equipo&gt; · List&lt;PosicionTabla&gt; · pais (nombre) ↔ Pais.nombre (catálogo) · configurada vía DetalleFuenteExtraccion.ligaId"
            data-metodos="activar() · agregarEquipo() · actualizarPosiciones() · pullEventos()"
            data-eventos="LigaActivada">
           <g class="cuerpo">
-            <rect class="marco" x="60" y="100" width="260" height="224" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+            <rect class="marco" x="60" y="100" width="260" height="272" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
             <rect x="60" y="100" width="260" height="40" rx="6" fill="rgba(45,49,66,0.05)" stroke="none"/>
             <rect x="60" y="132" width="260" height="8" fill="rgba(45,49,66,0.05)"/>
             <line x1="60" y1="140" x2="320" y2="140" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
@@ -358,16 +377,20 @@
             <text x="76" y="180" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">nombre</text>
             <text x="304" y="180" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">text</text>
             <text x="76" y="200" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">pais</text>
-            <text x="304" y="200" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">text</text>
+            <text x="304" y="200" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">text · ↔ Pais</text>
             <text x="76" y="220" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">temporada</text>
             <text x="304" y="220" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">VO Temporada</text>
-            <text x="76" y="240" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">equipos</text>
-            <text x="304" y="240" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">List&lt;Equipo&gt;</text>
-            <text x="76" y="260" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">posiciones</text>
-            <text x="304" y="260" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">List&lt;PosicionTabla&gt;</text>
-            <text x="76" y="280" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">estado</text>
-            <text x="304" y="280" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">enum</text>
-            <text x="76" y="304" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.1em">BR-001 · BR-002 · BR-008</text>
+            <text x="76" y="240" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">urlSoccerway</text>
+            <text x="304" y="240" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">text · 0..1</text>
+            <text x="76" y="260" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">apiId</text>
+            <text x="304" y="260" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">text · 0..1</text>
+            <text x="76" y="280" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">equipos</text>
+            <text x="304" y="280" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">List&lt;Equipo&gt;</text>
+            <text x="76" y="300" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">posiciones</text>
+            <text x="304" y="300" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">List&lt;PosicionTabla&gt;</text>
+            <text x="76" y="320" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">estado</text>
+            <text x="304" y="320" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">enum</text>
+            <text x="76" y="344" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.1em">BR-001 · BR-002 · BR-008</text>
           </g>
         </g>
 
@@ -493,20 +516,22 @@
         <!-- ── Value object: Cuota ────────────────────────────────────────────── -->
         <g class="clase" data-titulo="Cuota" data-tipo="Value object · domain.model"
            data-regla="BR-007"
-           data-que="Multiplicador de una apuesta para un mercado (ej: 1.85 para «local gana»). Patrón de VO del proyecto: inmutable, validación en el constructor."
+           data-que="Multiplicador de una apuesta para un mercado (ej: 1.85 para «local gana»). Patrón de VO del proyecto: inmutable, validación en el constructor. Desde FASE 8.5 el constructor canónico es Cuota(Mercado, BigDecimal); Cuota(BigDecimal) equivale a UNO_X_DOS."
            data-relacion="miembro de Partido.cuotas · usada por Pronostico.cuota"
-           data-metodos="valor()"
+           data-metodos="mercado() · valor()"
            data-eventos="—">
           <g class="cuerpo">
-            <rect class="marco" x="340" y="460" width="260" height="92" rx="6" fill="rgba(45,49,66,0.03)" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3"/>
+            <rect class="marco" x="340" y="460" width="260" height="112" rx="6" fill="rgba(45,49,66,0.03)" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3"/>
             <rect x="340" y="460" width="260" height="40" rx="6" fill="rgba(45,49,66,0.05)" stroke="none"/>
             <rect x="340" y="492" width="260" height="8" fill="rgba(45,49,66,0.05)"/>
             <line x1="340" y1="500" x2="600" y2="500" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
             <text x="356" y="476" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">VALUE OBJECT</text>
             <text class="titulo-texto" x="356" y="492" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', sans-serif">Cuota</text>
-            <text x="356" y="520" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">valor</text>
-            <text x="584" y="520" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">BigDecimal · &gt; 1.0</text>
-            <text x="356" y="540" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.1em">BR-007</text>
+            <text x="356" y="520" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">mercado</text>
+            <text x="584" y="520" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">enum Mercado</text>
+            <text x="356" y="540" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">valor</text>
+            <text x="584" y="540" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">BigDecimal · &gt; 1.0</text>
+            <text x="356" y="560" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.1em">BR-007</text>
           </g>
         </g>
 
@@ -559,12 +584,12 @@
         <!-- ── Value object: PosicionTabla ────────────────────────────────────── -->
         <g class="clase" data-titulo="PosicionTabla" data-tipo="Value object · domain.model"
            data-regla="BR-008"
-           data-que="Fila de la tabla de posiciones: equipo, posición y estadísticas. Valida la consistencia aritmética (puntos = 3·ganados + 1·empatados y jugados = G+E+P)."
+           data-que="Fila de la tabla de posiciones: equipo, posición y estadísticas. Valida la consistencia aritmética (puntos = 3·ganados + 1·empatados y jugados = G+E+P). Desde FASE 8.5 incorpora ultimosResultados (fuente #3): los últimos 5 resultados del equipo, clave 1 = más reciente, G/E/P."
            data-relacion="miembro de Liga.posiciones"
-           data-metodos="—"
+           data-metodos="ultimosResultados()"
            data-eventos="—">
           <g class="cuerpo">
-            <rect class="marco" x="60" y="700" width="260" height="152" rx="6" fill="rgba(45,49,66,0.03)" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3"/>
+            <rect class="marco" x="60" y="700" width="260" height="172" rx="6" fill="rgba(45,49,66,0.03)" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3"/>
             <rect x="60" y="700" width="260" height="40" rx="6" fill="rgba(45,49,66,0.05)" stroke="none"/>
             <rect x="60" y="732" width="260" height="8" fill="rgba(45,49,66,0.05)"/>
             <line x1="60" y1="740" x2="320" y2="740" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
@@ -580,6 +605,8 @@
             <text x="304" y="820" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">int</text>
             <text x="76" y="840" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">puntos</text>
             <text x="304" y="840" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">3·G+E (BR-008)</text>
+            <text x="76" y="860" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">ultimosResultados</text>
+            <text x="304" y="860" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">List·G/E/P · #3</text>
           </g>
         </g>
 
@@ -608,36 +635,157 @@
           </g>
         </g>
 
+        <!-- ── Entity: Pais (catálogo) ───────────────────────────────────────── -->
+        <g class="clase" data-titulo="Pais" data-tipo="Entity · domain.model"
+           data-regla="— (catálogo, CU-10)"
+           data-que="País con ligas registradas en Soccerway. Entidad del catálogo (FASE 8.5, fuente #1): tiene identidad propia y vive fuera de los aggregates; es la tabla maestra que alimenta CU-10."
+           data-relacion="1 a N con Liga vía Liga.pais (nombre) → Pais.nombre"
+           data-metodos="—"
+           data-eventos="—">
+          <g class="cuerpo">
+            <rect class="marco" x="340" y="700" width="260" height="192" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+            <rect x="340" y="700" width="260" height="40" rx="6" fill="rgba(45,49,66,0.04)" stroke="none"/>
+            <rect x="340" y="732" width="260" height="8" fill="rgba(45,49,66,0.04)"/>
+            <line x1="340" y1="740" x2="600" y2="740" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+            <text x="356" y="716" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">ENTITY</text>
+            <text class="titulo-texto" x="356" y="732" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', sans-serif">Pais</text>
+            <text x="356" y="760" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace"># id</text>
+            <text x="584" y="760" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">uuid</text>
+            <text x="356" y="780" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">nombre</text>
+            <text x="584" y="780" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">text</text>
+            <text x="356" y="800" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">isoAlpha2</text>
+            <text x="584" y="800" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">text · 2 · único</text>
+            <text x="356" y="820" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">continente</text>
+            <text x="584" y="820" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">text</text>
+            <text x="356" y="840" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">code · href</text>
+            <text x="584" y="840" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">text</text>
+            <text x="356" y="860" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">mapeado</text>
+            <text x="584" y="860" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">bool</text>
+            <text x="356" y="884" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.1em">CU-10 · FUENTE #1</text>
+          </g>
+        </g>
+
+        <!-- ══ RELACIÓN L10 · FuenteExtraccion — DetalleFuenteExtraccion (1:N) ══ -->
+        <g class="relacion" data-titulo="FuenteExtraccion — DetalleFuenteExtraccion"
+           data-tipo="Relación 1:N · ref. por id"
+           data-que="Una fuente del catálogo se asocia a muchas ligas mediante detalles; cada detalle apunta a una única fuente."
+           data-relacion="DetalleFuenteExtraccion.fuente.id → FuenteExtraccion.id"
+           data-regla="unique (liga_id, tipo)"
+           data-metodos="CU-11 · GestionarFuenteExtraccionUseCase.asociarUrlFuente()"
+           data-eventos="—">
+          <g class="cuerpo">
+            <line x1="900" y1="770" x2="900" y2="800" stroke="#4f5d75" stroke-width="1"/>
+            <rect x="888" y="758" width="16" height="12" rx="2" fill="#f5f5f5"/>
+            <text x="896" y="768" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle" font-weight="600">1</text>
+            <rect x="888" y="788" width="16" height="12" rx="2" fill="#f5f5f5"/>
+            <text x="896" y="798" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle" font-weight="600">N</text>
+            <rect x="858" y="772" width="56" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="886" y="782" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em" class="etiqueta">ASOCIA</text>
+          </g>
+        </g>
+
+        <!-- ══ RELACIÓN L11 · Liga — DetalleFuenteExtraccion (1:N) ════════════ -->
+        <g class="relacion" data-titulo="Liga — DetalleFuenteExtraccion"
+           data-tipo="Relación 1:N · ref. por id"
+           data-que="Una liga se configura con tres fuentes (posiciones, calendario, cuotas); cada detalle pertenece a una única liga. CU-04 activa la liga creando sus detalles (BR-001)."
+           data-relacion="DetalleFuenteExtraccion.ligaId → Liga.id"
+           data-regla="BR-001 (activación requiere las fuentes configuradas)"
+           data-metodos="CU-04 · ActivarLigaUseCase.ejecutar(ActivarLigaComando)"
+           data-eventos="—">
+          <g class="cuerpo">
+            <path d="M 320,372 H 610 V 800 H 620" fill="none" stroke="#4f5d75" stroke-width="1"/>
+            <rect x="308" y="360" width="16" height="12" rx="2" fill="#f5f5f5"/>
+            <text x="316" y="370" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle" font-weight="600">1</text>
+            <rect x="608" y="788" width="16" height="12" rx="2" fill="#f5f5f5"/>
+            <text x="616" y="798" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle" font-weight="600">N</text>
+            <rect x="500" y="596" width="116" height="14" rx="2" fill="#f5f5f5"/>
+            <text x="558" y="606" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em" class="etiqueta">CONFIGURA FUENTES</text>
+          </g>
+        </g>
+
+        <!-- ── Entity: FuenteExtraccion (catálogo CU-11) ─────────────────────── -->
+        <g class="clase" data-titulo="FuenteExtraccion" data-tipo="Entity · domain.model"
+           data-regla="— (catálogo, CU-11)"
+           data-que="Fuente del catálogo que provee un tipo de dato (posiciones, calendario o cuotas). Vive fuera de los aggregates; el administrador la registra vía CU-11 y una liga la asocia por tipo con su URL real (path_to_scrape)."
+           data-relacion="1 a N con DetalleFuenteExtraccion vía fuente.id"
+           data-metodos="id() · nombre() · tipo() · activa()"
+           data-eventos="—">
+          <g class="cuerpo">
+            <rect class="marco" x="620" y="620" width="280" height="150" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+            <rect x="620" y="620" width="280" height="40" rx="6" fill="rgba(45,49,66,0.04)" stroke="none"/>
+            <rect x="620" y="652" width="280" height="8" fill="rgba(45,49,66,0.04)"/>
+            <line x1="620" y1="660" x2="900" y2="660" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+            <text x="636" y="636" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">ENTITY</text>
+            <text class="titulo-texto" x="636" y="652" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', sans-serif">FuenteExtraccion</text>
+            <text x="636" y="680" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace"># id</text>
+            <text x="884" y="680" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">uuid</text>
+            <text x="636" y="700" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">nombre</text>
+            <text x="884" y="700" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">text</text>
+            <text x="636" y="720" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">tipo</text>
+            <text x="884" y="720" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">enum TipoFuente · único</text>
+            <text x="636" y="740" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">activa</text>
+            <text x="884" y="740" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">bool</text>
+            <text x="636" y="760" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.1em">CU-11 · CATÁLOGO DE FUENTES</text>
+          </g>
+        </g>
+
+        <!-- ── Entity: DetalleFuenteExtraccion (configuración por liga) ──────── -->
+        <g class="clase" data-titulo="DetalleFuenteExtraccion" data-tipo="Entity · domain.model"
+           data-regla="unique (liga_id, tipo)"
+           data-que="Asociación liga ↔ fuente ↔ URL real (path_to_scrape). Al activar una liga (CU-04) se crean tres detalles (posiciones, calendario, cuotas); los adapters HTTP resuelven la URL por liga y tipo."
+           data-relacion="pertenece a Liga vía ligaId · apunta a FuenteExtraccion vía fuente.id"
+           data-metodos="ligaId() · fuente() · url() · activa()"
+           data-eventos="—">
+          <g class="cuerpo">
+            <rect class="marco" x="620" y="800" width="280" height="150" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+            <rect x="620" y="800" width="280" height="40" rx="6" fill="rgba(45,49,66,0.04)" stroke="none"/>
+            <rect x="620" y="832" width="280" height="8" fill="rgba(45,49,66,0.04)"/>
+            <line x1="620" y1="840" x2="900" y2="840" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+            <text x="636" y="816" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">ENTITY</text>
+            <text class="titulo-texto" x="636" y="832" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', sans-serif">DetalleFuenteExtraccion</text>
+            <text x="636" y="860" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace"># id</text>
+            <text x="884" y="860" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">uuid</text>
+            <text x="636" y="880" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace">→ liga_id</text>
+            <text x="884" y="880" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">uuid · único c/ tipo</text>
+            <text x="636" y="900" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace">→ fuente_id</text>
+            <text x="884" y="900" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">uuid</text>
+            <text x="636" y="920" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">url</text>
+            <text x="884" y="920" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">text · path_to_scrape</text>
+            <text x="636" y="940" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace">activa</text>
+            <text x="884" y="940" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">bool</text>
+          </g>
+        </g>
+
         <!-- ── Legend ─────────────────────────────────────────────────────────── -->
-        <line x1="40" y1="884" x2="1280" y2="884" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
-        <text x="40" y="900" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">LEGEND</text>
+        <line x1="40" y1="1014" x2="1280" y2="1014" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <text x="40" y="1030" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">LEGEND</text>
 
-        <rect x="40" y="912" width="14" height="10" rx="2" fill="rgba(235,108,54,0.04)" stroke="#eb6c36" stroke-width="1"/>
-        <text x="60" y="920" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Aggregate root (focal)</text>
+        <rect x="40" y="1042" width="14" height="10" rx="2" fill="rgba(235,108,54,0.04)" stroke="#eb6c36" stroke-width="1"/>
+        <text x="60" y="1050" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Aggregate root (focal)</text>
 
-        <rect x="228" y="912" width="14" height="10" rx="2" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
-        <text x="248" y="920" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Aggregate root</text>
+        <rect x="228" y="1042" width="14" height="10" rx="2" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+        <text x="248" y="1050" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Aggregate root</text>
 
-        <rect x="380" y="912" width="14" height="10" rx="2" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
-        <text x="400" y="920" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Entity</text>
+        <rect x="380" y="1042" width="14" height="10" rx="2" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="400" y="1050" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Entity</text>
 
-        <rect x="464" y="912" width="14" height="10" rx="2" fill="rgba(45,49,66,0.03)" stroke="#4f5d75" stroke-width="1" stroke-dasharray="3,2"/>
-        <text x="484" y="920" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Value object</text>
+        <rect x="464" y="1042" width="14" height="10" rx="2" fill="rgba(45,49,66,0.03)" stroke="#4f5d75" stroke-width="1" stroke-dasharray="3,2"/>
+        <text x="484" y="1050" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Value object</text>
 
-        <text x="604" y="920" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace" font-weight="600">#</text>
-        <text x="620" y="920" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Identidad</text>
+        <text x="604" y="1050" fill="#2d3142" font-size="10" font-family="'Geist Mono', monospace" font-weight="600">#</text>
+        <text x="620" y="1050" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Identidad</text>
 
-        <text x="700" y="920" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" font-weight="600">→</text>
-        <text x="716" y="920" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Ref. por id</text>
+        <text x="700" y="1050" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" font-weight="600">→</text>
+        <text x="716" y="1050" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Ref. por id</text>
 
-        <text x="808" y="920" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" font-weight="600">1 / N</text>
-        <text x="840" y="920" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Cardinalidad</text>
+        <text x="808" y="1050" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" font-weight="600">1 / N</text>
+        <text x="840" y="1050" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Cardinalidad</text>
 
-        <text x="936" y="920" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" font-weight="600">BR-0xx</text>
-        <text x="984" y="920" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Regla de negocio</text>
+        <text x="936" y="1050" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace" font-weight="600">BR-0xx</text>
+        <text x="984" y="1050" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Regla de negocio</text>
 
-        <line x1="1084" y1="917" x2="1144" y2="917" stroke="#4f5d75" stroke-width="0.8" stroke-dasharray="4,3"/>
-        <text x="1152" y="920" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Miembro del aggregate</text>
+        <line x1="1084" y1="1047" x2="1144" y2="1047" stroke="#4f5d75" stroke-width="0.8" stroke-dasharray="4,3"/>
+        <text x="1152" y="1050" fill="#4f5d75" font-size="8.5" font-family="'Geist', sans-serif">Miembro del aggregate</text>
       </svg>
     </div>
   </div>
