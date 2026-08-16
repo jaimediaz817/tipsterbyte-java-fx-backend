@@ -8,6 +8,7 @@ package com.tipsterbyte.tipsterbytefxv2.application.dto;
 
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Rol;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 public record AutenticacionResultado(
@@ -15,5 +16,6 @@ public record AutenticacionResultado(
         String nombre,
         String email,
         Rol rol,
-        String token) {
+        String token,
+        LocalDateTime fechaCreacion) {
 }

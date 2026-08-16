@@ -1,0 +1,896 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+    "name": "TipsterByte Backend API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Backend API TipsterByte agrupada por feature (Auth, Fuentes, Ligas, Partidos, Pronosticos, Suscripciones). Flujo completo: 20 endpoints.",
+    "version": "1.0.0"
+  },
+  "item": [
+    {
+      "name": "1. Auth",
+      "item": [
+        {
+          "name": "Registro",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Juan Perez\",\n  \"email\": \"juan@example.com\",\n  \"password\": \"secreto123\",\n  \"rol\": \"CLIENTE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/registro",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "registro"
+              ]
+            },
+            "description": "Registro de usuario. Roles válidos: TIPSTER, CLIENTE, ADMIN. Público."
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"juan@example.com\",\n  \"password\": \"secreto123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Login. Devuelve AuthResponse con campo token (JWT). Público. En Tests: pm.collectionVariables.set('access_token', jsonData.token); pm.collectionVariables.set('clienteId', jsonData.usuarioId);"
+          },
+          "response": []
+        }
+      ],
+      "description": "Autenticación: registro y login (públicos)."
+    },
+    {
+      "name": "2. Fuentes",
+      "item": [
+        {
+          "name": "Registrar Fuente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Flashscore Posiciones\",\n  \"tipo\": \"STANDINGS\",\n  \"activa\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/fuentes",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "fuentes"
+              ]
+            },
+            "description": "Registra fuente en catálogo. Tipos: STANDINGS, ODDS_WPLAY, CALENDAR. Roles: ADMIN, TIPSTER, CLIENTE."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar Fuentes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/fuentes",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "fuentes"
+              ]
+            },
+            "description": "Lista catálogo de fuentes. Roles: ADMIN, TIPSTER, CLIENTE."
+          },
+          "response": []
+        }
+      ],
+      "description": "Catálogo de fuentes de extracción."
+    },
+    {
+      "name": "3. Ligas",
+      "item": [
+        {
+          "name": "Listar Ligas Activas",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ligas",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ligas"
+              ]
+            },
+            "description": "Lista ligas en estado ACTIVA. Roles: ADMIN, TIPSTER."
+          },
+          "response": []
+        },
+        {
+          "name": "Asociar URL Fuente a Liga",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"STANDINGS\",\n  \"url\": \"https://www.flashscore.com/posiciones/\",\n  \"activa\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ligas/{{ligaId}}/fuentes/{{tipo}}",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ligas",
+                "{{ligaId}}",
+                "fuentes",
+                "{{tipo}}"
+              ]
+            },
+            "description": "Asocia URL de fuente a liga. tipo: STANDINGS | ODDS_WPLAY | CALENDAR. Roles: ADMIN, TIPSTER."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar Fuentes de Liga",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ligas/{{ligaId}}/fuentes",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ligas",
+                "{{ligaId}}",
+                "fuentes"
+              ]
+            },
+            "description": "Lista URLs de fuentes asociadas a una liga. Roles: ADMIN, TIPSTER."
+          },
+          "response": []
+        },
+        {
+          "name": "Activar Liga",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"urlPosiciones\": \"https://www.flashscore.com/posiciones/\",\n  \"urlCalendario\": \"https://www.soccerway.com/calendario/\",\n  \"urlCuotas\": \"https://www.wplay.co/cuotas/\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ligas/{{ligaId}}/activacion",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ligas",
+                "{{ligaId}}",
+                "activacion"
+              ]
+            },
+            "description": "Activa una liga con URLs de fuentes. Roles: ADMIN, TIPSTER."
+          },
+          "response": []
+        },
+        {
+          "name": "Sincronizar Posiciones",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ligas/{{ligaId}}/sincronizaciones/posiciones",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ligas",
+                "{{ligaId}}",
+                "sincronizaciones",
+                "posiciones"
+              ]
+            },
+            "description": "Sincroniza tabla de posiciones. Roles: ADMIN, TIPSTER."
+          },
+          "response": []
+        },
+        {
+          "name": "Sincronizar Calendario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ligas/{{ligaId}}/sincronizaciones/calendario",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ligas",
+                "{{ligaId}}",
+                "sincronizaciones",
+                "calendario"
+              ]
+            },
+            "description": "Sincroniza calendario de partidos. Roles: ADMIN, TIPSTER."
+          },
+          "response": []
+        },
+        {
+          "name": "Sincronizar Cuotas",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ligas/{{ligaId}}/sincronizaciones/cuotas",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ligas",
+                "{{ligaId}}",
+                "sincronizaciones",
+                "cuotas"
+              ]
+            },
+            "description": "Sincroniza cuotas de apuestas. Roles: ADMIN, TIPSTER."
+          },
+          "response": []
+        },
+        {
+          "name": "Detalle Liga",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ligas/{{ligaId}}",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ligas",
+                "{{ligaId}}"
+              ]
+            },
+            "description": "Detalle de liga con posiciones. Roles: ADMIN, TIPSTER."
+          },
+          "response": []
+        },
+        {
+          "name": "Posiciones Liga",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ligas/{{ligaId}}/posiciones",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ligas",
+                "{{ligaId}}",
+                "posiciones"
+              ]
+            },
+            "description": "Tabla de posiciones de una liga. Roles: ADMIN, TIPSTER."
+          },
+          "response": []
+        }
+      ],
+      "description": "Gestión de ligas: activación, sincronización y consultas."
+    },
+    {
+      "name": "4. Partidos",
+      "item": [
+        {
+          "name": "Partidos por Liga",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/partidos?ligaId={{ligaId}}",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "partidos"
+              ],
+              "query": [
+                {
+                  "key": "ligaId",
+                  "value": "{{ligaId}}",
+                  "description": "ID de la liga (obligatorio)"
+                }
+              ]
+            },
+            "description": "Lista partidos de una liga. Roles: ADMIN, TIPSTER."
+          },
+          "response": []
+        },
+        {
+          "name": "Partidos por Fecha",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/partidos?ligaId={{ligaId}}&fecha={{fecha}}",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "partidos"
+              ],
+              "query": [
+                {
+                  "key": "ligaId",
+                  "value": "{{ligaId}}",
+                  "description": "ID de la liga (obligatorio)"
+                },
+                {
+                  "key": "fecha",
+                  "value": "{{fecha}}",
+                  "description": "Fecha YYYY-MM-DD"
+                }
+              ]
+            },
+            "description": "Lista partidos por liga y fecha. Roles: ADMIN, TIPSTER."
+          },
+          "response": []
+        },
+        {
+          "name": "Proximos Partidos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/partidos?ligaId={{ligaId}}&proximos=true",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "partidos"
+              ],
+              "query": [
+                {
+                  "key": "ligaId",
+                  "value": "{{ligaId}}",
+                  "description": "ID de la liga (obligatorio)"
+                },
+                {
+                  "key": "proximos",
+                  "value": "true",
+                  "description": "Solo próximos partidos"
+                }
+              ]
+            },
+            "description": "Lista próximos partidos de una liga. Roles: ADMIN, TIPSTER."
+          },
+          "response": []
+        },
+        {
+          "name": "Cuotas Partido",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/partidos/{{partidoId}}/cuotas",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "partidos",
+                "{{partidoId}}",
+                "cuotas"
+              ]
+            },
+            "description": "Cuotas de un partido. Roles: ADMIN, TIPSTER."
+          },
+          "response": []
+        },
+        {
+          "name": "Registrar Resultado",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"golesLocal\": 2,\n  \"golesVisitante\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/partidos/{{partidoId}}/resultado",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "partidos",
+                "{{partidoId}}",
+                "resultado"
+              ]
+            },
+            "description": "Registra resultado final de un partido. Roles: ADMIN, TIPSTER."
+          },
+          "response": []
+        }
+      ],
+      "description": "Gestión de partidos: consultas y registro de resultados."
+    },
+    {
+      "name": "5. Pronosticos",
+      "item": [
+        {
+          "name": "Crear Pronostico",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipsterId\": \"{{tipsterId}}\",\n  \"partidoId\": \"{{partidoId}}\",\n  \"mercado\": \"UNO_X_DOS\",\n  \"resultadoEsperado\": \"LOCAL\",\n  \"cuotaValor\": 1.85\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pronosticos",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pronosticos"
+              ]
+            },
+            "description": "Crea pronóstico en BORRADOR. Mercados: UNO_X_DOS, DOBLE_OPORTUNIDAD, OVER_UNDER. Roles: ADMIN, TIPSTER, CLIENTE."
+          },
+          "response": []
+        },
+        {
+          "name": "Publicar Pronostico",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pronosticos/{{pronosticoId}}/publicacion",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pronosticos",
+                "{{pronosticoId}}",
+                "publicacion"
+              ]
+            },
+            "description": "Publica un pronóstico en BORRADOR. Roles: ADMIN, TIPSTER, CLIENTE."
+          },
+          "response": []
+        },
+        {
+          "name": "Consultar Pronosticos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pronosticos?clienteId={{clienteId}}&ligaId={{ligaId}}&fecha={{fecha}}",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pronosticos"
+              ],
+              "query": [
+                {
+                  "key": "clienteId",
+                  "value": "{{clienteId}}",
+                  "description": "ID del cliente (obligatorio)"
+                },
+                {
+                  "key": "ligaId",
+                  "value": "{{ligaId}}",
+                  "description": "ID de la liga (obligatorio)"
+                },
+                {
+                  "key": "fecha",
+                  "value": "{{fecha}}",
+                  "description": "Fecha YYYY-MM-DD (obligatorio)"
+                }
+              ]
+            },
+            "description": "Consulta pronósticos PUBLICADOS de tipsters suscritos. Roles: ADMIN, TIPSTER, CLIENTE."
+          },
+          "response": []
+        }
+      ],
+      "description": "Pronósticos: creación, publicación y consulta."
+    },
+    {
+      "name": "6. Suscripciones",
+      "item": [
+        {
+          "name": "Crear Suscripcion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": \"{{clienteId}}\",\n  \"tipsterId\": \"{{tipsterId}}\",\n  \"planNombre\": \"Plan Mensual\",\n  \"planPrecio\": 9.99,\n  \"planDuracionDias\": 30,\n  \"fechaInicio\": \"2026-08-15T10:00:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/suscripciones",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "suscripciones"
+              ]
+            },
+            "description": "Crea suscripción ACTIVA de cliente a tipster. Rol: CLIENTE."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar Suscripciones",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/suscripciones?clienteId={{clienteId}}",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "suscripciones"
+              ],
+              "query": [
+                {
+                  "key": "clienteId",
+                  "value": "{{clienteId}}",
+                  "description": "ID del cliente (obligatorio, debe coincidir con el autenticado)"
+                }
+              ]
+            },
+            "description": "Lista suscripciones activas del cliente autenticado. Rol: CLIENTE."
+          },
+          "response": []
+        }
+      ],
+      "description": "Suscripciones de clientes a tipsters."
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ligaId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "partidoId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "clienteId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "tipsterId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "pronosticoId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "fecha",
+      "value": "2026-08-15",
+      "type": "string"
+    }
+  ],
+  "event": [],
+  "protocolProfileBehavior": {}
+}

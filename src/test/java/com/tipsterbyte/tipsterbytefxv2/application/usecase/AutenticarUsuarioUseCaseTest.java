@@ -22,6 +22,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -46,7 +47,8 @@ class AutenticarUsuarioUseCaseTest {
     private AutenticarUsuarioUseCase casoDeUso;
 
     private final Usuario usuario = new Usuario(
-            UUID.randomUUID(), "Ana", new Email("ana@example.com"), "hash-bcrypt", Rol.CLIENTE, true);
+            UUID.randomUUID(), "Ana", new Email("ana@example.com"), "hash-bcrypt", Rol.CLIENTE, true,
+            LocalDateTime.now());
 
     @BeforeEach
     void setUp() {
@@ -94,7 +96,8 @@ class AutenticarUsuarioUseCaseTest {
     @Test
     void debe_rechazar_credenciales_si_usuario_inactivo() {
         Usuario inactivo = new Usuario(
-                UUID.randomUUID(), "Ana", new Email("ana@example.com"), "hash", Rol.CLIENTE, false);
+                UUID.randomUUID(), "Ana", new Email("ana@example.com"), "hash", Rol.CLIENTE, false,
+                LocalDateTime.now());
         when(usuarioRepository.buscarPorEmail(any(Email.class))).thenReturn(Optional.of(inactivo));
 
         assertThrows(DomainException.class, () -> casoDeUso.ejecutar(

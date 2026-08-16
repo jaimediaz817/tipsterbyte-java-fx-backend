@@ -16,6 +16,7 @@ import com.tipsterbyte.tipsterbytefxv2.application.dto.PartidoFuente;
 import com.tipsterbyte.tipsterbytefxv2.application.port.CacheClaves;
 import com.tipsterbyte.tipsterbytefxv2.application.port.CacheLecturas;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorCalendario;
+import com.tipsterbyte.tipsterbytefxv2.infrastructure.exception.InfraestructureException;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -65,7 +66,7 @@ public class ProveedorCalendarioCacheable implements ProveedorCalendario {
         try {
             cache.guardar(clave, objectMapper.writeValueAsString(calendario), ttl);
         } catch (Exception ex) {
-            throw new IllegalStateException("No se pudo serializar calendario para cache: " + clave, ex);
+            throw new InfraestructureException("No se pudo serializar calendario para cache: " + clave, ex);
         }
     }
 
@@ -74,7 +75,7 @@ public class ProveedorCalendarioCacheable implements ProveedorCalendario {
             return objectMapper.readValue(json, new TypeReference<List<PartidoFuente>>() {
             });
         } catch (Exception ex) {
-            throw new IllegalStateException("No se pudo deserializar calendario desde cache: " + clave, ex);
+            throw new InfraestructureException("No se pudo deserializar calendario desde cache: " + clave, ex);
         }
     }
 }

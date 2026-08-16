@@ -18,6 +18,7 @@ import com.tipsterbyte.tipsterbytefxv2.application.dto.PosicionFuente;
 import com.tipsterbyte.tipsterbytefxv2.application.port.CacheClaves;
 import com.tipsterbyte.tipsterbytefxv2.application.port.CacheLecturas;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorPosiciones;
+import com.tipsterbyte.tipsterbytefxv2.infrastructure.exception.InfraestructureException;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -71,7 +72,7 @@ public class ProveedorPosicionesCacheable implements ProveedorPosiciones {
         } catch (Exception ex) {
             // [POR QUÉ]: Un fallo de serialización no debe tumbar la sincronización;
             //            el decorador degrada a no-cache (deja pasar la lectura real).
-            throw new IllegalStateException("No se pudo serializar posiciones para cache: " + clave, ex);
+            throw new InfraestructureException("No se pudo serializar posiciones para cache: " + clave, ex);
         }
     }
 
@@ -81,7 +82,7 @@ public class ProveedorPosicionesCacheable implements ProveedorPosiciones {
             return objectMapper.readValue(json, new TypeReference<List<PosicionFuente>>() {
             });
         } catch (Exception ex) {
-            throw new IllegalStateException("No se pudo deserializar posiciones desde cache: " + clave, ex);
+            throw new InfraestructureException("No se pudo deserializar posiciones desde cache: " + clave, ex);
         }
     }
 }

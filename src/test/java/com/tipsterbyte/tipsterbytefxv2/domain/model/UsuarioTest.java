@@ -9,6 +9,7 @@ package com.tipsterbyte.tipsterbytefxv2.domain.model;
 import com.tipsterbyte.tipsterbytefxv2.domain.DomainException;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -22,20 +23,23 @@ class UsuarioTest {
     private final String hash = "$2a$10$abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGH";
 
     @Test
-    void debe_crear_usuario_activo_con_rol() {
+    void debe_crear_usuario_activo_con_rol_y_fecha_creacion() {
         Usuario usuario = new Usuario("Ana", email, hash, Rol.TIPSTER);
         assertEquals("Ana", usuario.nombre());
         assertEquals(email, usuario.email());
         assertEquals(hash, usuario.passwordHash());
         assertEquals(Rol.TIPSTER, usuario.rol());
         assertTrue(usuario.activo());
+        assertTrue(usuario.fechaCreacion() != null);
     }
 
     @Test
     void debe_reconstruir_usuario_inactivo() {
-        Usuario usuario = new Usuario(UUID.randomUUID(), "Ana", email, hash, Rol.ADMIN, false);
+        LocalDateTime fecha = LocalDateTime.of(2026, 8, 16, 10, 30);
+        Usuario usuario = new Usuario(UUID.randomUUID(), "Ana", email, hash, Rol.SUPERADMIN, false, fecha);
         assertFalse(usuario.activo());
-        assertEquals(Rol.ADMIN, usuario.rol());
+        assertEquals(Rol.SUPERADMIN, usuario.rol());
+        assertEquals(fecha, usuario.fechaCreacion());
     }
 
     @Test
@@ -60,6 +64,13 @@ class UsuarioTest {
 
     @Test
     void debe_rechazar_id_nulo_en_reconstruccion() {
-        assertThrows(DomainException.class, () -> new Usuario(null, "Ana", email, hash, Rol.CLIENTE, true));
+        assertThrows(DomainException.class, () -> new Usuario(null, "Ana", email, hash, Rol.CLIENTE, true,
+                LocalDateTime.now()));
+    }
+
+    @Test
+    void debe_rechazar_fecha_creacion_nula_en_reconstruccion() {
+        assertThrows(DomainException.class, () -> new Usuario(UUID.randomUUID(), "Ana", email, hash, Rol.CLIENTE,
+                true, null));
     }
 }

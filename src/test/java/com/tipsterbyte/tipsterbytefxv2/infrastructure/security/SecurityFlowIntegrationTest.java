@@ -59,14 +59,32 @@ class SecurityFlowIntegrationTest extends AbstractRepositoryJpaAdapterTest {
     @Test
     void debe_rechazar_endpoint_protegido_sin_token() throws Exception {
         mockMvc.perform(get("/api/v1/fuentes"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.error").value("Unauthorized"))
+                .andExpect(jsonPath("$.mensaje").value("No autenticado: se requiere un token JWT válido"));
     }
 
     @Test
     void debe_rechazar_endpoint_protegido_con_token_invalido() throws Exception {
         mockMvc.perform(get("/api/v1/fuentes")
                         .header("Authorization", "Bearer token-invalido"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401));
+    }
+
+    @Test
+    void debe_rechazar_acceso_por_rol_insuficiente() throws Exception {
+        registrarUsuario("cliente@example.com", "CLIENTE");
+        String token = loginYExtraerToken("cliente@example.com", "clave-secreta");
+
+        // /api/v1/ligas exige SUPERADMIN o TIPSTER; CLIENTE → 403 con ApiError.
+        mockMvc.perform(get("/api/v1/ligas")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.error").value("Forbidden"))
+                .andExpect(jsonPath("$.mensaje").value("Acceso denegado: el rol actual no tiene permiso para este recurso"));
     }
 
     @Test

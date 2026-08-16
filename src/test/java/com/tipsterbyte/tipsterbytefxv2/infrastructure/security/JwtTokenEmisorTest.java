@@ -11,6 +11,7 @@ import com.tipsterbyte.tipsterbytefxv2.domain.model.Usuario;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -29,7 +30,7 @@ class JwtTokenEmisorTest {
         emisor = new JwtTokenEmisor(SECRETO, 86400000);
         usuario = new Usuario(
                 UUID.randomUUID(), "Ana", new Email("ana@example.com"),
-                "hash-bcrypt", Rol.ADMIN, true);
+                "hash-bcrypt", Rol.SUPERADMIN, true, LocalDateTime.now());
     }
 
     @Test

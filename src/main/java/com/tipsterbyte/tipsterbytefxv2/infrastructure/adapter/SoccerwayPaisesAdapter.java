@@ -14,8 +14,10 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.tipsterbyte.tipsterbytefxv2.application.dto.PaisFuente;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorPaises;
+import com.tipsterbyte.tipsterbytefxv2.infrastructure.exception.InfraestructureException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 import java.util.List;
 
@@ -30,17 +32,21 @@ public class SoccerwayPaisesAdapter implements ProveedorPaises {
 
     @Override
     public List<PaisFuente> obtenerPaises() {
-        RespuestaPaises respuesta = restClient.get()
-                .uri("/ext-soccerway-countries")
-                .retrieve()
-                .body(RespuestaPaises.class);
-        if (respuesta == null || respuesta.data() == null) {
-            return List.of();
+        try {
+            RespuestaPaises respuesta = restClient.get()
+                    .uri("/ext-soccerway-countries")
+                    .retrieve()
+                    .body(RespuestaPaises.class);
+            if (respuesta == null || respuesta.data() == null) {
+                return List.of();
+            }
+            return respuesta.data().stream()
+                    .map(p -> new PaisFuente(
+                            p.nombre(), p.href(), p.code(), p.isoAlpha2(), p.continente(), p.mapeado()))
+                    .toList();
+        } catch (RestClientException ex) {
+            throw new InfraestructureException("Fuente de países no disponible: " + ex.getMessage(), ex);
         }
-        return respuesta.data().stream()
-                .map(p -> new PaisFuente(
-                        p.nombre(), p.href(), p.code(), p.isoAlpha2(), p.continente(), p.mapeado()))
-                .toList();
     }
 
     // [QUÉ]: Wrapper de la respuesta real de #1 (success, total, data).

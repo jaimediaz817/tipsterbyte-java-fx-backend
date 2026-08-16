@@ -23,8 +23,10 @@ import com.tipsterbyte.tipsterbytefxv2.domain.DomainException;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Mercado;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Partido;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.TipoFuenteExtraccion;
+import com.tipsterbyte.tipsterbytefxv2.infrastructure.exception.InfraestructureException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -63,25 +65,29 @@ public class WplayCuotasAdapter implements ProveedorCuotas {
                 .orElseThrow(() -> new DomainException("Partido no encontrado: " + partidoId));
         String url = resolverUrl(partido.ligaId());
 
-        RespuestaCuotas respuesta = restClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/ext-next-matches-wplay-by-league")
-                        .queryParam("path_to_scrape", url)
-                        .build())
-                .retrieve()
-                .body(RespuestaCuotas.class);
-        if (respuesta == null || respuesta.matchesWplay() == null || respuesta.matchesWplay().isEmpty()) {
-            return List.of();
-        }
+        try {
+            RespuestaCuotas respuesta = restClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/ext-next-matches-wplay-by-league")
+                            .queryParam("path_to_scrape", url)
+                            .build())
+                    .retrieve()
+                    .body(RespuestaCuotas.class);
+            if (respuesta == null || respuesta.matchesWplay() == null || respuesta.matchesWplay().isEmpty()) {
+                return List.of();
+            }
 
-        // [POR QUÉ]: Wplay devuelve los próximos partidos de la liga; el adapter filtra
-        //            por equipos y fecha para entregar solo las cuotas del partido pedido.
-        return respuesta.matchesWplay().stream()
-                .filter(m -> coincidePartido(m, partido))
-                .findFirst()
-                .map(this::toCuotasFuente)
-                .orElseThrow(() -> new DomainException(
-                        "El partido no está entre los próximos de Wplay: " + partidoId));
+            // [POR QUÉ]: Wplay devuelve los próximos partidos de la liga; el adapter filtra
+            //            por equipos y fecha para entregar solo las cuotas del partido pedido.
+            return respuesta.matchesWplay().stream()
+                    .filter(m -> coincidePartido(m, partido))
+                    .findFirst()
+                    .map(this::toCuotasFuente)
+                    .orElseThrow(() -> new DomainException(
+                            "El partido no está entre los próximos de Wplay: " + partidoId));
+        } catch (RestClientException ex) {
+            throw new InfraestructureException("Fuente de cuotas no disponible: " + ex.getMessage(), ex);
+        }
     }
 
     // [QUÉ]: Resuelve la URL (path_to_scrape) de la fuente de cuotas Wplay de la liga.

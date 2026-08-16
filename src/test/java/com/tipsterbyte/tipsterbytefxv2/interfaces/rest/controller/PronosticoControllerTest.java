@@ -52,7 +52,7 @@ class PronosticoControllerTest {
     }
 
     @Test
-    void debe_crear_pronostico_y_devolver_201_con_location() throws Exception {
+    void debe_crear_pronostico_y_devolver_201_con_id_y_location() throws Exception {
         UUID tipsterId = UUID.randomUUID();
         UUID partidoId = UUID.randomUUID();
         UUID pronosticoId = UUID.randomUUID();
@@ -65,6 +65,7 @@ class PronosticoControllerTest {
                                  "resultadoEsperado": "LOCAL", "cuotaValor": 2.5}"""
                                 .formatted(tipsterId, partidoId)))
                 .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(pronosticoId.toString()))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
                         .header().string("Location", "/api/v1/pronosticos/" + pronosticoId));
 

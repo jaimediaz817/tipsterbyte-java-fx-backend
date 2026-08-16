@@ -17,6 +17,7 @@ import com.tipsterbyte.tipsterbytefxv2.application.dto.CuotaFuente;
 import com.tipsterbyte.tipsterbytefxv2.application.port.CacheClaves;
 import com.tipsterbyte.tipsterbytefxv2.application.port.CacheLecturas;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorCuotas;
+import com.tipsterbyte.tipsterbytefxv2.infrastructure.exception.InfraestructureException;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -66,7 +67,7 @@ public class ProveedorCuotasCacheable implements ProveedorCuotas {
         try {
             cache.guardar(clave, objectMapper.writeValueAsString(cuotas), ttl);
         } catch (Exception ex) {
-            throw new IllegalStateException("No se pudo serializar cuotas para cache: " + clave, ex);
+            throw new InfraestructureException("No se pudo serializar cuotas para cache: " + clave, ex);
         }
     }
 
@@ -75,7 +76,7 @@ public class ProveedorCuotasCacheable implements ProveedorCuotas {
             return objectMapper.readValue(json, new TypeReference<List<CuotaFuente>>() {
             });
         } catch (Exception ex) {
-            throw new IllegalStateException("No se pudo deserializar cuotas desde cache: " + clave, ex);
+            throw new InfraestructureException("No se pudo deserializar cuotas desde cache: " + clave, ex);
         }
     }
 }

@@ -11,6 +11,7 @@
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.infrastructure.persistence.entity;
 
+import com.tipsterbyte.tipsterbytefxv2.domain.DomainException;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.ResultadoReciente;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -159,7 +160,7 @@ public class PosicionTablaEntity {
                     case "G" -> ResultadoReciente.GANADO;
                     case "E" -> ResultadoReciente.EMPATE;
                     case "P" -> ResultadoReciente.PERDIDO;
-                    default -> throw new IllegalArgumentException("Resultado reciente inválido en BD: " + c);
+                    default -> throw new DomainException("Resultado reciente inválido en BD: " + c);
                 })
                 .toList();
     }

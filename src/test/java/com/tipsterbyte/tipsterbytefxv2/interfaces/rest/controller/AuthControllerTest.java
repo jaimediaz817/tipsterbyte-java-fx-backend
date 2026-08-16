@@ -21,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -52,7 +53,8 @@ class AuthControllerTest {
         UUID id = UUID.randomUUID();
         when(registrarUsuarioUseCase.ejecutar(any(RegistrarUsuarioComando.class))).thenReturn(id);
         when(autenticarUsuarioUseCase.ejecutar(any(AutenticarUsuarioComando.class)))
-                .thenReturn(new AutenticacionResultado(id, "Ana", "ana@example.com", Rol.TIPSTER, "jwt.token"));
+                .thenReturn(new AutenticacionResultado(id, "Ana", "ana@example.com", Rol.TIPSTER, "jwt.token",
+                        LocalDateTime.of(2026, 8, 16, 10, 30)));
 
         mockMvc.perform(post("/api/v1/auth/registro")
                         .contentType("application/json")
@@ -62,14 +64,16 @@ class AuthControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.usuarioId").value(id.toString()))
                 .andExpect(jsonPath("$.token").value("jwt.token"))
-                .andExpect(jsonPath("$.rol").value("TIPSTER"));
+                .andExpect(jsonPath("$.rol").value("TIPSTER"))
+                .andExpect(jsonPath("$.fechaCreacion").isNotEmpty());
     }
 
     @Test
     void debe_login_devolver_200_con_token() throws Exception {
         UUID id = UUID.randomUUID();
         when(autenticarUsuarioUseCase.ejecutar(any(AutenticarUsuarioComando.class)))
-                .thenReturn(new AutenticacionResultado(id, "Ana", "ana@example.com", Rol.CLIENTE, "jwt.token"));
+                .thenReturn(new AutenticacionResultado(id, "Ana", "ana@example.com", Rol.CLIENTE, "jwt.token",
+                        LocalDateTime.of(2026, 8, 16, 10, 30)));
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType("application/json")

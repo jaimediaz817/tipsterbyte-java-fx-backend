@@ -1,31 +1,43 @@
 // ─────────────────────────────────────────────
 // [QUÉ]: Controller REST de ligas: expone CU-04 (activar liga con URLs de fuentes)
 //        y las sincronizaciones CU-01 (posiciones), CU-02 (calendario) y CU-03 (cuotas).
+//        Además expone endpoints GET de consulta para el frontend Angular (listado,
+//        detalle y posiciones).
 // [POR QUÉ]: Es la puerta de entrada HTTP de los casos de uso del administrador sobre
-//            la ingesta de datos. Traduce request DTOs a comandos/DTOs de application.
+//            la ingesta de datos y de las consultas del tipster/cliente. Traduce request
+//            DTOs a comandos/DTOs de application y mapea aggregates a response DTOs.
 //            El bean solo se registra si app.api.rest.enabled=true (FASE 8.5 habilita
 //            el wiring); hasta entonces se ejercita con MockMvc standalone.
 // [RELACIONES]: CU-04 → ActivarLigaUseCase + ActivarLigaComando; CU-01/CU-02/CU-03 →
-//               use cases de sincronización; → SincronizacionResponse.
+//               use cases de sincronización; consultas → LigaRepository;
+//               → SincronizacionResponse, LigaResponse, LigaDetalleResponse, PosicionTablaResponse.
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.interfaces.rest.controller;
 
 import com.tipsterbyte.tipsterbytefxv2.application.dto.ActivarLigaComando;
+import com.tipsterbyte.tipsterbytefxv2.application.port.LigaRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.ActivarLigaUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCalendarioUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCuotasUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarPosicionesUseCase;
+import com.tipsterbyte.tipsterbytefxv2.domain.model.Liga;
+import com.tipsterbyte.tipsterbytefxv2.domain.model.PosicionTabla;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.request.ActivarLigaRequest;
+import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.LigaDetalleResponse;
+import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.LigaResponse;
+import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.PosicionTablaResponse;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.SincronizacionResponse;
 import jakarta.validation.Valid;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -37,16 +49,20 @@ public class LigaController {
     private final SincronizarPosicionesUseCase sincronizarPosicionesUseCase;
     private final SincronizarCalendarioUseCase sincronizarCalendarioUseCase;
     private final SincronizarCuotasUseCase sincronizarCuotasUseCase;
+    private final LigaRepository ligaRepository;
 
-    // [QUÉ]: Construye el controller con sus casos de uso (inyección por constructor).
+    // [QUÉ]: Construye el controller con sus casos de uso y repositorio de consulta
+    //        (inyección por constructor).
     public LigaController(ActivarLigaUseCase activarLigaUseCase,
                           SincronizarPosicionesUseCase sincronizarPosicionesUseCase,
                           SincronizarCalendarioUseCase sincronizarCalendarioUseCase,
-                          SincronizarCuotasUseCase sincronizarCuotasUseCase) {
+                          SincronizarCuotasUseCase sincronizarCuotasUseCase,
+                          LigaRepository ligaRepository) {
         this.activarLigaUseCase = activarLigaUseCase;
         this.sincronizarPosicionesUseCase = sincronizarPosicionesUseCase;
         this.sincronizarCalendarioUseCase = sincronizarCalendarioUseCase;
         this.sincronizarCuotasUseCase = sincronizarCuotasUseCase;
+        this.ligaRepository = ligaRepository;
     }
 
     // [QUÉ]: Endpoint POST /api/v1/ligas/{ligaId}/activacion — activa una liga (CU-04)
@@ -79,5 +95,72 @@ public class LigaController {
     public ResponseEntity<SincronizacionResponse> sincronizarCuotas(@PathVariable UUID ligaId) {
         int eventos = sincronizarCuotasUseCase.ejecutar(ligaId).size();
         return ResponseEntity.ok(new SincronizacionResponse(eventos));
+    }
+
+    // [QUÉ]: Endpoint GET /api/v1/ligas — lista las ligas en estado ACTIVA.
+    // [POR QUÉ]: El frontend Angular necesita poblar el selector de ligas disponibles
+    //            para sincronización y pronósticos (HU-01).
+    // [ALTERNATIVAS]: Incluir ligas BORRADOR; se descarta porque solo las ACTIVA tienen
+    //                 datos completos para mostrar al tipster.
+    @GetMapping
+    public ResponseEntity<List<LigaResponse>> listarLigasActivas() {
+        List<LigaResponse> ligas = ligaRepository.buscarActivas().stream()
+                .map(this::toLigaResponse)
+                .toList();
+        return ResponseEntity.ok(ligas);
+    }
+
+    // [QUÉ]: Endpoint GET /api/v1/ligas/{ligaId} — detalle de una liga con posiciones.
+    // [POR QUÉ]: La pantalla de detalle de liga del frontend muestra nombre, país,
+    //            temporada y la tabla de posiciones completa (HU-01).
+    @GetMapping("/{ligaId}")
+    public ResponseEntity<LigaDetalleResponse> obtenerLiga(@PathVariable UUID ligaId) {
+        Liga liga = ligaRepository.buscarPorId(ligaId)
+                .orElseThrow(() -> new com.tipsterbyte.tipsterbytefxv2.domain.DomainException("Liga no encontrada: " + ligaId));
+        List<PosicionTablaResponse> posiciones = liga.posiciones().stream()
+                .map(this::toPosicionResponse)
+                .toList();
+        LigaDetalleResponse response = new LigaDetalleResponse(
+                liga.id(), liga.nombre(), liga.pais(), liga.estado(),
+                liga.temporada().anioInicio() + "/" + liga.temporada().anioFin(),
+                posiciones);
+        return ResponseEntity.ok(response);
+    }
+
+    // [QUÉ]: Endpoint GET /api/v1/ligas/{ligaId}/posiciones — tabla de posiciones.
+    // [POR QUÉ]: El frontend puede necesitar solo la clasificación sin los metadatos
+    //            de la liga (ej: widget embebido). Evita cargar datos innecesarios.
+    @GetMapping("/{ligaId}/posiciones")
+    public ResponseEntity<List<PosicionTablaResponse>> obtenerPosiciones(@PathVariable UUID ligaId) {
+        Liga liga = ligaRepository.buscarPorId(ligaId)
+                .orElseThrow(() -> new com.tipsterbyte.tipsterbytefxv2.domain.DomainException("Liga no encontrada: " + ligaId));
+        List<PosicionTablaResponse> posiciones = liga.posiciones().stream()
+                .map(this::toPosicionResponse)
+                .toList();
+        return ResponseEntity.ok(posiciones);
+    }
+
+    private LigaResponse toLigaResponse(Liga liga) {
+        return new LigaResponse(
+                liga.id(),
+                liga.nombre(),
+                liga.pais(),
+                liga.estado(),
+                liga.temporada().anioInicio() + "/" + liga.temporada().anioFin());
+    }
+
+    private PosicionTablaResponse toPosicionResponse(PosicionTabla posicion) {
+        return new PosicionTablaResponse(
+                posicion.equipo().id(),
+                posicion.equipo().nombre(),
+                posicion.posicion(),
+                posicion.jugados(),
+                posicion.ganados(),
+                posicion.empatados(),
+                posicion.perdidos(),
+                posicion.golesFavor(),
+                posicion.golesContra(),
+                posicion.puntos(),
+                posicion.ultimosResultados());
     }
 }

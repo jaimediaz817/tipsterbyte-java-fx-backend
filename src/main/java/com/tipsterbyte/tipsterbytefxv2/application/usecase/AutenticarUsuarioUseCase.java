@@ -44,6 +44,7 @@ public final class AutenticarUsuarioUseCase {
         }
         String token = tokenEmisor.emitirToken(usuario);
         return new AutenticacionResultado(
-                usuario.id(), usuario.nombre(), usuario.email().direccion(), usuario.rol(), token);
+                usuario.id(), usuario.nombre(), usuario.email().direccion(), usuario.rol(), token,
+                usuario.fechaCreacion());
     }
 }

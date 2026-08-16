@@ -19,8 +19,10 @@ import com.tipsterbyte.tipsterbytefxv2.application.port.DetalleFuenteExtraccionR
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorCalendario;
 import com.tipsterbyte.tipsterbytefxv2.domain.DomainException;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.TipoFuenteExtraccion;
+import com.tipsterbyte.tipsterbytefxv2.infrastructure.exception.InfraestructureException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -44,32 +46,36 @@ public class SoccerwayCalendarioAdapter implements ProveedorCalendario {
     @Override
     public List<PartidoFuente> obtenerCalendario(UUID ligaId) {
         String url = resolverUrl(ligaId);
-        RespuestaCalendario respuesta = restClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/ext-calendar-league-by-league-v2")
-                        .queryParam("path_to_scrape", url)
-                        .build())
-                .retrieve()
-                .body(RespuestaCalendario.class);
-        if (respuesta == null || respuesta.partidosPorJornada() == null) {
-            return List.of();
-        }
+        try {
+            RespuestaCalendario respuesta = restClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/ext-calendar-league-by-league-v2")
+                            .queryParam("path_to_scrape", url)
+                            .build())
+                    .retrieve()
+                    .body(RespuestaCalendario.class);
+            if (respuesta == null || respuesta.partidosPorJornada() == null) {
+                return List.of();
+            }
 
-        // [POR QUÉ]: FASE 8.5 solo crea partidos (equipos + fechaHora). Los goles,
-        //            estado FINALIZADO y estadísticas quedan para un futuro CU de
-        //            resultados (decisión del usuario, documentada en fuentes-externas.md).
-        List<PartidoFuente> partidos = new ArrayList<>();
-        for (List<PartidoJson> jornada : respuesta.partidosPorJornada()) {
-            if (jornada == null) {
-                continue;
+            // [POR QUÉ]: FASE 8.5 solo crea partidos (equipos + fechaHora). Los goles,
+            //            estado FINALIZADO y estadísticas quedan para un futuro CU de
+            //            resultados (decisión del usuario, documentada en fuentes-externas.md).
+            List<PartidoFuente> partidos = new ArrayList<>();
+            for (List<PartidoJson> jornada : respuesta.partidosPorJornada()) {
+                if (jornada == null) {
+                    continue;
+                }
+                for (PartidoJson partido : jornada) {
+                    partidos.add(new PartidoFuente(
+                            partido.equipoLocal(), partido.equipoVisitante(),
+                            combinarFechaHora(partido.fechaIso(), partido.hora())));
+                }
             }
-            for (PartidoJson partido : jornada) {
-                partidos.add(new PartidoFuente(
-                        partido.equipoLocal(), partido.equipoVisitante(),
-                        combinarFechaHora(partido.fechaIso(), partido.hora())));
-            }
+            return partidos;
+        } catch (RestClientException ex) {
+            throw new InfraestructureException("Fuente de calendario no disponible: " + ex.getMessage(), ex);
         }
-        return partidos;
     }
 
     // [QUÉ]: Resuelve la URL (path_to_scrape) de la fuente de calendario de la liga.

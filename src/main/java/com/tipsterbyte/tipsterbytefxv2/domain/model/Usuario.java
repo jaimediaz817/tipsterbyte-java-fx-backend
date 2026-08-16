@@ -14,6 +14,7 @@ package com.tipsterbyte.tipsterbytefxv2.domain.model;
 
 import com.tipsterbyte.tipsterbytefxv2.domain.DomainException;
 
+import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -25,15 +26,19 @@ public final class Usuario {
     private final String passwordHash;
     private final Rol rol;
     private final boolean activo;
+    private final LocalDateTime fechaCreacion;
 
-    // [QUÉ]: Construye un usuario nuevo (id generado, ACTIVO por defecto).
+    // [QUÉ]: Construye un usuario nuevo (id generado, ACTIVO por defecto, fecha de
+    //        creación = ahora).
     public Usuario(String nombre, Email email, String passwordHash, Rol rol) {
-        this(UUID.randomUUID(), nombre, email, passwordHash, rol, true);
+        this(UUID.randomUUID(), nombre, email, passwordHash, rol, true, LocalDateTime.now());
     }
 
     // [QUÉ]: Construye un usuario con identidad y estado provistos (reconstrucción).
-    // [POR QUÉ]: Valida invariantes: nombre, email, hash no vacío y rol no nulo.
-    public Usuario(UUID id, String nombre, Email email, String passwordHash, Rol rol, boolean activo) {
+    // [POR QUÉ]: Valida invariantes: nombre, email, hash y fecha de creación no nulos,
+    //            y rol no nulo.
+    public Usuario(UUID id, String nombre, Email email, String passwordHash, Rol rol, boolean activo,
+                   LocalDateTime fechaCreacion) {
         if (id == null) {
             throw new DomainException("Usuario requiere id");
         }
@@ -49,12 +54,16 @@ public final class Usuario {
         if (rol == null) {
             throw new DomainException("Usuario requiere rol");
         }
+        if (fechaCreacion == null) {
+            throw new DomainException("Usuario requiere fecha de creación");
+        }
         this.id = id;
         this.nombre = nombre;
         this.email = email;
         this.passwordHash = passwordHash;
         this.rol = rol;
         this.activo = activo;
+        this.fechaCreacion = fechaCreacion;
     }
 
     public UUID id() {
@@ -79,6 +88,10 @@ public final class Usuario {
 
     public boolean activo() {
         return activo;
+    }
+
+    public LocalDateTime fechaCreacion() {
+        return fechaCreacion;
     }
 
     @Override

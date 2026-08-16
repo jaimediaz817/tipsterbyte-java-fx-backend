@@ -20,6 +20,8 @@ import com.tipsterbyte.tipsterbytefxv2.application.usecase.ConsultarPronosticosU
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.CrearPronosticoUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.PublicarPronosticoUseCase;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.request.CrearPronosticoRequest;
+import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.PronosticoResponse;
+import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.RecursoCreadoResponse;
 import jakarta.validation.Valid;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -57,8 +59,10 @@ public class PronosticoController {
     }
 
     // [QUÉ]: Endpoint POST /api/v1/pronosticos — crea un pronóstico en BORRADOR (CU-06).
+    // [POR QUÉ]: Devuelve 201 con el id del recurso creado para que el frontend no
+    //            tenga que parsear el header Location.
     @PostMapping
-    public ResponseEntity<Void> crearPronostico(@Valid @RequestBody CrearPronosticoRequest request) {
+    public ResponseEntity<RecursoCreadoResponse> crearPronostico(@Valid @RequestBody CrearPronosticoRequest request) {
         CrearPronosticoComando comando = new CrearPronosticoComando(
                 request.tipsterId(),
                 request.partidoId(),
@@ -68,7 +72,7 @@ public class PronosticoController {
         UUID pronosticoId = crearPronosticoUseCase.ejecutar(comando);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .header("Location", "/api/v1/pronosticos/" + pronosticoId)
-                .build();
+                .body(new RecursoCreadoResponse(pronosticoId));
     }
 
     // [QUÉ]: Endpoint POST /api/v1/pronosticos/{pronosticoId}/publicacion — publica un
@@ -83,12 +87,22 @@ public class PronosticoController {
     //        pronósticos PUBLICADO de tipsters suscritos para una liga y fecha (CU-08,
     //        BR-006).
     @GetMapping
-    public ResponseEntity<List<PronosticoPublicoDto>> consultarPronosticos(
+    public ResponseEntity<List<PronosticoResponse>> consultarPronosticos(
             @RequestParam UUID clienteId,
             @RequestParam UUID ligaId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha) {
-        List<PronosticoPublicoDto> pronosticos = consultarPronosticosUseCase
-                .ejecutar(clienteId, ligaId, fecha, LocalDateTime.now());
+        List<PronosticoResponse> pronosticos = consultarPronosticosUseCase
+                .ejecutar(clienteId, ligaId, fecha, LocalDateTime.now())
+                .stream()
+                .map(this::toPronosticoResponse)
+                .toList();
         return ResponseEntity.ok(pronosticos);
+    }
+
+    private PronosticoResponse toPronosticoResponse(PronosticoPublicoDto dto) {
+        return new PronosticoResponse(
+                dto.pronosticoId(), dto.tipsterId(), dto.partidoId(),
+                dto.equipoLocal(), dto.equipoVisitante(), dto.fechaHora(),
+                dto.mercado(), dto.resultadoEsperado(), dto.cuotaValor());
     }
 }

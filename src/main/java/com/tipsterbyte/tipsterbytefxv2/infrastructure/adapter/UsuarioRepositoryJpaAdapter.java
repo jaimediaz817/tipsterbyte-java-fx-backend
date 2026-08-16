@@ -50,12 +50,12 @@ public class UsuarioRepositoryJpaAdapter implements UsuarioRepository {
     private Usuario toDominio(UsuarioEntity entidad) {
         return new Usuario(
                 entidad.getId(), entidad.getNombre(), new Email(entidad.getEmail()),
-                entidad.getPasswordHash(), entidad.getRol(), entidad.isActivo());
+                entidad.getPasswordHash(), entidad.getRol(), entidad.isActivo(), entidad.getFechaCreacion());
     }
 
     private UsuarioEntity toEntity(Usuario usuario) {
         return new UsuarioEntity(
                 usuario.id(), usuario.nombre(), usuario.email().direccion(),
-                usuario.passwordHash(), usuario.rol(), usuario.activo());
+                usuario.passwordHash(), usuario.rol(), usuario.activo(), usuario.fechaCreacion());
     }
 }

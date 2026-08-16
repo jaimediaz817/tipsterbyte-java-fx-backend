@@ -20,8 +20,10 @@ import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorPosiciones;
 import com.tipsterbyte.tipsterbytefxv2.domain.DomainException;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.ResultadoReciente;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.TipoFuenteExtraccion;
+import com.tipsterbyte.tipsterbytefxv2.infrastructure.exception.InfraestructureException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -43,19 +45,23 @@ public class FlashscorePosicionesAdapter implements ProveedorPosiciones {
     @Override
     public List<PosicionFuente> obtenerPosiciones(UUID ligaId) {
         String url = resolverUrl(ligaId);
-        RespuestaPosiciones respuesta = restClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/ext-position-table-by-league-stable")
-                        .queryParam("path_to_scrape", url)
-                        .build())
-                .retrieve()
-                .body(RespuestaPosiciones.class);
-        if (respuesta == null || respuesta.tablaPosiciones() == null) {
-            return List.of();
+        try {
+            RespuestaPosiciones respuesta = restClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/ext-position-table-by-league-stable")
+                            .queryParam("path_to_scrape", url)
+                            .build())
+                    .retrieve()
+                    .body(RespuestaPosiciones.class);
+            if (respuesta == null || respuesta.tablaPosiciones() == null) {
+                return List.of();
+            }
+            return respuesta.tablaPosiciones().stream()
+                    .map(this::toPosicionFuente)
+                    .toList();
+        } catch (RestClientException ex) {
+            throw new InfraestructureException("Fuente de posiciones no disponible: " + ex.getMessage(), ex);
         }
-        return respuesta.tablaPosiciones().stream()
-                .map(this::toPosicionFuente)
-                .toList();
     }
 
     // [QUÉ]: Resuelve la URL (path_to_scrape) de la fuente de posiciones de la liga.

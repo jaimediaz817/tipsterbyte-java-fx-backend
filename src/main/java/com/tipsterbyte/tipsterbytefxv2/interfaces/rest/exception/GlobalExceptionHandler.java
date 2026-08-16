@@ -11,8 +11,11 @@
 package com.tipsterbyte.tipsterbytefxv2.interfaces.rest.exception;
 
 import com.tipsterbyte.tipsterbytefxv2.domain.DomainException;
+import com.tipsterbyte.tipsterbytefxv2.infrastructure.exception.InfraestructureException;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.ApiError;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -29,10 +32,20 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     // [QUÉ]: Traduce una violación de regla de negocio (DomainException, BR-xx) a 422.
     @ExceptionHandler(DomainException.class)
     public ResponseEntity<ApiError> manejarDomainException(DomainException ex, HttpServletRequest request) {
         return construir(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage(), request);
+    }
+
+    // [QUÉ]: Traduce errores operativos de infraestructura (red, cache, serialización)
+    //        a 503 Service Unavailable. Indica que el servicio temporalmente no puede
+    //        atender la petición por un componente externo (scraper Python, Redis).
+    @ExceptionHandler(InfraestructureException.class)
+    public ResponseEntity<ApiError> manejarInfraestructureException(InfraestructureException ex, HttpServletRequest request) {
+        return construir(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage(), request);
     }
 
     // [QUÉ]: Traduce errores de validación de un @Valid request body a 400 con el
@@ -59,9 +72,11 @@ public class GlobalExceptionHandler {
         return construir(HttpStatus.BAD_REQUEST, "Parámetro obligatorio ausente: " + ex.getParameterName(), request);
     }
 
-    // [QUÉ]: Traduce cualquier otra excepción no esperada a 500.
+    // [QUÉ]: Traduce cualquier otra excepción no esperada a 500. Registra la causa real
+    //        en logs (no se expone al cliente) para poder diagnosticar sin fugar internos.
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> manejarGeneral(Exception ex, HttpServletRequest request) {
+        log.error("Excepción no manejada en {}: {}", request.getRequestURI(), ex.getMessage(), ex);
         return construir(HttpStatus.INTERNAL_SERVER_ERROR, "Error interno del servidor", request);
     }
 

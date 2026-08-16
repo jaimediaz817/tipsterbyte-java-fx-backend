@@ -130,7 +130,7 @@ FASE T1 Frontend Angular 22 (transversal, proyecto hermano)
 - **Application**: puertos `UsuarioRepository`, `PasswordHasher`, `TokenEmisor` (sin acoplar dominio a BCrypt/JJWT); DTOs `RegistrarUsuarioComando`, `AutenticarUsuarioComando`, `AutenticacionResultado`; nuevos casos de uso CU-12 `RegistrarUsuarioUseCase` y CU-13 `AutenticarUsuarioUseCase` (total **13 use cases**, registrados en `UseCaseConfig`).
 - **Infrastructure**: `UsuarioEntity` + `UsuarioJpaRepository` + `UsuarioRepositoryJpaAdapter` (tabla `usuarios`, email UNIQUE + CHECK rol); `BcryptPasswordHasher`; `JwtTokenEmisor` (jjwt 0.12.6, HS256, claims subject/email/rol); `JwtAuthenticationFilter`; `SecurityConfig` (stateless, csrf off, `AuthenticationEntryPoint` → 401).
 - **Interfaces**: `AuthController` — `POST /api/v1/auth/registro` (201) y `POST /api/v1/auth/login` (200 → `AuthResponse{token, rol, email}`; credenciales inválidas → 422).
-- **Política de autorización** (`authorizeHttpRequests`): públicos `/api/v1/auth/**` y `/actuator/health`; `GET /api/v1/fuentes` → 3 roles; `/api/v1/ligas/**` y `/api/v1/partidos/**` → ADMIN+TIPSTER; `/api/v1/pronosticos/**` → 3 roles; `/api/v1/suscripciones/**` → CLIENTE; resto autenticado. 401 sin/inválido, 403 rol insuficiente.
+- **Política de autorización** (`authorizeHttpRequests`): públicos `/api/v1/auth/**` y `/actuator/health`; `GET /api/v1/fuentes` → 3 roles; `/api/v1/ligas/**` y `/api/v1/partidos/**` → SUPERADMIN+TIPSTER; `/api/v1/pronosticos/**` → 3 roles; `/api/v1/suscripciones/**` → CLIENTE; resto autenticado. 401 sin/inválido, 403 rol insuficiente.
 - **Configuración**: `app.jwt.secret` (dev ≥256 bits) y `app.jwt.expiration-ms` (dev 86400000), env-overridable.
 - **Dependencias**: `spring-boot-starter-security`, `jjwt-api/impl/jackson:0.12.6`.
 - **Diagrama interactivo**: `diagrams/flujo-jwt-security.html` (clicable, mismo patrón que `modelo-dominio.html`).
@@ -203,7 +203,7 @@ FASE T1 Frontend Angular 22 (transversal, proyecto hermano)
 - **Relaciones**: consume CU-01..13 vía controllers (`LigaController`, `PartidoController`, `PronosticoController`, `SuscripcionController`, `FuenteExtraccionController`, `AuthController`); usa `app.jwt` para auth y `app.cache` de forma transparente.
 - **Estado**: PLANIFICADA (se abre al completar o en paralelo con FASE 13+; requiere aprobación del usuario y configuración previa de skills de Angular).
 
-### FASE T1-b — API de consulta para el frontend (transversal) ✅ (plan)
+### FASE T1-b — API de consulta para el frontend (transversal) ✅
 - **Contexto**: el backend expone hoy los flujos de **escritura/sincronización/auth**, pero Angular necesita una capa de **lectura (GETs)** para mostrar datos. Esta fase transversal entrega esa superficie SIN tocar el dominio: solo controllers, DTOs de respuesta y (si hace falta) métodos de consulta en repositorios que ya existen.
 - **Catálogo de endpoints GET a exponer** (todos `app.api.rest.enabled=true`, JWT según política actual):
   | Endpoint | Fuente de datos (ya existe) | Qué devuelve |
@@ -222,10 +222,16 @@ FASE T1 Frontend Angular 22 (transversal, proyecto hermano)
 - **Nuevos DTOs de respuesta** (en `interfaces/rest/dto/response/`): `LigaResponse`, `PosicionTablaResponse` (equipo + stats + `ultimosResultados` como lista de `ResultadoReciente`), `PartidoResponse` (equipos, fecha, estado, resultado), `CuotaResponse` (mercado, valor). Reutilizar `FuenteExtraccionResponse`, `PronosticoPublicoDto` y `AuthResponse`.
 - **CORS** (imprescindible para Angular en `:4200`): configurar `CorsConfigurationSource` en `SecurityConfig` (orígenes permitidos `http://localhost:4200`, métodos GET/POST/PUT, headers `Authorization` + `Content-Type`) o `WebMvcConfigurer.addCorsMappings`. Hoy **no existe** ninguna configuración CORS.
 - **Flujo del administrador (explorar fuentes → activar liga)**: el frontend usa `GET /ligas` (ver ligas), `GET /ligas/{id}/fuentes` + `PUT /ligas/{id}/fuentes/{tipo}` (asociar URL por tipo, guardando una a una como decide el usuario) y `POST /ligas/{id}/activacion` con las 3 URLs (activación **manual** a conciencia, decisión del usuario; NO auto-activación). El sistema deja la puerta abierta a 4ª/5ª/6ª fuente sin romper BR-001.
-- **No se toca**: dominio, agregados, BR-001..008, casos de uso de escritura. Solo si un GET requiere datos no consultables hoy, se agrega un método de consulta al puerto correspondiente (ej. `LigaRepository`).
-- **Tests**: unitarios de mappers a DTO (sin Spring) + tests de controllers con MockMvc para cada GET nuevo (patrón existente de FASE 10).
-- **Relaciones**: la consume FASE T1 (Angular 22); depende de los puertos de repositorio y de `app.api.rest.enabled`.
-- **Estado**: PLANIFICADA (se implementa junto con FASE T1 o antes de iniciar el frontend).
+- **Implementado**:
+  - Nuevos DTOs de respuesta: `LigaResponse`, `LigaDetalleResponse`, `PosicionTablaResponse`, `PartidoResponse`, `CuotaResponse`, `PronosticoResponse`, `RecursoCreadoResponse`.
+  - CORS configurado en `SecurityConfig` (`CorsConfigurationSource`) para `http://localhost:4200`.
+  - Endpoints GET: `LigaController` (listar, detalle, posiciones), `PartidoController` (por liga, fecha, próximos, cuotas), `SuscripcionController` (activas por cliente con autorización de propiedad), `PronosticoController` (consulta pública con mapeo a `PronosticoResponse`).
+  - Estandarización de respuestas de error: `ApiErrorAuthenticationEntryPoint` (401) y `ApiErrorAccessDeniedHandler` (403) devuelven `ApiError` en JSON, alineados con `GlobalExceptionHandler`.
+  - Estandarización de respuestas de éxito: documentado en `docs/architecture/arquitectura-objetivo.md` (contrato HTTP con status 200/201/204 y DTOs de respuesta).
+- **No se toca**: dominio, agregados, BR-001..008, casos de uso de escritura.
+- **Tests**: 266 tests en verde (+20 unitarios/integración de controllers, CORS, seguridad y consultas end-to-end).
+- **Relaciones**: habilita FASE T1 (Angular 22); consume puertos de repositorio existentes y `app.api.rest.enabled`.
+- **Estado**: COMPLETADA.
 
 ---
 

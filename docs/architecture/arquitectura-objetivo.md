@@ -112,6 +112,50 @@ FASE 20  AWS / Deployment
 
 ---
 
+## Contrato HTTP: formato de respuestas (estandarizado en FASE 12 / FASE T1-b)
+
+> Toda respuesta de la API, sea de éxito o de error, sigue un formato predecible que el frontend Angular (y cualquier otro cliente) puede consumir sin parseos ad-hoc.
+
+### Respuestas de éxito
+
+| Status | Cuándo usar | Body |
+|--------|-------------|------|
+| `200 OK` | Consulta exitosa (GET, PUT sin cambio de representación) | DTO de respuesta o lista de DTOs (`LigaResponse`, `PartidoResponse[]`, etc.) |
+| `201 Created` | Recurso creado exitosamente (POST) | DTO del recurso creado (`AuthResponse`, `SuscripcionResponse`, `RecursoCreadoResponse`) + header `Location` cuando aplica |
+| `204 No Content` | Operación exitosa sin representación que devolver (POST/PUT de transición) | Vacío |
+
+**Reglas:**
+- Los DTOs de respuesta viven obligatoriamente en `interfaces.rest.dto.response`. Nunca se expone un `application.dto` ni un aggregate de dominio directamente al HTTP.
+- Las listas se devuelven como arrays JSON directos (sin wrapper `{ "data": [...] }`) para mantener el contrato ligero.
+
+### Respuestas de error
+
+Toda respuesta no 2xx usa el mismo schema `ApiError`:
+
+```json
+{
+  "timestamp": "2026-08-15T20:30:00Z",
+  "status": 422,
+  "error": "Unprocessable Content",
+  "mensaje": "Liga no activable: fuentes de datos no operativas (BR-001)",
+  "path": "/api/v1/ligas/abc-123/activacion"
+}
+```
+
+| Status | Cuándo ocurre | Origen |
+|--------|---------------|--------|
+| `400 Bad Request` | JSON malformado, tipo incorrecto, enum inválido, validación de `@Valid` fallida, o query param obligatorio ausente | `GlobalExceptionHandler` |
+| `401 Unauthorized` | Sin token, token expirado, o firma inválida | `ApiErrorAuthenticationEntryPoint` (Spring Security) |
+| `403 Forbidden` | Token válido pero rol no autorizado para el path | `ApiErrorAccessDeniedHandler` (Spring Security) |
+| `422 Unprocessable Content` | Violación de regla de negocio (`DomainException`, BR-001..008) | `GlobalExceptionHandler` |
+| `500 Internal Server Error` | Excepción no esperada (bug) | `GlobalExceptionHandler` |
+
+**Reglas:**
+- Spring Security NO devuelve HTML/texto plano en 401/403: ambos usan handlers custom que escriben `ApiError` en JSON.
+- `DomainException` nunca se propaga cruda; siempre se traduce a 422.
+
+---
+
 ## Decisiones de arquitectura (ADR — formalizados en FASE 4)
 
 ### ADR-001 — Clean Architecture + DDD
@@ -155,3 +199,10 @@ FASE 20  AWS / Deployment
 - **Decisión**: El dominio no conoce JPA. Los agregados se guardan como tablas y se reconstruyen con `reconstruir(...)` (ADR-006). VOs se mapean a columnas planas o tablas hijas (`equipos`, `posiciones_tabla`, `cuotas`) con cascade/orphanRemoval.
 - **Equipos denormalizados en Partido**: el partido guarda `equipo_local_id/nombre` y `equipo_visitante_id/nombre` en lugar de `@ManyToOne` a EquipoEntity, respetando la regla de referencias por id entre agregados y evitando ciclos de asociación.
 - **Alternativas descartadas**: `@ManyToOne` a EquipoEntity en Partido (ciclo Liga→Equipo→Partido, acopla agregados).
+
+### ADR-008 — Gestión de esquema en dev con `ddl-auto=update` y enums (roles)
+- **Concepto**: El esquema se genera en dev con `spring.jpa.hibernate.ddl-auto=update`. Hibernate crea una CHECK constraint por columna `@Enumerated(EnumType.STRING)` (ej. `usuarios_rol_check`), con los valores del enum **en el momento de crear la tabla**.
+- **Artefacto**: `application.properties` (`ddl-auto=update`), entidades JPA con `@Enumerated` (UsuarioEntity.rol, etc.).
+- **Decisión**: `ddl-auto=update` es **aditivo**: crea tablas/columnas faltantes pero **nunca modifica ni borra constraints existentes** al cambiar un enum. Consecuencia real (unificación de roles a `CLIENTE`/`TIPSTER`/`SUPERADMIN`): `usuarios.rol` conservó el CHECK viejo `('TIPSTER','CLIENTE','ADMIN')` y registrar un `SUPERADMIN` falló con 500 silencioso (`DataIntegrityViolationException`). Corrección manual en dev: `ALTER TABLE usuarios DROP CONSTRAINT usuarios_rol_check;` y recrearla con los valores nuevos. Regla práctica: **cada cambio de enum de dominio exige revisar/ajustar el CHECK en la BD dev**, hasta que lleguen las migrations formales con Flyway (FASE 19/20). El error no se ve en la respuesta HTTP (ApiError genérico, sin fugas) sino en los logs de `bootRun`: `GlobalExceptionHandler.manejarGeneral` registra la causa real con stack trace (mejora aplicada en esta misma fase).
+- **Alternativas descartadas**: `ddl-auto=validate` hoy (bloquea el arranque hasta alinear el esquema; frena la iteración en dev); Flyway desde ahora (el plan lo difiere a FASE 19/20).
+- **Relaciones**: `docs/PROYECTO-PLAN.md` (FASE 19/20 migrations), `application.properties`, `GlobalExceptionHandler`.

@@ -17,6 +17,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -43,16 +44,21 @@ public class UsuarioEntity {
     @Column(name = "activo", nullable = false)
     private boolean activo;
 
+    @Column(name = "fecha_creacion", nullable = false, updatable = false)
+    private LocalDateTime fechaCreacion;
+
     protected UsuarioEntity() {
     }
 
-    public UsuarioEntity(UUID id, String nombre, String email, String passwordHash, Rol rol, boolean activo) {
+    public UsuarioEntity(UUID id, String nombre, String email, String passwordHash, Rol rol, boolean activo,
+                         LocalDateTime fechaCreacion) {
         this.id = id;
         this.nombre = nombre;
         this.email = email;
         this.passwordHash = passwordHash;
         this.rol = rol;
         this.activo = activo;
+        this.fechaCreacion = fechaCreacion;
     }
 
     public UUID getId() {
@@ -77,5 +83,9 @@ public class UsuarioEntity {
 
     public boolean isActivo() {
         return activo;
+    }
+
+    public LocalDateTime getFechaCreacion() {
+        return fechaCreacion;
     }
 }

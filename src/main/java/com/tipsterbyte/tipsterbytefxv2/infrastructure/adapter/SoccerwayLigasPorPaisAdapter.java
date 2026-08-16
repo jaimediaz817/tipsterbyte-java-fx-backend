@@ -14,8 +14,10 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.tipsterbyte.tipsterbytefxv2.application.dto.LigaFuente;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorLigasPorPais;
+import com.tipsterbyte.tipsterbytefxv2.infrastructure.exception.InfraestructureException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 import java.util.List;
 
@@ -30,22 +32,26 @@ public class SoccerwayLigasPorPaisAdapter implements ProveedorLigasPorPais {
 
     @Override
     public List<LigaFuente> obtenerLigasPorPais(String countryName, int limit) {
-        RespuestaLigas respuesta = restClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/ext-soccerway-leagues-by-country")
-                        .queryParam("country_name", countryName)
-                        .queryParam("limit", limit)
-                        .build())
-                .retrieve()
-                .body(RespuestaLigas.class);
-        if (respuesta == null || respuesta.data() == null) {
-            return List.of();
+        try {
+            RespuestaLigas respuesta = restClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/ext-soccerway-leagues-by-country")
+                            .queryParam("country_name", countryName)
+                            .queryParam("limit", limit)
+                            .build())
+                    .retrieve()
+                    .body(RespuestaLigas.class);
+            if (respuesta == null || respuesta.data() == null) {
+                return List.of();
+            }
+            return respuesta.data().stream()
+                    .flatMap(pais -> pais.leagues().stream())
+                    .map(l -> new LigaFuente(
+                            l.name(), l.type(), l.logoUrl(), l.apiId(), l.urlSoccerway(), l.anio()))
+                    .toList();
+        } catch (RestClientException ex) {
+            throw new InfraestructureException("Fuente de ligas por país no disponible: " + ex.getMessage(), ex);
         }
-        return respuesta.data().stream()
-                .flatMap(pais -> pais.leagues().stream())
-                .map(l -> new LigaFuente(
-                        l.name(), l.type(), l.logoUrl(), l.apiId(), l.urlSoccerway(), l.anio()))
-                .toList();
     }
 
     // [QUÉ]: Wrapper de la respuesta real de #5 (success, data agrupado por país).

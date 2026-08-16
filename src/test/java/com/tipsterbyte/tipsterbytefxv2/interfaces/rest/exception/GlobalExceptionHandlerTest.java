@@ -10,6 +10,7 @@
 package com.tipsterbyte.tipsterbytefxv2.interfaces.rest.exception;
 
 import com.tipsterbyte.tipsterbytefxv2.domain.DomainException;
+import com.tipsterbyte.tipsterbytefxv2.infrastructure.exception.InfraestructureException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -72,6 +73,14 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void debe_mapear_infraestructure_exception_a_503() throws Exception {
+        mockMvc.perform(get("/stub/infra"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.status").value(503))
+                .andExpect(jsonPath("$.mensaje").value("Redis no responde"));
+    }
+
+    @Test
     void debe_mapear_excepcion_generica_a_500() throws Exception {
         mockMvc.perform(get("/stub/generico"))
                 .andExpect(status().isInternalServerError())
@@ -103,6 +112,11 @@ class GlobalExceptionHandlerTest {
 
         @GetMapping("/stub/parametro")
         void parametro(@RequestParam("id") String id) {
+        }
+
+        @GetMapping("/stub/infra")
+        void infra() {
+            throw new InfraestructureException("Redis no responde");
         }
 
         @GetMapping("/stub/generico")

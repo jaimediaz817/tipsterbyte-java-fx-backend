@@ -64,6 +64,6 @@ public class AuthController {
     private AuthResponse toResponse(AutenticacionResultado resultado) {
         return new AuthResponse(
                 resultado.usuarioId(), resultado.nombre(), resultado.email(),
-                resultado.rol(), resultado.token());
+                resultado.rol(), resultado.token(), resultado.fechaCreacion());
     }
 }

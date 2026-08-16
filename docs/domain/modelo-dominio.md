@@ -151,7 +151,7 @@
 | `Mercado` | `nombre` (1X2, doble oportunidad, over/under...) | enum cerrado |
 | `SeleccionPronostico` | `mercado`, `resultadoEsperado` | válido para el mercado |
 | `Email` | `direccion` | formato válido |
-| `Rol` | `TIPSTER`, `CLIENTE`, `ADMIN` | enum cerrado |
+| `Rol` | `CLIENTE`, `TIPSTER`, `SUPERADMIN` | enum cerrado |
 | `Plan` | `nombre`, `precio`, `duracionDias` | precio >= 0 |
 
 ---
