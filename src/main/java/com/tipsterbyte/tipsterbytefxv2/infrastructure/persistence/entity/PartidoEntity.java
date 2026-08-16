@@ -57,6 +57,10 @@ public class PartidoEntity {
     @Column(name = "fecha_hora", nullable = false)
     private LocalDateTime fechaHora;
 
+    // Jornada del torneo (fuente #4, label "Jornada N"); nullable para filas legadas.
+    @Column(name = "jornada")
+    private Integer jornada;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "estado", nullable = false, length = 20)
     private EstadoPartido estado;
@@ -77,7 +81,8 @@ public class PartidoEntity {
     public PartidoEntity(UUID id, UUID ligaId, UUID equipoLocalId, String equipoLocalNombre,
                          UUID equipoVisitanteId, String equipoVisitanteNombre,
                          LocalDateTime fechaHora, EstadoPartido estado,
-                         Integer resultadoGolesLocal, Integer resultadoGolesVisitante) {
+                         Integer resultadoGolesLocal, Integer resultadoGolesVisitante,
+                         Integer jornada) {
         this.id = id;
         this.ligaId = ligaId;
         this.equipoLocalId = equipoLocalId;
@@ -88,6 +93,7 @@ public class PartidoEntity {
         this.estado = estado;
         this.resultadoGolesLocal = resultadoGolesLocal;
         this.resultadoGolesVisitante = resultadoGolesVisitante;
+        this.jornada = jornada;
     }
 
     public void agregarCuota(CuotaEntity cuota) {
@@ -121,6 +127,10 @@ public class PartidoEntity {
 
     public LocalDateTime getFechaHora() {
         return fechaHora;
+    }
+
+    public Integer getJornada() {
+        return jornada;
     }
 
     public EstadoPartido getEstado() {

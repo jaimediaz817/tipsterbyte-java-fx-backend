@@ -108,6 +108,7 @@ public class PartidoController {
                 partido.equipoLocal().nombre(),
                 partido.equipoVisitante().nombre(),
                 partido.fechaProgramada().fechaHora(),
+                partido.jornada(),
                 partido.estado(),
                 resultado,
                 partido.cuotas().stream().map(this::toCuotaResponse).toList());

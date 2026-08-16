@@ -24,6 +24,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -70,6 +71,16 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> manejarParametroFaltante(MissingServletRequestParameterException ex,
                                                              HttpServletRequest request) {
         return construir(HttpStatus.BAD_REQUEST, "Parámetro obligatorio ausente: " + ex.getParameterName(), request);
+    }
+
+    // [QUÉ]: Traduce un query param con tipo o valor inválido (ej: enum desconocido
+    //        en ?estado=XYZ) a 400, en lugar de caer en el 500 genérico.
+    // [POR QUÉ]: Un valor de query param incorrecto es error del cliente, no del servidor.
+    // [RELACIONES]: LigaController GET /api/v1/ligas?estado=... (enum EstadoLiga).
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiError> manejarTipoParametro(MethodArgumentTypeMismatchException ex,
+                                                         HttpServletRequest request) {
+        return construir(HttpStatus.BAD_REQUEST, "Parámetro inválido: " + ex.getName(), request);
     }
 
     // [QUÉ]: Traduce cualquier otra excepción no esperada a 500. Registra la causa real

@@ -73,6 +73,14 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void debe_mapear_parametro_con_tipo_invalido_a_400() throws Exception {
+        mockMvc.perform(get("/stub/enum").param("tipo", "INEXISTENTE"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.mensaje").value("Parámetro inválido: tipo"));
+    }
+
+    @Test
     void debe_mapear_infraestructure_exception_a_503() throws Exception {
         mockMvc.perform(get("/stub/infra"))
                 .andExpect(status().isServiceUnavailable())
@@ -114,6 +122,10 @@ class GlobalExceptionHandlerTest {
         void parametro(@RequestParam("id") String id) {
         }
 
+        @GetMapping("/stub/enum")
+        void enumInvalido(@RequestParam("tipo") TipoStub tipo) {
+        }
+
         @GetMapping("/stub/infra")
         void infra() {
             throw new InfraestructureException("Redis no responde");
@@ -127,5 +139,10 @@ class GlobalExceptionHandlerTest {
 
     // [QUÉ]: DTO de prueba para validar el escenario @Valid → 400.
     record ValidacionRequest(@jakarta.validation.constraints.NotBlank String campo) {
+    }
+
+    // [QUÉ]: Enum de prueba para validar el escenario query param inválido → 400.
+    enum TipoStub {
+        A, B
     }
 }

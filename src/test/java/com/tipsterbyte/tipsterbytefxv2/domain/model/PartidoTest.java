@@ -67,20 +67,34 @@ class PartidoTest {
     }
 
     @Test
-    void debe_reconstruir_con_cuotas_y_resultado_sin_eventos() {
+    void debe_crear_partido_con_jornada_y_emitir_evento() {
+        Partido partido = new Partido(LIGA_ID, LOCAL, VISITANTE, FECHA, 4);
+        assertEquals(4, partido.jornada());
+        assertEquals(1, partido.pullEventos().size());
+    }
+
+    @Test
+    void debe_rechazar_jornada_invalida() {
+        assertThrows(DomainException.class, () -> new Partido(LIGA_ID, LOCAL, VISITANTE, FECHA, 0));
+        assertThrows(DomainException.class, () -> new Partido(LIGA_ID, LOCAL, VISITANTE, FECHA, -3));
+    }
+
+    @Test
+    void debe_reconstruir_con_cuotas_resultado_y_jornada_sin_eventos() {
         List<Cuota> cuotas = List.of(new Cuota(new BigDecimal("1.85")));
         Partido partido = Partido.reconstruir(
                 UUID.randomUUID(), LIGA_ID, LOCAL, VISITANTE, FECHA, EstadoPartido.FINALIZADO,
-                cuotas, new Resultado(2, 1));
+                cuotas, new Resultado(2, 1), 4);
         assertEquals(1, partido.cuotas().size());
         assertEquals(EstadoPartido.FINALIZADO, partido.estado());
         assertEquals(2, partido.resultado().golesLocal());
+        assertEquals(4, partido.jornada());
         assertTrue(partido.pullEventos().isEmpty(), "reconstruir no debe emitir eventos");
     }
 
     @Test
     void debe_reconstruir_rechazando_nulos() {
         assertThrows(DomainException.class, () ->
-                Partido.reconstruir(null, LIGA_ID, LOCAL, VISITANTE, FECHA, EstadoPartido.PROGRAMADO, List.of(), null));
+                Partido.reconstruir(null, LIGA_ID, LOCAL, VISITANTE, FECHA, EstadoPartido.PROGRAMADO, List.of(), null, null));
     }
 }

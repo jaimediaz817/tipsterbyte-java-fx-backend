@@ -66,7 +66,7 @@ class ProveedorCalendarioCacheableTest {
         when(cache.obtener("calendario:" + ligaId)).thenReturn(Optional.empty());
         when(delegado.obtenerCalendario(ligaId)).thenReturn(List.of(
                 new PartidoFuente("Real Madrid", "FC Barcelona",
-                        LocalDateTime.of(2026, 3, 1, 20, 0))));
+                        LocalDateTime.of(2026, 3, 1, 20, 0), 4)));
 
         List<PartidoFuente> resultado = decorador.obtenerCalendario(ligaId);
 

@@ -91,7 +91,7 @@ public class PartidoRepositoryJpaAdapter implements PartidoRepository {
                 new Equipo(entidad.getEquipoLocalId(), entidad.getEquipoLocalNombre()),
                 new Equipo(entidad.getEquipoVisitanteId(), entidad.getEquipoVisitanteNombre()),
                 new FechaProgramada(entidad.getFechaHora()), entidad.getEstado(),
-                cuotas, resultado);
+                cuotas, resultado, entidad.getJornada());
     }
 
     private PartidoEntity toEntity(Partido partido) {
@@ -101,7 +101,8 @@ public class PartidoRepositoryJpaAdapter implements PartidoRepository {
                 partido.equipoVisitante().id(), partido.equipoVisitante().nombre(),
                 partido.fechaProgramada().fechaHora(), partido.estado(),
                 partido.resultado() != null ? partido.resultado().golesLocal() : null,
-                partido.resultado() != null ? partido.resultado().golesVisitante() : null);
+                partido.resultado() != null ? partido.resultado().golesVisitante() : null,
+                partido.jornada());
         for (Cuota cuota : partido.cuotas()) {
             entidad.agregarCuota(new CuotaEntity(cuota.mercado(), cuota.valor()));
         }

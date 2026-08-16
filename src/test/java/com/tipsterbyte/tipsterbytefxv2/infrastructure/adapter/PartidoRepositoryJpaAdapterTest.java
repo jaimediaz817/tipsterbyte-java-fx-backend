@@ -30,7 +30,7 @@ class PartidoRepositoryJpaAdapterTest extends AbstractRepositoryJpaAdapterTest {
     private PartidoRepository partidoRepository;
 
     @Test
-    void debe_guardar_y_recuperar_partido_con_cuotas_y_resultado() {
+    void debe_guardar_y_recuperar_partido_con_cuotas_resultado_y_jornada() {
         UUID ligaId = UUID.randomUUID();
         Equipo local = new Equipo("Real Madrid");
         Equipo visitante = new Equipo("FC Barcelona");
@@ -38,7 +38,7 @@ class PartidoRepositoryJpaAdapterTest extends AbstractRepositoryJpaAdapterTest {
         Partido partido = Partido.reconstruir(
                 UUID.randomUUID(), ligaId, local, visitante,
                 new FechaProgramada(LocalDateTime.of(2026, 3, 1, 20, 0)),
-                EstadoPartido.FINALIZADO, cuotas, new Resultado(2, 1));
+                EstadoPartido.FINALIZADO, cuotas, new Resultado(2, 1), 4);
 
         partidoRepository.guardar(partido);
 
@@ -48,6 +48,7 @@ class PartidoRepositoryJpaAdapterTest extends AbstractRepositoryJpaAdapterTest {
         assertEquals(2, recuperado.cuotas().size());
         assertEquals(EstadoPartido.FINALIZADO, recuperado.estado());
         assertEquals(2, recuperado.resultado().golesLocal());
+        assertEquals(4, recuperado.jornada());
         assertTrue(recuperado.pullEventos().isEmpty(), "reconstrucción no debe emitir eventos");
     }
 
@@ -62,7 +63,7 @@ class PartidoRepositoryJpaAdapterTest extends AbstractRepositoryJpaAdapterTest {
         partidoRepository.guardar(new Partido(ligaId, a, b, fecha));
         partidoRepository.guardar(Partido.reconstruir(
                 UUID.randomUUID(), ligaId, c, d, fecha, EstadoPartido.FINALIZADO,
-                List.of(new Cuota(new BigDecimal("2.10"))), new Resultado(1, 0)));
+                List.of(new Cuota(new BigDecimal("2.10"))), new Resultado(1, 0), null));
         partidoRepository.guardar(new Partido(ligaId, a, c, fecha));
 
         List<Partido> proximos = partidoRepository.buscarProximosPorLiga(ligaId);

@@ -1,11 +1,14 @@
 // ─────────────────────────────────────────────
 // [QUÉ]: Aggregate root que representa un partido de fútbol entre dos equipos,
-//        con su fecha programada, estado, cuotas y resultado.
+//        con su fecha programada, jornada, estado, cuotas y resultado.
 // [POR QUÉ]: Es la frontera de consistencia de un enfrentamiento: el resultado
 //            solo se asigna al finalizar (BR-003) y las cuotas llegan solo desde
-//            la fuente de odds (nunca se mutan localmente).
+//            la fuente de odds (nunca se mutan localmente). La jornada se persiste
+//            desde la fuente #4 (Soccerway, label "Jornada N") para el indicador
+//            cronológico por liga del frontend.
 // [ALTERNATIVAS]: Entidad con setters; se descarta porque permitiría asignar
-//                 un resultado sin finalizar o cuotas inventadas.
+//                 un resultado sin finalizar o cuotas inventadas. Jornada como VO;
+//                 se descarta por simplicidad (Integer con validación >= 1).
 // [RELACIONES]: Aggregate de CU-02 (calendario), CU-03 (cuotas) y CU-05 (resultado).
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.domain.model;
@@ -28,29 +31,41 @@ public final class Partido {
     private final Equipo equipoLocal;
     private final Equipo equipoVisitante;
     private final FechaProgramada fechaProgramada;
+    private final Integer jornada;
     private final List<Cuota> cuotas;
     private Resultado resultado;
     private EstadoPartido estado;
     private final List<DomainEvent> eventos;
 
-    // [QUÉ]: Construye un partido programado sin cuotas ni resultado.
+    // [QUÉ]: Construye un partido programado sin cuotas, sin resultado y sin jornada
+    //        conocida (legado/otras fuentes sin dato de jornada).
     public Partido(UUID ligaId, Equipo equipoLocal, Equipo equipoVisitante, FechaProgramada fechaProgramada) {
-        this(UUID.randomUUID(), ligaId, equipoLocal, equipoVisitante, fechaProgramada, EstadoPartido.PROGRAMADO);
+        this(ligaId, equipoLocal, equipoVisitante, fechaProgramada, null);
+    }
+
+    // [QUÉ]: Construye un partido programado con su jornada (CU-02, fuente #4).
+    // [POR QUÉ]: La fuente #4 entrega "Jornada N" por partido; se persiste para que el
+    //            frontend muestre el indicador cronológico por liga.
+    public Partido(UUID ligaId, Equipo equipoLocal, Equipo equipoVisitante, FechaProgramada fechaProgramada,
+                   Integer jornada) {
+        this(UUID.randomUUID(), ligaId, equipoLocal, equipoVisitante, fechaProgramada, EstadoPartido.PROGRAMADO,
+                List.of(), null, jornada);
+        this.eventos.add(new PartidoProgramado(this.id));
     }
 
     // [QUÉ]: Construye un partido con identidad y estado provistos (reconstrucción desde persistencia).
     public Partido(UUID id, UUID ligaId, Equipo equipoLocal, Equipo equipoVisitante,
                    FechaProgramada fechaProgramada, EstadoPartido estado) {
-        this(id, ligaId, equipoLocal, equipoVisitante, fechaProgramada, estado, List.of(), null);
+        this(id, ligaId, equipoLocal, equipoVisitante, fechaProgramada, estado, List.of(), null, null);
         if (estado == EstadoPartido.PROGRAMADO) {
             this.eventos.add(new PartidoProgramado(this.id));
         }
     }
 
     // [QUÉ]: Factory de reconstrucción completa del aggregate desde persistencia (FASE 8).
-    // [POR QUÉ]: Al cargar un partido de la BD se deben restaurar también sus cuotas y
-    //            resultado. No se usan actualizarCuotas/asignarResultado porque son
-    //            transiciones de negocio (asignarResultado exige FINALIZADO, BR-003)
+    // [POR QUÉ]: Al cargar un partido de la BD se deben restaurar también sus cuotas,
+    //            resultado y jornada. No se usan actualizarCuotas/asignarResultado porque
+    //            son transiciones de negocio (asignarResultado exige FINALIZADO, BR-003)
     //            y actualizarCuotas emite evento. Reconstruir no debe emitir eventos
     //            (no es una nueva programación) ni aplicar reglas de transición.
     // [ALTERNATIVAS]: Hidratar vía setters de negocio; se descarta porque re-emitiría
@@ -58,13 +73,13 @@ public final class Partido {
     // [RELACIONES]: Usado por PartidoRepositoryJpaAdapter (FASE 8).
     public static Partido reconstruir(UUID id, UUID ligaId, Equipo equipoLocal, Equipo equipoVisitante,
                                       FechaProgramada fechaProgramada, EstadoPartido estado,
-                                      List<Cuota> cuotas, Resultado resultado) {
-        return new Partido(id, ligaId, equipoLocal, equipoVisitante, fechaProgramada, estado, cuotas, resultado);
+                                      List<Cuota> cuotas, Resultado resultado, Integer jornada) {
+        return new Partido(id, ligaId, equipoLocal, equipoVisitante, fechaProgramada, estado, cuotas, resultado, jornada);
     }
 
     private Partido(UUID id, UUID ligaId, Equipo equipoLocal, Equipo equipoVisitante,
                     FechaProgramada fechaProgramada, EstadoPartido estado,
-                    List<Cuota> cuotas, Resultado resultado) {
+                    List<Cuota> cuotas, Resultado resultado, Integer jornada) {
         if (id == null) {
             throw new DomainException("Partido requiere id");
         }
@@ -80,11 +95,15 @@ public final class Partido {
         if (fechaProgramada == null) {
             throw new DomainException("Partido requiere fecha programada");
         }
+        if (jornada != null && jornada < 1) {
+            throw new DomainException("Jornada debe ser un número positivo");
+        }
         this.id = id;
         this.ligaId = ligaId;
         this.equipoLocal = equipoLocal;
         this.equipoVisitante = equipoVisitante;
         this.fechaProgramada = fechaProgramada;
+        this.jornada = jornada;
         this.cuotas = new ArrayList<>(cuotas != null ? cuotas : List.of());
         this.resultado = resultado;
         this.estado = estado;
@@ -149,6 +168,10 @@ public final class Partido {
 
     public FechaProgramada fechaProgramada() {
         return fechaProgramada;
+    }
+
+    public Integer jornada() {
+        return jornada;
     }
 
     public EstadoPartido estado() {

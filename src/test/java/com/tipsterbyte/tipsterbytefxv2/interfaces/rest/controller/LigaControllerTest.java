@@ -144,6 +144,40 @@ class LigaControllerTest {
     }
 
     @Test
+    void debe_listar_ligas_borrador_con_urls_de_fuente() throws Exception {
+        Liga liga = unaLigaBorradorCatalogo();
+        when(ligaRepository.buscarPorEstado(EstadoLiga.BORRADOR)).thenReturn(List.of(liga));
+
+        mockMvc.perform(get("/api/v1/ligas").param("estado", "BORRADOR"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].nombre").value("LaLiga EA Sports"))
+                .andExpect(jsonPath("$[0].pais").value("España"))
+                .andExpect(jsonPath("$[0].estado").value("BORRADOR"))
+                .andExpect(jsonPath("$[0].temporada").value("2026/2027"))
+                .andExpect(jsonPath("$[0].urlSoccerway").value("/path/to/scrape/calendar"))
+                .andExpect(jsonPath("$[0].apiId").value("api-football-140"));
+    }
+
+    @Test
+    void debe_filtrar_ligas_por_pais() throws Exception {
+        Liga liga = unaLigaBorradorCatalogo();
+        when(ligaRepository.buscarPorEstadoYPais(EstadoLiga.BORRADOR, "España"))
+                .thenReturn(List.of(liga));
+
+        mockMvc.perform(get("/api/v1/ligas").param("estado", "BORRADOR").param("pais", "España"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].nombre").value("LaLiga EA Sports"))
+                .andExpect(jsonPath("$[0].pais").value("España"));
+    }
+
+    @Test
+    void debe_devolver_400_cuando_estado_es_invalido() throws Exception {
+        mockMvc.perform(get("/api/v1/ligas").param("estado", "INEXISTENTE"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
     void debe_obtener_detalle_de_liga_con_posiciones() throws Exception {
         Liga liga = unaLigaConPosiciones();
         when(ligaRepository.buscarPorId(liga.id())).thenReturn(Optional.of(liga));
@@ -181,6 +215,13 @@ class LigaControllerTest {
                 UUID.randomUUID(), "Premier League", "Inglaterra",
                 new Temporada(2024, 2025), EstadoLiga.ACTIVA,
                 List.of(), List.of());
+    }
+
+    private Liga unaLigaBorradorCatalogo() {
+        return Liga.reconstruir(
+                UUID.randomUUID(), "LaLiga EA Sports", "España",
+                new Temporada(2026, 2027), EstadoLiga.BORRADOR,
+                "/path/to/scrape/calendar", "api-football-140", List.of(), List.of());
     }
 
     private Liga unaLigaConPosiciones() {

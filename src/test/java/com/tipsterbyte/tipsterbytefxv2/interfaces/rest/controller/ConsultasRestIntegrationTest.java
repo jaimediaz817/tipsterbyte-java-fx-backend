@@ -13,6 +13,7 @@
 package com.tipsterbyte.tipsterbytefxv2.interfaces.rest.controller;
 
 import com.tipsterbyte.tipsterbytefxv2.application.port.LigaRepository;
+import com.tipsterbyte.tipsterbytefxv2.application.port.PaisRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PartidoRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.SuscripcionRepository;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Cuota;
@@ -21,6 +22,7 @@ import com.tipsterbyte.tipsterbytefxv2.domain.model.EstadoLiga;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.FechaProgramada;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Liga;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Mercado;
+import com.tipsterbyte.tipsterbytefxv2.domain.model.Pais;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Partido;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Plan;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.PosicionTabla;
@@ -28,6 +30,7 @@ import com.tipsterbyte.tipsterbytefxv2.domain.model.Suscripcion;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Temporada;
 import com.tipsterbyte.tipsterbytefxv2.infrastructure.adapter.AbstractRepositoryJpaAdapterTest;
 import com.tipsterbyte.tipsterbytefxv2.infrastructure.persistence.repository.LigaJpaRepository;
+import com.tipsterbyte.tipsterbytefxv2.infrastructure.persistence.repository.PaisJpaRepository;
 import com.tipsterbyte.tipsterbytefxv2.infrastructure.persistence.repository.PartidoJpaRepository;
 import com.tipsterbyte.tipsterbytefxv2.infrastructure.persistence.repository.SuscripcionJpaRepository;
 import com.tipsterbyte.tipsterbytefxv2.infrastructure.persistence.repository.UsuarioJpaRepository;
@@ -63,11 +66,15 @@ class ConsultasRestIntegrationTest extends AbstractRepositoryJpaAdapterTest {
     @Autowired
     private LigaRepository ligaRepository;
     @Autowired
+    private PaisRepository paisRepository;
+    @Autowired
     private PartidoRepository partidoRepository;
     @Autowired
     private SuscripcionRepository suscripcionRepository;
     @Autowired
     private LigaJpaRepository ligaJpaRepository;
+    @Autowired
+    private PaisJpaRepository paisJpaRepository;
     @Autowired
     private PartidoJpaRepository partidoJpaRepository;
     @Autowired
@@ -80,6 +87,7 @@ class ConsultasRestIntegrationTest extends AbstractRepositoryJpaAdapterTest {
         suscripcionJpaRepository.deleteAll();
         partidoJpaRepository.deleteAll();
         ligaJpaRepository.deleteAll();
+        paisJpaRepository.deleteAll();
         usuarioJpaRepository.deleteAll();
     }
 
@@ -163,6 +171,53 @@ class ConsultasRestIntegrationTest extends AbstractRepositoryJpaAdapterTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.mensaje").value("Acceso denegado: solo puedes consultar tus propias suscripciones"));
+    }
+
+    @Test
+    void debe_listar_paises_del_catalogo_con_token_tipster() throws Exception {
+        registrarUsuario("tipster@example.com", "TIPSTER");
+        String token = loginYExtraerToken("tipster@example.com", "clave-secreta");
+        paisRepository.guardar(new Pais("Colombia", "CO", "Sudamérica", "COL", "/teams/colombia/", false));
+        paisRepository.guardar(new Pais("España", "ES", "Europa", "ESP", "/teams/espana/", true));
+
+        mockMvc.perform(get("/api/v1/paises")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].nombre").value("Colombia"))
+                .andExpect(jsonPath("$[1].nombre").value("España"))
+                .andExpect(jsonPath("$[1].isoAlpha2").value("ES"))
+                .andExpect(jsonPath("$[1].continente").value("Europa"))
+                .andExpect(jsonPath("$[1].mapeado").value(true));
+    }
+
+    @Test
+    void debe_listar_ligas_borrador_del_catalogo_con_token_tipster() throws Exception {
+        registrarUsuario("tipster@example.com", "TIPSTER");
+        String token = loginYExtraerToken("tipster@example.com", "clave-secreta");
+        Liga ligaBorrador = new Liga("LaLiga EA Sports", "España", new Temporada(2026, 2027),
+                "/path/to/scrape/calendar", "api-football-140");
+        ligaRepository.guardar(ligaBorrador);
+
+        mockMvc.perform(get("/api/v1/ligas")
+                        .param("estado", "BORRADOR")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].nombre").value("LaLiga EA Sports"))
+                .andExpect(jsonPath("$[0].estado").value("BORRADOR"))
+                .andExpect(jsonPath("$[0].urlSoccerway").value("/path/to/scrape/calendar"))
+                .andExpect(jsonPath("$[0].apiId").value("api-football-140"));
+    }
+
+    @Test
+    void debe_rechazar_catalogo_paises_para_cliente() throws Exception {
+        registrarUsuario("cliente@example.com", "CLIENTE");
+        String token = loginYExtraerToken("cliente@example.com", "clave-secreta");
+
+        mockMvc.perform(get("/api/v1/paises")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403));
     }
 
     private Liga crearLigaActivaConPosiciones() {

@@ -2,9 +2,9 @@
 // [QUÉ]: Caso de uso CU-02 (HU-02): sincroniza el calendario de partidos (jugados y
 //        pendientes) de una liga activa desde la fuente externa.
 // [POR QUÉ]: Orquesta la creación de Partido por cada partido de la fuente, resolviendo
-//            los Equipo por nombre, y recolecta los eventos PartidoProgramado. Desde
-//            FASE 12 invalida el cache de calendario de la liga antes de consultar la
-//            fuente (cache-aside con Redis).
+//            los Equipo por nombre y propagando la jornada (fuente #4), y recolecta los
+//            eventos PartidoProgramado. Desde FASE 12 invalida el cache de calendario de
+//            la liga antes de consultar la fuente (cache-aside con Redis).
 // [ALTERNATIVAS]: Que el ProveedorCalendario devuelva List<Partido>; se descarta porque
 //                 el adapter no conoce los ids de los Equipo del dominio.
 // [RELACIONES]: HU-02 → CU-02 → ProveedorCalendario + PartidoRepository + CacheLecturas.
@@ -63,7 +63,8 @@ public final class SincronizarCalendarioUseCase {
         for (PartidoFuente fuente : fuentes) {
             Equipo local = resolverEquipo(liga, fuente.equipoLocalNombre());
             Equipo visitante = resolverEquipo(liga, fuente.equipoVisitanteNombre());
-            Partido partido = new Partido(ligaId, local, visitante, new FechaProgramada(fuente.fechaHora()));
+            Partido partido = new Partido(ligaId, local, visitante,
+                    new FechaProgramada(fuente.fechaHora()), fuente.jornada());
             partidoRepository.guardar(partido);
             eventos.addAll(partido.pullEventos()); // PartidoProgramado
         }

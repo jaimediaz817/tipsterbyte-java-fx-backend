@@ -53,6 +53,22 @@ public class LigaRepositoryJpaAdapter implements LigaRepository {
 
     @Override
     @Transactional(readOnly = true)
+    public List<Liga> buscarPorEstado(EstadoLiga estado) {
+        return jpaRepository.findByEstado(estado).stream()
+                .map(this::toDominio)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Liga> buscarPorEstadoYPais(EstadoLiga estado, String pais) {
+        return jpaRepository.findByEstadoAndPaisIgnoreCase(estado, pais).stream()
+                .map(this::toDominio)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Optional<Liga> buscarPorUrlSoccerway(String urlSoccerway) {
         return jpaRepository.findByUrlSoccerway(urlSoccerway).map(this::toDominio);
     }

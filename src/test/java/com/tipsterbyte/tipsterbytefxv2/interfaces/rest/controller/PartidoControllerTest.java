@@ -112,7 +112,8 @@ class PartidoControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(partido.id().toString()))
                 .andExpect(jsonPath("$[0].equipoLocal").value("Arsenal"))
-                .andExpect(jsonPath("$[0].equipoVisitante").value("Chelsea"));
+                .andExpect(jsonPath("$[0].equipoVisitante").value("Chelsea"))
+                .andExpect(jsonPath("$[0].jornada").value(4));
     }
 
     @Test
@@ -171,7 +172,7 @@ class PartidoControllerTest {
                 new Equipo(UUID.randomUUID(), "Chelsea"),
                 new FechaProgramada(LocalDateTime.of(2026, 8, 15, 15, 0)),
                 EstadoPartido.PROGRAMADO,
-                List.of(), null);
+                List.of(), null, 4);
     }
 
     private Partido unPartidoConCuotas(UUID partidoId) {
@@ -182,6 +183,6 @@ class PartidoControllerTest {
                 new FechaProgramada(LocalDateTime.of(2026, 8, 15, 15, 0)),
                 EstadoPartido.PROGRAMADO,
                 List.of(new Cuota(Mercado.UNO_X_DOS, new BigDecimal("1.85"))),
-                null);
+                null, 4);
     }
 }

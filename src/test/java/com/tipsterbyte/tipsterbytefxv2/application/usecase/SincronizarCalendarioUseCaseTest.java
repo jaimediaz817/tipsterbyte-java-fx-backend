@@ -9,10 +9,12 @@ import com.tipsterbyte.tipsterbytefxv2.domain.DomainException;
 import com.tipsterbyte.tipsterbytefxv2.domain.event.DomainEvent;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.EstadoLiga;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Liga;
+import com.tipsterbyte.tipsterbytefxv2.domain.model.Partido;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Temporada;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -60,11 +62,13 @@ class SincronizarCalendarioUseCaseTest {
         when(ligaRepository.buscarPorId(liga.id())).thenReturn(Optional.of(liga));
         when(proveedorCalendario.obtenerCalendario(liga.id())).thenReturn(List.of(
                 new PartidoFuente("Real Madrid", "FC Barcelona",
-                        LocalDateTime.of(2026, 3, 1, 20, 0))));
+                        LocalDateTime.of(2026, 3, 1, 20, 0), 4)));
 
         List<DomainEvent> eventos = casoDeUso.ejecutar(liga.id());
 
-        verify(partidoRepository).guardar(any());
+        ArgumentCaptor<Partido> captor = ArgumentCaptor.forClass(Partido.class);
+        verify(partidoRepository).guardar(captor.capture());
+        assertEquals(4, captor.getValue().jornada());
         assertEquals(1, eventos.size());
         assertTrue(eventos.stream().anyMatch(e -> e.getClass().getSimpleName().equals("PartidoProgramado")));
         assertEquals(2, liga.equipos().size());

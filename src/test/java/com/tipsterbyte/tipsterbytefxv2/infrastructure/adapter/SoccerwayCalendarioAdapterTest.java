@@ -1,8 +1,7 @@
 // ─────────────────────────────────────────────
 // [QUÉ]: Test del adapter SoccerwayCalendarioAdapter (fuente #4) con MockRestServiceServer.
-// [POR QUÉ]: Verifica que el JSON real de #4 (partidos_por_jornada con fecha_iso + hora)
-//            se deserializa y mapea a PartidoFuente (solo equipos + fechaHora, decisión
-//            FASE 8.5).
+// [POR QUÉ]: Verifica que el JSON real de #4 (partidos_por_jornada con fecha_iso + hora +
+//            jornada) se deserializa y mapea a PartidoFuente (equipos + fechaHora + jornada).
 // [RELACIONES]: CU-02. Implementa application.port.ProveedorCalendario.
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.infrastructure.adapter;
@@ -101,8 +100,46 @@ class SoccerwayCalendarioAdapterTest {
         assertEquals("Atletico Nacional", primero.equipoLocalNombre());
         assertEquals("Millonarios", primero.equipoVisitanteNombre());
         assertEquals(LocalDateTime.of(2026, 8, 12, 19, 0), primero.fechaHora());
+        assertEquals(4, primero.jornada());
         PartidoFuente segundo = partidos.get(1);
         assertEquals(LocalDateTime.of(2026, 8, 16, 17, 0), segundo.fechaHora());
+        assertEquals(4, segundo.jornada());
+        server.verify();
+    }
+
+    @Test
+    void debe_usar_indice_de_jornada_cuando_el_label_no_trae_numero() {
+        server.expect(requestTo("http://127.0.0.1:8001/ext-calendar-league-by-league-v2?path_to_scrape=https://co.soccerway.com/colombia/"))
+                .andRespond(withSuccess("""
+                        {
+                          "success": true,
+                          "partidos_por_jornada": [
+                            [
+                              {
+                                "jornada": "Fecha",
+                                "fecha_iso": "2026-08-12",
+                                "hora": "19:00",
+                                "equipo_local": "A",
+                                "equipo_visitante": "B"
+                              }
+                            ],
+                            [
+                              {
+                                "fecha_iso": "2026-08-16",
+                                "hora": "17:00",
+                                "equipo_local": "C",
+                                "equipo_visitante": "D"
+                              }
+                            ]
+                          ]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        List<PartidoFuente> partidos = adapter.obtenerCalendario(UUID.randomUUID());
+
+        assertEquals(2, partidos.size());
+        assertEquals(1, partidos.get(0).jornada());
+        assertEquals(2, partidos.get(1).jornada());
         server.verify();
     }
 

@@ -1,8 +1,9 @@
 // ─────────────────────────────────────────────
 // [QUÉ]: Response DTO de consulta de partidos: vista resumida de un enfrentamiento
-//        con equipos, fecha, estado, resultado y cuotas (HU-02, HU-03).
+//        con equipos, fecha, jornada, estado, resultado y cuotas (HU-02, HU-03).
 // [POR QUÉ]: El frontend necesita listados de partidos para el calendario y la
-//            pantalla de pronósticos; las cuotas se incluyen para decisiones rápidas.
+//            pantalla de pronósticos; la jornada alimenta el indicador cronológico
+//            por liga y las cuotas se incluyen para decisiones rápidas.
 // [ALTERNATIVAS]: DTO sin cuotas (requerir segundo endpoint); se descarta porque
 //                 las cuotas son esenciales para el negocio de pronósticos.
 // [RELACIONES]: PartidoController GET /api/v1/partidos; mapeado desde PartidoRepository
@@ -22,6 +23,7 @@ public record PartidoResponse(
         String equipoLocal,
         String equipoVisitante,
         LocalDateTime fechaProgramada,
+        Integer jornada,
         EstadoPartido estado,
         String resultado,
         List<CuotaResponse> cuotas) {

@@ -20,5 +20,10 @@ public interface LigaJpaRepository extends JpaRepository<LigaEntity, UUID> {
 
     List<LigaEntity> findByEstado(EstadoLiga estado);
 
+    // [QUÉ]: Consulta derivada del catálogo geográfico: filtra por estado y país exacto
+    //        (case-insensitive). El orden (pais, nombre) se aplica en la capa de
+    //        interfaces para no acoplar el orden a Spring Data.
+    List<LigaEntity> findByEstadoAndPaisIgnoreCase(EstadoLiga estado, String pais);
+
     Optional<LigaEntity> findByUrlSoccerway(String urlSoccerway);
 }
