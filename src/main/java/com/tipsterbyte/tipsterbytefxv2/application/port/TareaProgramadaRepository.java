@@ -4,6 +4,7 @@ import com.tipsterbyte.tipsterbytefxv2.domain.model.TareaProgramada;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
+import java.util.UUID;
 
 public interface TareaProgramadaRepository extends JpaRepository<TareaProgramada, UUID> {
     // Custom finder methods used by the scheduler and the service layer

@@ -1,5 +1,7 @@
 package com.tipsterbyte.tipsterbytefxv2.domain.model;
 
+import java.util.UUID;
+
 public record TareaProgramada(
         UUID id,
         String isoAlpha2,
@@ -9,5 +11,3 @@ public record TareaProgramada(
         boolean activa,
         String createdAt) {
 }
-</public>
-</tool_call>

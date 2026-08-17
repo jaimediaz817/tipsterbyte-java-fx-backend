@@ -6,7 +6,9 @@ import com.tipsterbyte.tipsterbytefxv2.application.port.TareaProgramadaRepositor
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 public class GestionarTareasProgramasUseCase {
 
@@ -33,6 +35,8 @@ public class GestionarTareasProgramasUseCase {
                 iso,
                 nombre,
                 prioridad,
+                "0 0 * * * *", // cronExpression: daily at midnight (default)
+                true,            // activa
                 Instant.now().toString()
         );
         return tareaProgramadaRepository.save(tarea);
@@ -41,8 +45,8 @@ public class GestionarTareasProgramasUseCase {
     // [QUÉ]: Lista todas las tareas programadas ordenadas por prioridad ascendente.
     // [POR QUÉ]: Necesario para mostrar en la UI y para el scheduler.
     public List<TareaProgramada> listar() {
-        return tareaProgramadaRepository.listarPorPrioridadAsc()
-                .stream()
+        return StreamSupport.stream(
+                tareaProgramadaRepository.listarPorPrioridadAsc().spliterator(), false)
                 .collect(Collectors.toList());
     }
 
