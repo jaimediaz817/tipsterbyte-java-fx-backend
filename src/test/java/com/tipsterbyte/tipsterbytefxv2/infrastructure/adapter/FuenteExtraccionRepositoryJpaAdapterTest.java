@@ -10,11 +10,15 @@ package com.tipsterbyte.tipsterbytefxv2.infrastructure.adapter;
 
 import com.tipsterbyte.tipsterbytefxv2.application.port.DetalleFuenteExtraccionRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.FuenteExtraccionRepository;
+import com.tipsterbyte.tipsterbytefxv2.application.port.LigaRepository;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.DetalleFuenteExtraccion;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.FuenteExtraccion;
+import com.tipsterbyte.tipsterbytefxv2.domain.model.Liga;
+import com.tipsterbyte.tipsterbytefxv2.domain.model.Temporada;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.TipoFuenteExtraccion;
 import com.tipsterbyte.tipsterbytefxv2.infrastructure.persistence.repository.DetalleFuenteExtraccionJpaRepository;
 import com.tipsterbyte.tipsterbytefxv2.infrastructure.persistence.repository.FuenteExtraccionJpaRepository;
+import com.tipsterbyte.tipsterbytefxv2.infrastructure.persistence.repository.LigaJpaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,14 +37,19 @@ class FuenteExtraccionRepositoryJpaAdapterTest extends AbstractRepositoryJpaAdap
     @Autowired
     private DetalleFuenteExtraccionRepository detalleRepository;
     @Autowired
+    private LigaRepository ligaRepository;
+    @Autowired
     private FuenteExtraccionJpaRepository fuenteJpaRepository;
     @Autowired
     private DetalleFuenteExtraccionJpaRepository detalleJpaRepository;
+    @Autowired
+    private LigaJpaRepository ligaJpaRepository;
 
     @BeforeEach
     void limpiarTablas() {
         detalleJpaRepository.deleteAll();
         fuenteJpaRepository.deleteAll();
+        ligaJpaRepository.deleteAll();
     }
 
     @Test
@@ -73,7 +82,7 @@ class FuenteExtraccionRepositoryJpaAdapterTest extends AbstractRepositoryJpaAdap
 
     @Test
     void debe_guardar_y_resolver_url_de_fuente_por_liga_y_tipo() {
-        UUID ligaId = UUID.randomUUID();
+        UUID ligaId = guardarLigaReal();
         FuenteExtraccion fuente = new FuenteExtraccion("Posiciones", TipoFuenteExtraccion.STANDINGS, true);
         fuenteRepository.guardar(fuente);
 
@@ -93,7 +102,7 @@ class FuenteExtraccionRepositoryJpaAdapterTest extends AbstractRepositoryJpaAdap
 
     @Test
     void debe_recuperar_todos_los_detalles_de_una_liga() {
-        UUID ligaId = UUID.randomUUID();
+        UUID ligaId = guardarLigaReal();
         FuenteExtraccion standings = new FuenteExtraccion("Posiciones", TipoFuenteExtraccion.STANDINGS, true);
         FuenteExtraccion calendar = new FuenteExtraccion("Calendario", TipoFuenteExtraccion.CALENDAR, true);
         fuenteRepository.guardar(standings);
@@ -104,5 +113,13 @@ class FuenteExtraccionRepositoryJpaAdapterTest extends AbstractRepositoryJpaAdap
         List<DetalleFuenteExtraccion> detalles = detalleRepository.buscarPorLiga(ligaId);
 
         assertEquals(2, detalles.size());
+    }
+
+    // [POR QUÉ]: La FK liga_id → ligas.id exige que la liga exista antes de guardar un
+    //            detalle; los tests anteriores usaban un UUID sintético sin fila real.
+    private UUID guardarLigaReal() {
+        Liga liga = new Liga("Premier League", "Inglaterra", new Temporada(2024, 2025));
+        ligaRepository.guardar(liga);
+        return liga.id();
     }
 }

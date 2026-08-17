@@ -37,6 +37,18 @@ public class DetalleFuenteExtraccionEntity {
     @Column(name = "liga_id", nullable = false)
     private UUID ligaId;
 
+    // [POR QUÉ]: Relación de solo lectura (insertable/updatable = false) a LigaEntity:
+    //            el dominio referencia a la liga por identidad (UUID), así que las
+    //            escrituras guardan solo el ligaId. Declarar el @ManyToOne permite que
+    //            ddl-auto=update genere la FK detalle_fuentes_extraccion.liga_id →
+    //            ligas.id (integridad referencial real en BD) sin acoplar los agregados.
+    // [ALTERNATIVAS]: Dejar liga_id como columna plana sin FK; se descarta porque perdía
+    //                 la integridad referencial (el resto del esquema sí tiene FKs, ej.
+    //                 equipos.liga_id → ligas.id).
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "liga_id", insertable = false, updatable = false)
+    private LigaEntity liga;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "fuente_id", nullable = false)
     private FuenteExtraccionEntity fuente;
