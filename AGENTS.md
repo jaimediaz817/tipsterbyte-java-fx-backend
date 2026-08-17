@@ -28,6 +28,7 @@ Proyecto de aprendizaje/portafolio Java para proceso de selección. Plataforma d
 - `docs/use-cases/casos-de-uso.md` — casos de uso (CU-01..14) con flujos y puertos.
 - `docs/use-cases/historias-de-usuario.md` — 9 HU con trazabilidad HU → CU → puertos.
 - `docs/architecture/arquitectura-objetivo.md` — capas, Dependency Rule, ports/adapters, 4 ADRs.
+- `docs/frontend/comunicado-paises-interes.md` — contrato REST de CU-14 (shapes, status codes, semántica de prioridad) para el equipo frontend.
 
 ## Convenciones obligatorias
 
