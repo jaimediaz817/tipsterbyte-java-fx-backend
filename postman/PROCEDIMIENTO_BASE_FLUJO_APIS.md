@@ -2,7 +2,7 @@
 
 > **Objetivo**: Catálogo VIGENTE de todos los endpoints REST del backend TipsterByte, con métodos HTTP, roles, request/response y el orden exacto para replicar el flujo completo en Postman.
 >
-> **Versión**: 280 tests en verde · roles unificados `CLIENTE/TIPSTER/SUPERADMIN` · catálogo geográfico (países + ligas BORRADOR) · `fechaCreacion` en auth.
+> **Versión**: 292 tests en verde · roles unificados `CLIENTE/TIPSTER/SUPERADMIN` · catálogo geográfico (países + ligas BORRADOR) · activación del catálogo (momento 0) · campo `jornada` en partidos · `fechaCreacion` en auth.
 >
 > **Dependencia de datos**: los endpoints de sincronización (`/sincronizaciones/*`) y el poblamiento del catálogo (CU-10) requieren el **scraper Python en `http://127.0.0.1:8001`** (proyecto `tipsterByte_fx`). Los GET de lectura funcionan con lo que haya en BD.
 
@@ -14,13 +14,14 @@
 | --- | --------------- | -------------------------------- | --------- |
 | 1   | Auth            | `/api/v1/auth`                   | POST      |
 | 2   | Roles           | `/api/v1/roles`                  | GET       |
-| 3   | Países          | `/api/v1/paises`                 | GET       |
-| 4   | Ligas           | `/api/v1/ligas`                  | GET, POST |
-| 5   | Fuentes         | `/api/v1/fuentes`                | GET, POST |
-| 6   | Fuentes de Liga | `/api/v1/ligas/{ligaId}/fuentes` | GET, PUT  |
-| 7   | Partidos        | `/api/v1/partidos`               | GET, POST |
-| 8   | Pronósticos     | `/api/v1/pronosticos`            | GET, POST |
-| 9   | Suscripciones   | `/api/v1/suscripciones`          | GET, POST |
+| 3   | Catálogo        | `/api/v1/catalogo`               | GET, POST |
+| 4   | Países          | `/api/v1/paises`                 | GET       |
+| 5   | Ligas           | `/api/v1/ligas`                  | GET, POST |
+| 6   | Fuentes         | `/api/v1/fuentes`                | GET, POST |
+| 7   | Fuentes de Liga | `/api/v1/ligas/{ligaId}/fuentes` | GET, PUT  |
+| 8   | Partidos        | `/api/v1/partidos`               | GET, POST |
+| 9   | Pronósticos     | `/api/v1/pronosticos`            | GET, POST |
+| 10  | Suscripciones   | `/api/v1/suscripciones`          | GET, POST |
 
 > **Nota**: el `POST` del recurso **Ligas** corresponde solo a sub-recursos (`/{ligaId}/activacion`, `/{ligaId}/sincronizaciones/*`). **NO existe `POST /api/v1/ligas`** (alta manual descartada; el catálogo se puebla vía CU-10/scraper).
 
@@ -50,6 +51,7 @@ Según `SecurityConfig.java`:
 | `POST /api/v1/auth/**`          | 🔓 **Público** (registro y login)        |
 | `GET /api/v1/roles`             | 🔓 **Público** (catálogo de roles)       |
 | `GET /actuator/health`          | 🔓 **Público**                           |
+| `/api/v1/catalogo/**`           | `SUPERADMIN` (activación y estado)       |
 | `GET /api/v1/fuentes`           | `SUPERADMIN`, `TIPSTER`, `CLIENTE`       |
 | `/api/v1/ligas/**`              | `SUPERADMIN`, `TIPSTER`                  |
 | `/api/v1/paises/**`             | `SUPERADMIN`, `TIPSTER`                  |
@@ -148,11 +150,38 @@ pm.collectionVariables.set("clienteId", jsonData.usuarioId);
 
 ---
 
-### 🗺️ FASE 2: Catálogo Geográfico (Países → Ligas BORRADOR)
+### 🗺️ FASE 2: Catálogo Geográfico (Activación → Países → Ligas BORRADOR)
 
-> **Rol**: `SUPERADMIN` o `TIPSTER`
+> **Rol**: `SUPERADMIN` o `TIPSTER` (la **activación** del catálogo es solo `SUPERADMIN`)
 
-#### 2.1 Listar Países
+#### 2.1 Activar Catálogo (momento 0)
+- **Método**: `POST`
+- **URL**: `{{baseUrl}}/api/v1/catalogo/activar`
+- **Descripción**: dispara la sincronización del catálogo completo (CU-10): puebla países (fuente #1) y ligas BORRADOR por país (fuente #5) desde el scraper Python en `:8001`. Es **síncrono**: la respuesta llega cuando termina de persistir.
+- **Respuesta**: `200 OK` → `CatalogoEstadoResponse` (el estado resultante tras activar):
+```json
+{
+  "estado": "POBLADO",
+  "totalPaises": 176,
+  "totalLigas": 620
+}
+```
+- **Errores**: `503` si el scraper `:8001` no está disponible (`InfraestructureException`); `403` si el rol no es `SUPERADMIN`.
+
+#### 2.2 Estado del Catálogo
+- **Método**: `GET`
+- **URL**: `{{baseUrl}}/api/v1/catalogo/estado`
+- **Descripción**: estado derivado de los datos reales persistidos (sin tabla de estado). `POBLADO` solo cuando hay países **y** ligas; si falta alguna → `VACIO`.
+- **Respuesta**: `200 OK` → `CatalogoEstadoResponse`:
+```json
+{
+  "estado": "VACIO",
+  "totalPaises": 0,
+  "totalLigas": 0
+}
+```
+
+#### 2.3 Listar Países
 - **Método**: `GET`
 - **URL**: `{{baseUrl}}/api/v1/paises`
 - **Query params (opcionales)**: `continente` (ej: `Europa`), `mapeado` (`true`/`false`)
@@ -171,7 +200,7 @@ pm.collectionVariables.set("clienteId", jsonData.usuarioId);
 ]
 ```
 
-#### 2.2 Listar Ligas del Catálogo por Estado
+#### 2.4 Listar Ligas del Catálogo por Estado
 - **Método**: `GET`
 - **URL**: `{{baseUrl}}/api/v1/ligas?estado=BORRADOR`
 - **Query params**: `estado` (`BORRADOR`\|`ACTIVA`\|`INACTIVA`, default `ACTIVA`), `pais` (opcional, exacto case-insensitive)
@@ -409,28 +438,30 @@ pm.collectionVariables.set("clienteId", jsonData.usuarioId);
  1. GET  /roles                       → catálogo de roles (público)
  2. POST /auth/registro               → crear usuario (opcional; devuelve token)
  3. POST /auth/login                  → obtener JWT (guardar access_token + clienteId)
- 4. GET  /paises                      → catálogo geográfico (SUPERADMIN/TIPSTER)
- 5. GET  /ligas?estado=BORRADOR       → ligas del catálogo (capturar ligaId)
- 6. GET  /ligas?estado=BORRADOR&pais= → filtro por país
- 7. POST /fuentes                     → registrar fuentes del catálogo
- 8. GET  /fuentes                     → listar fuentes
- 9. GET  /ligas                       → ligas ACTIVA
-10. PUT  /ligas/{ligaId}/fuentes/{tipo} → asociar URL de fuente a liga
-11. GET  /ligas/{ligaId}/fuentes      → verificar URLs asociadas
-12. POST /ligas/{ligaId}/activacion   → activar liga (BR-001)
-13. POST /ligas/{ligaId}/sincronizaciones/posiciones → sincronizar (scraper :8001)
-14. POST /ligas/{ligaId}/sincronizaciones/calendario → sincronizar (scraper :8001)
-15. POST /ligas/{ligaId}/sincronizaciones/cuotas     → sincronizar (scraper :8001)
-16. GET  /ligas/{ligaId}              → detalle con posiciones
-17. GET  /ligas/{ligaId}/posiciones   → tabla de posiciones
-18. GET  /partidos?ligaId=            → listar partidos (capturar partidoId)
-19. GET  /partidos?ligaId=&fecha=     → partidos por fecha
-20. GET  /partidos?ligaId=&proximos=true → próximos partidos
-21. GET  /partidos/{partidoId}/cuotas → ver cuotas
-22. POST /partidos/{partidoId}/resultado → registrar resultado
-23. POST /pronosticos                 → crear pronóstico (capturar pronosticoId)
-24. POST /pronosticos/{pronosticoId}/publicacion → publicar
-25. GET  /pronosticos?clienteId=&ligaId=&fecha= → consultar pronósticos publicados
-26. POST /suscripciones               → crear suscripción (rol CLIENTE)
-27. GET  /suscripciones?clienteId=    → listar suscripciones del cliente
+ 4. POST /catalogo/activar            → poblar el catálogo (momento 0, SUPERADMIN; scraper :8001)
+ 5. GET  /catalogo/estado             → verificar estado POBLADO + conteos
+ 6. GET  /paises                      → catálogo geográfico (SUPERADMIN/TIPSTER)
+ 7. GET  /ligas?estado=BORRADOR       → ligas del catálogo (capturar ligaId)
+ 8. GET  /ligas?estado=BORRADOR&pais= → filtro por país
+ 9. POST /fuentes                     → registrar fuentes del catálogo
+10. GET  /fuentes                     → listar fuentes
+11. GET  /ligas                       → ligas ACTIVA
+12. PUT  /ligas/{ligaId}/fuentes/{tipo} → asociar URL de fuente a liga
+13. GET  /ligas/{ligaId}/fuentes      → verificar URLs asociadas
+14. POST /ligas/{ligaId}/activacion   → activar liga (BR-001)
+15. POST /ligas/{ligaId}/sincronizaciones/posiciones → sincronizar (scraper :8001)
+16. POST /ligas/{ligaId}/sincronizaciones/calendario → sincronizar (scraper :8001)
+17. POST /ligas/{ligaId}/sincronizaciones/cuotas     → sincronizar (scraper :8001)
+18. GET  /ligas/{ligaId}              → detalle con posiciones
+19. GET  /ligas/{ligaId}/posiciones   → tabla de posiciones
+20. GET  /partidos?ligaId=            → listar partidos (capturar partidoId)
+21. GET  /partidos?ligaId=&fecha=     → partidos por fecha
+22. GET  /partidos?ligaId=&proximos=true → próximos partidos
+23. GET  /partidos/{partidoId}/cuotas → ver cuotas
+24. POST /partidos/{partidoId}/resultado → registrar resultado
+25. POST /pronosticos                 → crear pronóstico (capturar pronosticoId)
+26. POST /pronosticos/{pronosticoId}/publicacion → publicar
+27. GET  /pronosticos?clienteId=&ligaId=&fecha= → consultar pronósticos publicados
+28. POST /suscripciones               → crear suscripción (rol CLIENTE)
+29. GET  /suscripciones?clienteId=    → listar suscripciones del cliente
 ```

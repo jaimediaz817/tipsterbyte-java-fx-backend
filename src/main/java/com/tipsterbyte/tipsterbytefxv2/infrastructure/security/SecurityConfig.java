@@ -62,6 +62,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/partidos/**").hasAnyRole("SUPERADMIN", "TIPSTER")
                         .requestMatchers("/api/v1/pronosticos/**").hasAnyRole("SUPERADMIN", "TIPSTER", "CLIENTE")
                         .requestMatchers("/api/v1/suscripciones/**").hasRole("CLIENTE")
+                        .requestMatchers("/api/v1/catalogo/**").hasRole("SUPERADMIN")
                         .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(authenticationEntryPoint)

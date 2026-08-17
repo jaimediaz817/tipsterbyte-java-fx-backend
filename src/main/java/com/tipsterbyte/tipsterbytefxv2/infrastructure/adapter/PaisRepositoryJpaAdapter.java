@@ -48,6 +48,12 @@ public class PaisRepositoryJpaAdapter implements PaisRepository {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public long contar() {
+        return jpaRepository.count();
+    }
+
+    @Override
     @Transactional
     public void guardar(Pais pais) {
         jpaRepository.save(toEntity(pais));

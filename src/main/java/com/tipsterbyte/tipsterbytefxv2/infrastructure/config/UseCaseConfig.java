@@ -31,6 +31,7 @@ import com.tipsterbyte.tipsterbytefxv2.application.port.TokenEmisor;
 import com.tipsterbyte.tipsterbytefxv2.application.port.UsuarioRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.ActivarLigaUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.AutenticarUsuarioUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.ConsultarEstadoCatalogoUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.ConsultarPronosticosUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.CrearPronosticoUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.CrearSuscripcionUseCase;
@@ -122,6 +123,14 @@ public class UseCaseConfig {
                                                                  PaisRepository paisRepository,
                                                                  LigaRepository ligaRepository) {
         return new SincronizarCatalogoUseCase(proveedorPaises, proveedorLigasPorPais, paisRepository, ligaRepository);
+    }
+
+    // [QUÉ]: Bean de consulta del estado del catálogo (CU-10): deriva VACIO/POBLADO
+    //        de los conteos reales de países y ligas para el panel del SUPERADMIN.
+    @Bean
+    public ConsultarEstadoCatalogoUseCase consultarEstadoCatalogoUseCase(PaisRepository paisRepository,
+                                                                          LigaRepository ligaRepository) {
+        return new ConsultarEstadoCatalogoUseCase(paisRepository, ligaRepository);
     }
 
     // [QUÉ]: Bean de CU-11 (gestionar catálogo de fuentes de extracción).

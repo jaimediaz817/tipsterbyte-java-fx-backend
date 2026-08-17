@@ -41,6 +41,11 @@ public interface LigaRepository {
     //            para no duplicar ligas ya registradas en el catálogo.
     Optional<Liga> buscarPorUrlSoccerway(String urlSoccerway);
 
+    // [QUÉ]: Cuenta el total de ligas persistidas.
+    // [POR QUÉ]: ConsultarEstadoCatalogoUseCase deriva el estado del catálogo
+    //            (VACIO/POBLADO) a partir de los conteos reales de datos.
+    long contar();
+
     // [QUÉ]: Persiste una liga (crea o actualiza según exista el id).
     void guardar(Liga liga);
 

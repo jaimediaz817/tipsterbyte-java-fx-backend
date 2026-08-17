@@ -26,6 +26,11 @@ public interface PaisRepository {
     // [QUÉ]: Recupera todos los países del catálogo.
     List<Pais> buscarTodos();
 
+    // [QUÉ]: Cuenta el total de países persistidos.
+    // [POR QUÉ]: ConsultarEstadoCatalogoUseCase deriva el estado del catálogo
+    //            (VACIO/POBLADO) a partir de los conteos reales de datos.
+    long contar();
+
     // [QUÉ]: Persiste un país (crea o actualiza según exista el id).
     void guardar(Pais pais);
 

@@ -74,6 +74,12 @@ public class LigaRepositoryJpaAdapter implements LigaRepository {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public long contar() {
+        return jpaRepository.count();
+    }
+
+    @Override
     @Transactional
     public void guardar(Liga liga) {
         LigaEntity entidad = toEntity(liga);

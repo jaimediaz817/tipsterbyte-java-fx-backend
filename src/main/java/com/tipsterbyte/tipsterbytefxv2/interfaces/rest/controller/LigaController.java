@@ -1,8 +1,8 @@
 // ─────────────────────────────────────────────
 // [QUÉ]: Controller REST de ligas: expone CU-04 (activar liga con URLs de fuentes)
 //        y las sincronizaciones CU-01 (posiciones), CU-02 (calendario) y CU-03 (cuotas).
-//        Además expone endpoints GET de consulta para el frontend Angular (listado,
-//        detalle y posiciones).
+//        Además expone endpoints GET de consulta para el frontend Angular (listado con
+//        filtros por estado/país, detalle y posiciones).
 // [POR QUÉ]: Es la puerta de entrada HTTP de los casos de uso del administrador sobre
 //            la ingesta de datos y de las consultas del tipster/cliente. Traduce request
 //            DTOs a comandos/DTOs de application y mapea aggregates a response DTOs.
@@ -20,6 +20,7 @@ import com.tipsterbyte.tipsterbytefxv2.application.usecase.ActivarLigaUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCalendarioUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCuotasUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarPosicionesUseCase;
+import com.tipsterbyte.tipsterbytefxv2.domain.model.EstadoLiga;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Liga;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.PosicionTabla;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.request.ActivarLigaRequest;
@@ -35,6 +36,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -97,17 +99,30 @@ public class LigaController {
         return ResponseEntity.ok(new SincronizacionResponse(eventos));
     }
 
-    // [QUÉ]: Endpoint GET /api/v1/ligas — lista las ligas en estado ACTIVA.
+    // [QUÉ]: Endpoint GET /api/v1/ligas — lista las ligas. Sin filtros devuelve las
+    //        ACTIVA (selector de ligas del tipster); con ?estado=... lista el catálogo
+    //        del panel geográfico (BORRADOR) y con ?estado=...&pais=... filtra además
+    //        por país (nombre exacto, case-insensitive).
     // [POR QUÉ]: El frontend Angular necesita poblar el selector de ligas disponibles
-    //            para sincronización y pronósticos (HU-01).
-    // [ALTERNATIVAS]: Incluir ligas BORRADOR; se descarta porque solo las ACTIVA tienen
-    //                 datos completos para mostrar al tipster.
+    //            para sincronización y pronósticos (HU-01), y el panel admin necesita
+    //            listar las ligas BORRADOR del catálogo por país (CU-10 → CU-04).
+    // [ALTERNATIVAS]: Endpoints separados (activas vs catálogo); se descarta porque el
+    //                 shape de LigaResponse es el mismo y un solo endpoint con filtros
+    //                 mantiene el contrato simple (ver LigaResponse).
     @GetMapping
-    public ResponseEntity<List<LigaResponse>> listarLigasActivas() {
-        List<LigaResponse> ligas = ligaRepository.buscarActivas().stream()
-                .map(this::toLigaResponse)
-                .toList();
-        return ResponseEntity.ok(ligas);
+    public ResponseEntity<List<LigaResponse>> listarLigas(
+            @RequestParam(required = false) EstadoLiga estado,
+            @RequestParam(required = false) String pais) {
+        List<Liga> ligas;
+        if (estado != null && pais != null) {
+            ligas = ligaRepository.buscarPorEstadoYPais(estado, pais);
+        } else if (estado != null) {
+            ligas = ligaRepository.buscarPorEstado(estado);
+        } else {
+            ligas = ligaRepository.buscarActivas();
+        }
+        List<LigaResponse> response = ligas.stream().map(this::toLigaResponse).toList();
+        return ResponseEntity.ok(response);
     }
 
     // [QUÉ]: Endpoint GET /api/v1/ligas/{ligaId} — detalle de una liga con posiciones.
@@ -146,7 +161,9 @@ public class LigaController {
                 liga.nombre(),
                 liga.pais(),
                 liga.estado(),
-                liga.temporada().anioInicio() + "/" + liga.temporada().anioFin());
+                liga.temporada().anioInicio() + "/" + liga.temporada().anioFin(),
+                liga.urlSoccerway(),
+                liga.apiId());
     }
 
     private PosicionTablaResponse toPosicionResponse(PosicionTabla posicion) {
