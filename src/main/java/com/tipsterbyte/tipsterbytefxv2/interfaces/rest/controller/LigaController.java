@@ -15,8 +15,10 @@
 package com.tipsterbyte.tipsterbytefxv2.interfaces.rest.controller;
 
 import com.tipsterbyte.tipsterbytefxv2.application.dto.ActivarLigaComando;
+import com.tipsterbyte.tipsterbytefxv2.application.dto.JornadaActualDto;
 import com.tipsterbyte.tipsterbytefxv2.application.port.LigaRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.ActivarLigaUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.ObtenerJornadaActualUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCalendarioUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCuotasUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarPosicionesUseCase;
@@ -24,6 +26,7 @@ import com.tipsterbyte.tipsterbytefxv2.domain.model.EstadoLiga;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Liga;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.PosicionTabla;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.request.ActivarLigaRequest;
+import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.JornadaActualResponse;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.LigaDetalleResponse;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.LigaResponse;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.PosicionTablaResponse;
@@ -52,6 +55,7 @@ public class LigaController {
     private final SincronizarCalendarioUseCase sincronizarCalendarioUseCase;
     private final SincronizarCuotasUseCase sincronizarCuotasUseCase;
     private final LigaRepository ligaRepository;
+    private final ObtenerJornadaActualUseCase obtenerJornadaActualUseCase;
 
     // [QUÉ]: Construye el controller con sus casos de uso y repositorio de consulta
     //        (inyección por constructor).
@@ -59,12 +63,14 @@ public class LigaController {
                           SincronizarPosicionesUseCase sincronizarPosicionesUseCase,
                           SincronizarCalendarioUseCase sincronizarCalendarioUseCase,
                           SincronizarCuotasUseCase sincronizarCuotasUseCase,
-                          LigaRepository ligaRepository) {
+                          LigaRepository ligaRepository,
+                          ObtenerJornadaActualUseCase obtenerJornadaActualUseCase) {
         this.activarLigaUseCase = activarLigaUseCase;
         this.sincronizarPosicionesUseCase = sincronizarPosicionesUseCase;
         this.sincronizarCalendarioUseCase = sincronizarCalendarioUseCase;
         this.sincronizarCuotasUseCase = sincronizarCuotasUseCase;
         this.ligaRepository = ligaRepository;
+        this.obtenerJornadaActualUseCase = obtenerJornadaActualUseCase;
     }
 
     // [QUÉ]: Endpoint POST /api/v1/ligas/{ligaId}/activacion — activa una liga (CU-04)
@@ -153,6 +159,18 @@ public class LigaController {
                 .map(this::toPosicionResponse)
                 .toList();
         return ResponseEntity.ok(posiciones);
+    }
+
+    // [QUÉ]: Endpoint GET /api/v1/ligas/{ligaId}/jornada-actual — jornada actual de la
+    //        liga (jornada del próximo partido por jugarse) y la siguiente.
+    // [POR QUÉ]: El frontend muestra el indicador cronológico "Jornada X de la
+    //            temporada Y" por liga; el cálculo vive en el backend (única fuente de
+    //            verdad, evita el drift de reloj del cliente).
+    // [RELACIONES]: CU-02 → ObtenerJornadaActualUseCase → JornadaActualResponse.
+    @GetMapping("/{ligaId}/jornada-actual")
+    public ResponseEntity<JornadaActualResponse> obtenerJornadaActual(@PathVariable UUID ligaId) {
+        JornadaActualDto dto = obtenerJornadaActualUseCase.ejecutar(ligaId);
+        return ResponseEntity.ok(new JornadaActualResponse(dto.jornadaActual(), dto.proximaJornada()));
     }
 
     private LigaResponse toLigaResponse(Liga liga) {

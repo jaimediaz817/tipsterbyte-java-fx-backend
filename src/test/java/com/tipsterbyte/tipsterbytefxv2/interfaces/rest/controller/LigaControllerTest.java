@@ -8,8 +8,10 @@
 package com.tipsterbyte.tipsterbytefxv2.interfaces.rest.controller;
 
 import com.tipsterbyte.tipsterbytefxv2.application.dto.ActivarLigaComando;
+import com.tipsterbyte.tipsterbytefxv2.application.dto.JornadaActualDto;
 import com.tipsterbyte.tipsterbytefxv2.application.port.LigaRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.ActivarLigaUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.ObtenerJornadaActualUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCalendarioUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCuotasUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarPosicionesUseCase;
@@ -33,6 +35,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -56,6 +59,8 @@ class LigaControllerTest {
     private SincronizarCuotasUseCase sincronizarCuotasUseCase;
     @Mock
     private LigaRepository ligaRepository;
+    @Mock
+    private ObtenerJornadaActualUseCase obtenerJornadaActualUseCase;
 
     private MockMvc mockMvc;
 
@@ -63,7 +68,8 @@ class LigaControllerTest {
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(
                         new LigaController(activarLigaUseCase, sincronizarPosicionesUseCase,
-                                sincronizarCalendarioUseCase, sincronizarCuotasUseCase, ligaRepository))
+                                sincronizarCalendarioUseCase, sincronizarCuotasUseCase, ligaRepository,
+                                obtenerJornadaActualUseCase))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -208,6 +214,28 @@ class LigaControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].equipoNombre").value("Arsenal"))
                 .andExpect(jsonPath("$[0].puntos").value(9));
+    }
+
+    @Test
+    void debe_obtener_jornada_actual_de_liga() throws Exception {
+        UUID ligaId = UUID.randomUUID();
+        when(obtenerJornadaActualUseCase.ejecutar(ligaId)).thenReturn(new JornadaActualDto(12, 13));
+
+        mockMvc.perform(get("/api/v1/ligas/{id}/jornada-actual", ligaId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.jornadaActual").value(12))
+                .andExpect(jsonPath("$.proximaJornada").value(13));
+    }
+
+    @Test
+    void debe_devolver_jornada_nula_cuando_no_hay_partidos_con_jornada() throws Exception {
+        UUID ligaId = UUID.randomUUID();
+        when(obtenerJornadaActualUseCase.ejecutar(ligaId)).thenReturn(new JornadaActualDto(null, null));
+
+        mockMvc.perform(get("/api/v1/ligas/{id}/jornada-actual", ligaId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.jornadaActual").value(nullValue()))
+                .andExpect(jsonPath("$.proximaJornada").value(nullValue()));
     }
 
     private Liga unaLigaActiva() {

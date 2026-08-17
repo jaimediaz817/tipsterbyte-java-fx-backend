@@ -147,6 +147,21 @@ class ConsultasRestIntegrationTest extends AbstractRepositoryJpaAdapterTest {
     }
 
     @Test
+    void debe_obtener_jornada_actual_de_liga_con_datos_reales() throws Exception {
+        registrarUsuario("tipster@example.com", "TIPSTER");
+        String token = loginYExtraerToken("tipster@example.com", "clave-secreta");
+        Liga liga = crearLigaActivaConPosiciones();
+        crearPartidoConJornada(liga.id(), LocalDateTime.now().minusDays(1), 3);
+        crearPartidoConJornada(liga.id(), LocalDateTime.now().plusDays(1), 4);
+
+        mockMvc.perform(get("/api/v1/ligas/{id}/jornada-actual", liga.id())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.jornadaActual").value(4))
+                .andExpect(jsonPath("$.proximaJornada").value(5));
+    }
+
+    @Test
     void debe_listar_suscripciones_del_cliente_autenticado() throws Exception {
         UUID clienteId = registrarUsuarioYExtraerId("cliente@example.com", "CLIENTE");
         String token = loginYExtraerToken("cliente@example.com", "clave-secreta");
@@ -241,6 +256,13 @@ class ConsultasRestIntegrationTest extends AbstractRepositoryJpaAdapterTest {
         partido.actualizarCuotas(List.of(new Cuota(Mercado.UNO_X_DOS, new BigDecimal("1.85"))));
         partidoRepository.guardar(partido);
         return partido;
+    }
+
+    private void crearPartidoConJornada(UUID ligaId, LocalDateTime fecha, Integer jornada) {
+        Equipo local = new Equipo(UUID.randomUUID(), "Equipo Local");
+        Equipo visitante = new Equipo(UUID.randomUUID(), "Equipo Visitante");
+        Partido partido = new Partido(ligaId, local, visitante, new FechaProgramada(fecha), jornada);
+        partidoRepository.guardar(partido);
     }
 
     private void crearSuscripcionActiva(UUID clienteId) {

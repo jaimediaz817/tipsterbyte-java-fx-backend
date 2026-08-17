@@ -303,6 +303,19 @@ pm.collectionVariables.set("clienteId", jsonData.usuarioId);
 - **URL**: `{{baseUrl}}/api/v1/ligas/{{ligaId}}/posiciones`
 - **Respuesta**: `200 OK` → `List<PosicionTablaResponse>` (equipoId, equipoNombre, posicion, J/G/E/P, GF/GC, puntos, ultimosResultados)
 
+#### 4.8 Jornada Actual de Liga
+- **Método**: `GET`
+- **URL**: `{{baseUrl}}/api/v1/ligas/{{ligaId}}/jornada-actual`
+- **Descripción**: indicador cronológico para el frontend: la jornada del próximo partido por jugarse (o la última jornada si el calendario ya terminó) y la siguiente.
+- **Respuesta**: `200 OK` → `JornadaActualResponse`:
+```json
+{
+  "jornadaActual": 12,
+  "proximaJornada": 13
+}
+```
+- **Nota**: ambos campos son `null` si la liga no tiene partidos con `jornada` sincronizada.
+
 ---
 
 ### 🏟️ FASE 5: Gestión de Partidos
@@ -312,7 +325,7 @@ pm.collectionVariables.set("clienteId", jsonData.usuarioId);
 #### 5.1 Listar Partidos por Liga
 - **Método**: `GET`
 - **URL**: `{{baseUrl}}/api/v1/partidos?ligaId={{ligaId}}`
-- **Respuesta**: `200 OK` → `List<PartidoResponse>` (id, ligaId, equipoLocal, equipoVisitante, fechaProgramada, estado, resultado, cuotas[])
+- **Respuesta**: `200 OK` → `List<PartidoResponse>` (id, ligaId, equipoLocal, equipoVisitante, fechaProgramada, jornada, estado, resultado, cuotas[])
 
 #### 5.2 Listar Partidos por Fecha
 - **Método**: `GET`

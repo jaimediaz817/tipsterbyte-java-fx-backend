@@ -33,6 +33,7 @@ import com.tipsterbyte.tipsterbytefxv2.application.usecase.ActivarLigaUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.AutenticarUsuarioUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.ConsultarEstadoCatalogoUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.ConsultarPronosticosUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.ObtenerJornadaActualUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.CrearPronosticoUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.CrearSuscripcionUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.GestionarFuenteExtraccionUseCase;
@@ -131,6 +132,13 @@ public class UseCaseConfig {
     public ConsultarEstadoCatalogoUseCase consultarEstadoCatalogoUseCase(PaisRepository paisRepository,
                                                                           LigaRepository ligaRepository) {
         return new ConsultarEstadoCatalogoUseCase(paisRepository, ligaRepository);
+    }
+
+    // [QUÉ]: Bean de la jornada actual de una liga (CU-02): calcula la jornada del
+    //        próximo partido por jugarse desde el calendario persistido.
+    @Bean
+    public ObtenerJornadaActualUseCase obtenerJornadaActualUseCase(PartidoRepository partidoRepository) {
+        return new ObtenerJornadaActualUseCase(partidoRepository);
     }
 
     // [QUÉ]: Bean de CU-11 (gestionar catálogo de fuentes de extracción).
