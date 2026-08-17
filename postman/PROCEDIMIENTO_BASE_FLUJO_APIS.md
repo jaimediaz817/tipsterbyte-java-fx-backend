@@ -218,7 +218,7 @@ pm.collectionVariables.set("clienteId", jsonData.usuarioId);
   }
 ]
 ```
-- **Nota**: sin query params devuelve **solo `ACTIVA`** (compatibilidad total). `?estado` inválido → `400`.
+- **Nota**: sin query params devuelve **solo `ACTIVA`** (compatibilidad total). `?pais=X` sin `estado` filtra dentro del scope por defecto (`ACTIVA`). `?estado` inválido → `400`.
 
 ---
 

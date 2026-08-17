@@ -235,6 +235,23 @@ class ConsultasRestIntegrationTest extends AbstractRepositoryJpaAdapterTest {
                 .andExpect(jsonPath("$.status").value(403));
     }
 
+    @Test
+    void debe_listar_ligas_activas_filtradas_por_pais_sin_estado() throws Exception {
+        registrarUsuario("tipster@example.com", "TIPSTER");
+        String token = loginYExtraerToken("tipster@example.com", "clave-secreta");
+        crearLigaActivaConPosiciones();
+        ligaRepository.guardar(new Liga("Segunda Inglaterra", "Inglaterra", new Temporada(2024, 2025),
+                "/path/to/segunda", null));
+
+        mockMvc.perform(get("/api/v1/ligas")
+                        .param("pais", "Inglaterra")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].nombre").value("Premier League"))
+                .andExpect(jsonPath("$[0].estado").value("ACTIVA"));
+    }
+
     private Liga crearLigaActivaConPosiciones() {
         Liga liga = new Liga("Premier League", "Inglaterra", new Temporada(2024, 2025));
         liga.activar(true, true, true);

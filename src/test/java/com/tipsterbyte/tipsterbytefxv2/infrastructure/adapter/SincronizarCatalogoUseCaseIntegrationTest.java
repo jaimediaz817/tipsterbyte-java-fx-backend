@@ -31,7 +31,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 class SincronizarCatalogoUseCaseIntegrationTest extends AbstractRepositoryJpaAdapterTest {
@@ -99,17 +98,20 @@ class SincronizarCatalogoUseCaseIntegrationTest extends AbstractRepositoryJpaAda
     }
 
     @Test
-    void debe_no_persistir_ligas_si_la_fuente_no_devuelve_temporada_valida() {
+    void debe_omitir_liga_con_temporada_invalida_y_continuar_con_el_catalogo() {
         when(proveedorPaises.obtenerPaises()).thenReturn(List.of(
-                new PaisFuente("España", "/espana/", "81", "ES", "Europa", true)));
+                new PaisFuente("España", "/espana/", "81", "ES", "Europa", true),
+                new PaisFuente("Colombia", "/colombia/", "81", "CO", "Sudamérica", true)));
         when(proveedorLigasPorPais.obtenerLigasPorPais("España", 0)).thenReturn(List.of(
-                new LigaFuente("Liga Rara", "League", "", null, "https://url", "Grupo 1")));
+                new LigaFuente("Liga Rara", "League", "", null, "https://url-rara", "Grupo 1")));
+        when(proveedorLigasPorPais.obtenerLigasPorPais("Colombia", 0)).thenReturn(List.of(
+                new LigaFuente("Liga Válida", "League", "", null, "https://url-valida", "2026/2027")));
 
-        // El caso de uso lanza DomainException al mapear `anio` inválido.
-        org.junit.jupiter.api.Assertions.assertThrows(
-                com.tipsterbyte.tipsterbytefxv2.domain.DomainException.class, casoDeUso::ejecutar);
+        // El caso de uso omite la liga con `anio` inválido (log + continuar) y no aborta el catálogo.
+        casoDeUso.ejecutar();
 
-        assertEquals(1, paisRepository.buscarTodos().size(), "el país sí se persiste");
-        assertTrue(ligaJpaRepository.findAll().isEmpty(), "la liga inválida no se persiste");
+        assertEquals(2, paisRepository.buscarTodos().size(), "ambos países se persisten");
+        assertEquals(1, ligaJpaRepository.findAll().size(), "la liga inválida se omite");
+        assertEquals("Liga Válida", ligaJpaRepository.findAll().get(0).getNombre());
     }
 }

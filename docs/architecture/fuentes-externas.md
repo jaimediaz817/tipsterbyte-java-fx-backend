@@ -273,6 +273,7 @@ El modelo actual **no tiene catálogo de países ni de ligas por fuente**:
 - **`#1`/`#5` conviven con football-data.org**: aún sin cerrar si las fuentes reales reemplazan o coexisten con las 4 APIs originales (decisión pendiente del usuario).
 - **Activación de ligas**: `#3`/`#2` necesitan las URLs de Flashscore/Wplay por liga; la activación (CU-04) debe contemplar cómo se asocian esas URLs a cada liga.
 - **Modelado de catálogo (CU-10)**: `Pais` es una nueva entidad del dominio (con su repositorio); `Liga` agrega `urlSoccerway` y `apiId` como datos de la fuente; tabla nueva `paises`.
+- **`TipoFuenteExtraccion` es un enum cerrado a propósito** (resuelto tras reporte del frontend): el tipo NO se abre a String libre porque cada tipo mapea a un adapter de extracción específico — un tipo desconocido quedaría registrado pero sin consumidor. Para agregar una fuente nueva el mecanismo de extensión es: 1) añadir el valor al enum, 2) implementar el adapter que lo consume (puerto `ProveedorXxx`), 3) registrar el adapter en `CacheConfig`/wiring. `POST /api/v1/fuentes` valida el enum (400 si no está) y rechaza duplicados por tipo (422).
 
 ## Trazabilidad
 

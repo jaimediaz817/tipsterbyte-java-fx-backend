@@ -22,11 +22,15 @@ import com.tipsterbyte.tipsterbytefxv2.domain.event.DomainEvent;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Liga;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Pais;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Temporada;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public final class SincronizarCatalogoUseCase {
+
+    private static final Logger log = LoggerFactory.getLogger(SincronizarCatalogoUseCase.class);
 
     private final ProveedorPaises proveedorPaises;
     private final ProveedorLigasPorPais proveedorLigasPorPais;
@@ -71,14 +75,24 @@ public final class SincronizarCatalogoUseCase {
     }
 
     // [QUÉ]: Obtiene las ligas del país (#5) y persiste las que aún no existen.
-    // [POR QUÉ]: Solo se crean ligas en BORRADOR; la activación real es CU-04.
+    // [POR QUÉ]: Solo se crean ligas en BORRADOR; la activación real es CU-04. Una liga
+    //            con temporada inválida se omite con log (no aborta el poblamiento del
+    //            catálogo: el scraper devuelve filas sueltas mal formadas en países reales).
+    // [ALTERNATIVAS]: Abortar todo el catálogo ante la primera liga inválida (comportamiento
+    //                 original); se descarta porque un país mal formado dejaba el catálogo
+    //                 a medio poblar (ej: solo Albania de 176 países).
     private void sincronizarLigasDePais(String pais) {
         List<LigaFuente> ligasFuente = proveedorLigasPorPais.obtenerLigasPorPais(pais, 0);
         for (LigaFuente ligaFuente : ligasFuente) {
-            if (ligaRepository.buscarPorUrlSoccerway(ligaFuente.urlSoccerway()).isEmpty()) {
-                ligaRepository.guardar(new Liga(
-                        ligaFuente.nombre(), pais, parsearTemporada(ligaFuente.anio()),
-                        ligaFuente.urlSoccerway(), ligaFuente.apiId()));
+            try {
+                if (ligaRepository.buscarPorUrlSoccerway(ligaFuente.urlSoccerway()).isEmpty()) {
+                    ligaRepository.guardar(new Liga(
+                            ligaFuente.nombre(), pais, parsearTemporada(ligaFuente.anio()),
+                            ligaFuente.urlSoccerway(), ligaFuente.apiId()));
+                }
+            } catch (DomainException e) {
+                log.warn("CU-10: se omite la liga '{}' de '{}' por temporada inválida ({}). Se continúa con el catálogo.",
+                        ligaFuente.nombre(), pais, e.getMessage());
             }
         }
     }

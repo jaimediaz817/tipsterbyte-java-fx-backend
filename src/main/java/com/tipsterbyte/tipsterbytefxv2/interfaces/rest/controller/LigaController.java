@@ -108,7 +108,8 @@ public class LigaController {
     // [QUÉ]: Endpoint GET /api/v1/ligas — lista las ligas. Sin filtros devuelve las
     //        ACTIVA (selector de ligas del tipster); con ?estado=... lista el catálogo
     //        del panel geográfico (BORRADOR) y con ?estado=...&pais=... filtra además
-    //        por país (nombre exacto, case-insensitive).
+    //        por país (nombre exacto, case-insensitive). Con ?pais=... sin estado se
+    //        filtra dentro del scope por defecto (ACTIVA).
     // [POR QUÉ]: El frontend Angular necesita poblar el selector de ligas disponibles
     //            para sincronización y pronósticos (HU-01), y el panel admin necesita
     //            listar las ligas BORRADOR del catálogo por país (CU-10 → CU-04).
@@ -124,6 +125,8 @@ public class LigaController {
             ligas = ligaRepository.buscarPorEstadoYPais(estado, pais);
         } else if (estado != null) {
             ligas = ligaRepository.buscarPorEstado(estado);
+        } else if (pais != null) {
+            ligas = ligaRepository.buscarPorEstadoYPais(EstadoLiga.ACTIVA, pais);
         } else {
             ligas = ligaRepository.buscarActivas();
         }

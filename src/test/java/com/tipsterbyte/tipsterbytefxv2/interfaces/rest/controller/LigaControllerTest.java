@@ -177,6 +177,23 @@ class LigaControllerTest {
     }
 
     @Test
+    void debe_filtrar_ligas_por_pais_sin_estado_dentro_del_scope_activa() throws Exception {
+        Liga liga = Liga.reconstruir(
+                UUID.randomUUID(), "LaLiga EA Sports", "España",
+                new Temporada(2026, 2027), EstadoLiga.ACTIVA,
+                List.of(), List.of());
+        when(ligaRepository.buscarPorEstadoYPais(EstadoLiga.ACTIVA, "España"))
+                .thenReturn(List.of(liga));
+
+        mockMvc.perform(get("/api/v1/ligas").param("pais", "España"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].nombre").value("LaLiga EA Sports"))
+                .andExpect(jsonPath("$[0].estado").value("ACTIVA"));
+
+        verify(ligaRepository).buscarPorEstadoYPais(EstadoLiga.ACTIVA, "España");
+    }
+
+    @Test
     void debe_devolver_400_cuando_estado_es_invalido() throws Exception {
         mockMvc.perform(get("/api/v1/ligas").param("estado", "INEXISTENTE"))
                 .andExpect(status().isBadRequest())

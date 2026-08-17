@@ -14,7 +14,6 @@ import com.tipsterbyte.tipsterbytefxv2.application.port.LigaRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PaisRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorLigasPorPais;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorPaises;
-import com.tipsterbyte.tipsterbytefxv2.domain.DomainException;
 import com.tipsterbyte.tipsterbytefxv2.domain.event.DomainEvent;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.EstadoLiga;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Liga;
@@ -32,7 +31,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -108,15 +106,22 @@ class SincronizarCatalogoUseCaseTest {
     }
 
     @Test
-    void debe_rechazar_liga_de_catalogo_sin_temporada_valida() {
+    void debe_omitir_liga_con_temporada_invalida_y_continuar_con_el_catalogo() {
         when(proveedorPaises.obtenerPaises()).thenReturn(List.of(
-                new PaisFuente("España", "/espana/", "81", "ES", "Europa", true)));
-        when(paisRepository.buscarPorIsoAlpha2("ES")).thenReturn(Optional.empty());
+                new PaisFuente("España", "/espana/", "81", "ES", "Europa", true),
+                new PaisFuente("Colombia", "/colombia/", "81", "CO", "Sudamérica", true)));
+        when(paisRepository.buscarPorIsoAlpha2(anyString())).thenReturn(Optional.empty());
         when(proveedorLigasPorPais.obtenerLigasPorPais("España", 0)).thenReturn(List.of(
-                new LigaFuente("Liga Rara", "League", "", null, "https://url", "Grupo 1")));
+                new LigaFuente("Liga Rara", "League", "", null, "https://url-rara", "Grupo 1")));
+        when(proveedorLigasPorPais.obtenerLigasPorPais("Colombia", 0)).thenReturn(List.of(
+                new LigaFuente("Liga Válida", "League", "", null, "https://url-valida", "2026/2027")));
         when(ligaRepository.buscarPorUrlSoccerway(anyString())).thenReturn(Optional.empty());
 
-        assertThrows(DomainException.class, () -> casoDeUso.ejecutar());
-        verify(ligaRepository, never()).guardar(any());
+        casoDeUso.ejecutar();
+
+        ArgumentCaptor<Liga> captor = ArgumentCaptor.forClass(Liga.class);
+        verify(ligaRepository, times(1)).guardar(captor.capture());
+        assertEquals("Liga Válida", captor.getValue().nombre());
+        verify(paisRepository, times(2)).guardar(any(Pais.class));
     }
 }
