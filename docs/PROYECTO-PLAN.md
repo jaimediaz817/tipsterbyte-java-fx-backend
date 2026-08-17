@@ -21,9 +21,10 @@ FASE 9  Docker + Docker Compose
 FASE 10 Testing
 FASE 11 Spring Security + JWT
 FASE 12 Redis
+FASE 12.5 Scheduling / Async (definida, pendiente de aprobación)
 FASE 13 RabbitMQ
 FASE 14 Spring WebFlux
-FASE 15 Scheduling / Async
+FASE 15 Scheduling avanzado / Pipelines async
 FASE 16 Observabilidad
 FASE 17 Integración completa
 FASE 18 Dockerización de aplicación
@@ -149,14 +150,82 @@ FASE T1 Frontend Angular 22 (transversal, proyecto hermano)
 - **Cobertura**: 246 tests en verde (+22). `./gradlew test` OK.
 - **Estado**: COMPLETADA.
 
+### FASE 12.5 — Scheduling / Async 📝 (DEFINIDA, pendiente de aprobación)
+- **Contexto / [POR QUÉ]**: necesidad operativa real de ejecución programada de las extracciones — cuotas Wplay **cada hora** (ver variación), calendario **cada 8 días** (actualizar resultados), posiciones diario, catálogo semanal. Se adelanta antes de RabbitMQ/WebFlux porque **no depende de ellos**: los use cases de sincronización ya existen y ya invalidan el cache Redis al correr (CU-01/02/03). El scheduler solo debe invocarlos con cron expressions.
+- **Modelo (validado con el usuario, un job por fuente de extracción)**: cada `DetalleFuenteExtraccion` (liga + tipo `CALENDAR`/`ODDS_WPLAY`/`STANDINGS`) puede tener una **tarea programada** asociada; existe además una **tarea global de catálogo** (CU-10, no ligada a un detalle). Dos maneras de crear tareas desde Angular: (1) clicando sobre cada fuente de extracción en Geografía ("Programar"), (2) desde el ítem de agrupación **"Tareas programadas"** en Automatización.
+- **Domain**: nueva entity `TareaProgramada` (id UUID, nombre, `detalleFuenteExtraccionId` **nullable** = tarea global de catálogo, `cronExpression` validada con `CronExpression` de Spring — 6 segmentos, `activa` boolean, `fechaCreacion`). Reglas: una tarea por detalle (unique `detalle_fuente_extraccion_id`), **una sola tarea global** (unique sobre columna nullable o validación en use case), cron inválido → `DomainException` (422), no se puede programar un detalle inexistente/inactivo.
+- **Application**: puerto `TareaProgramadaRepository` (guardar/buscarPorId/listarActivas/eliminar) + **CU-15 `GestionarTareaProgramadaUseCase`** (crear/listar/actualizar cron y estado/eliminar, con validaciones de negocio).
+- **Infrastructure**: `TareaProgramadaEntity` (tabla `tareas_programadas`, FK nullable a `detalle_fuentes_extraccion`) + `TareaProgramadaJpaRepository` + `TareaProgramadaRepositoryJpaAdapter`. **`CatalogoScheduler`**: `@EnableScheduling` + dispatcher `@Scheduled` fijo (intervalo `app.scheduling.dispatcher-ms`, default 60000) que evalúa el `CronExpression` de cada tarea activa y dispara el use case correcto según el tipo de la fuente asociada:
+  - `CALENDAR` → `SincronizarCalendarioUseCase.ejecutar(ligaId)`
+  - `ODDS_WPLAY` → `SincronizarCuotasUseCase.ejecutar(ligaId)`
+  - `STANDINGS` → `SincronizarPosicionesUseCase.ejecutar(ligaId)`
+  - Sin detalle (global) → `SincronizarCatalogoUseCase.ejecutar()`
+  - Ejecución con `@Async` + thread pool (`app.scheduling.pool-size`) y **guard anti-solapamiento por tarea** (AtomicBoolean) para no apalear al scraper Python con corridas concurrentes.
+- **Configuración**: `app.scheduling.enabled` (default true; **false en tests** para no disparar jobs en contextos Spring), `app.scheduling.dispatcher-ms`, `app.scheduling.pool-size`. Los crons viven **en BD** (no en properties) → habilita el panel "Programación/Tareas programadas" del frontend.
+- **Interfaces** (roles `SUPERADMIN`/`TIPSTER`, validación Bean Validation):
+  | Método | Ruta | Descripción |
+  |---|---|---|
+  | `GET` | `/api/v1/tareas-programadas` | Lista de tareas (id, nombre, liga+tipo, cron, activa, fechaCreacion, próxima ejecución derivada) |
+  | `POST` | `/api/v1/tareas-programadas` | Crea tarea; body `{nombre, detalleFuenteExtraccionId?, cron, activa}` → 201; 422 si cron inválido, duplicado o detalle inexistente/inactivo |
+  | `PUT` | `/api/v1/tareas-programadas/{id}` | Actualiza `{nombre?, cron?, activa?}` → 204 |
+  | `DELETE` | `/api/v1/tareas-programadas/{id}` | Elimina tarea → 204 |
+  | `GET` | `/api/v1/tareas-programadas/disponibles` | Fuentes candidatas (detalles activos) + opción global "Catálogo" |
+- **Alternativas descartadas**: `@Scheduled` con crons estáticos en properties (no soporta jobs dinámicos por BD); `SchedulingConfigurer` re-registrando tareas en cada cambio (más Spring-native pero frágil ante CRUD frecuente); ShedLock diferido al escalado multi-nodo (FASE 17/20, se anota como decisión futura).
+- **¿Más potente que Python (APScheduler)?** Sí, para este stack: integración con el ciclo de vida y la configuración (properties/env, sin cron daemon), observabilidad con Micrometer (FASE 16), testabilidad con `TaskScheduler` mockeado y un único runtime (el job corre donde corre la API). Matiz: `@Scheduled` asume un solo nodo → ShedLock cuando haya N instancias.
+- **Tests esperados**: dominio (`TareaProgramadaTest`), use case CU-15, adapter JPA, controller, y scheduler unitario (evaluación de `CronExpression` + disparo al use case correcto). Sin nuevas dependencias (usa `spring-context`).
+- **Comunicado frontend**: ver sección "Comunicado Tareas programadas" abajo.
+- **Estado**: 📝 DEFINIDA — pendiente de aprobación para su ejecución.
+
+#### 📣 Comunicado Tareas programadas (para el equipo frontend)
+
+**Modelo de negocio:** cada **detalle de fuente de extracción** (liga + tipo `CALENDAR`/`ODDS_WPLAY`/`STANDINGS`) puede tener una **tarea programada** asociada; existe además una **tarea global de catálogo** (CU-10) que no va ligada a ningún detalle. Un job = fuente asociada + frecuencia (cron) + estado activo/pausado.
+
+**Dos maneras de crear tareas desde Angular:**
+1. **Desde cada fuente (Geografía):** en el detalle de una liga, cada fuente tiene la acción **"Programar"** → modal (nombre + frecuencia + toggle activa) → `POST /tareas-programadas` con `detalleFuenteExtraccionId`.
+2. **Desde "Tareas programadas" (Automatización):** pantalla central que lista **todas** las tareas (ligas, tipos, cron, estado, última/próxima ejecución) con crear/editar/pausar/eliminar.
+
+**Pantalla propuesta:**
+```
+Automatización
+└── Tareas programadas
+    ├── Lista (tabla/cards):
+    │     Nombre | Fuente (liga + tipo / Catálogo global) | Frecuencia (cron + humanizado)
+    │     | Estado (activa/pausada) | Próxima ejecución | Acciones (editar, pausar, eliminar)
+    └── Crear/Editar (modal):
+          Nombre
+          Fuente asociada (selector desde GET /tareas-programadas/disponibles)
+          Frecuencia: selector rápido (Cada hora / Cada 8 días / Diario / Semanal / Custom cron)
+          Activa desde el inicio (toggle)
+```
+
+**Endpoints (roles `SUPERADMIN`/`TIPSTER`):**
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/api/v1/tareas-programadas` | `List<TareaProgramadaResponse>`: id, nombre, liga?, tipo, cron, activa, fechaCreacion, próxima ejecución |
+| `POST` | `/api/v1/tareas-programadas` | body `{nombre, detalleFuenteExtraccionId?, cron, activa}` → `201`; `422` si cron inválido, duplicado o detalle inexistente/inactivo |
+| `PUT` | `/api/v1/tareas-programadas/{id}` | body `{nombre?, cron?, activa?}` → `204` |
+| `DELETE` | `/api/v1/tareas-programadas/{id}` | → `204` |
+| `GET` | `/api/v1/tareas-programadas/disponibles` | fuentes candidatas (detalles activos) + opción "Catálogo global" |
+
+**Ejemplos de cron (6 segmentos Spring):**
+- Cada hora: `0 0 * * * *`
+- Cada 8 días a las 02:00: `0 0 2 */8 * *`
+- Diario a las 03:00: `0 0 3 * * *`
+- Semanal (lunes 04:00): `0 0 4 * * 1`
+
+**Notas UX:**
+- El humanizado de la frecuencia es **responsabilidad del frontend** (el backend guarda el cron crudo y valida con `CronExpression` → 422 si no es válido).
+- La "próxima ejecución" la puede calcular el backend (derivada) o el frontend con una librería de cron; se define en la implementación.
+- Pausar = `PUT` con `activa:false` (el job no se dispara pero queda configurado); no borra la tarea.
+
 ### FASE 13 — RabbitMQ
 - Event-driven: domain events → exchange → queue → consumer (notificaciones).
 
 ### FASE 14 — Spring WebFlux
 - Mono/Flux, reactive streams, backpressure. Comparativa MVC vs WebFlux.
 
-### FASE 15 — Scheduling / Async
-- `@Scheduled`, `@Async`, executors, thread pools. Conexión con RabbitMQ/Redis/WebFlux.
+### FASE 15 — Scheduling avanzado / Pipelines async
+- El **scheduling básico de las extracciones** (jobs por fuente + crons en BD) vive ahora en **FASE 12.5**. Esta fase queda para el nivel avanzado: `@Async`/executors/thread pools profundizados, **ShedLock** (bloqueo distribuido para multi-nodo), pipelines async con RabbitMQ/Redis/WebFlux (FASE 17), y reconciliación de tareas programadas con el estado de fuentes.
 
 ### FASE 16 — Observabilidad
 - Actuator, Micrometer, Prometheus, Grafana, correlation ID, structured logging.
