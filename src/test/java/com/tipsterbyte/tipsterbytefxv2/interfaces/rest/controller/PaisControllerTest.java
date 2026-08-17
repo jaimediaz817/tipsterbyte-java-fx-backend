@@ -9,7 +9,9 @@
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.interfaces.rest.controller;
 
+import com.tipsterbyte.tipsterbytefxv2.application.dto.PaisFuente;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PaisRepository;
+import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorPaises;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Pais;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.exception.GlobalExceptionHandler;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,12 +35,14 @@ class PaisControllerTest {
 
     @Mock
     private PaisRepository paisRepository;
+    @Mock
+    private ProveedorPaises proveedorPaises;
 
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new PaisController(paisRepository))
+        mockMvc = MockMvcBuilders.standaloneSetup(new PaisController(paisRepository, proveedorPaises))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -90,6 +94,20 @@ class PaisControllerTest {
         mockMvc.perform(get("/api/v1/paises"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void debe_listar_paises_disponibles_de_la_fuente_sin_persistir() throws Exception {
+        when(proveedorPaises.obtenerPaises()).thenReturn(List.of(
+                new PaisFuente("Colombia", "/colombia/", "COL", "CO", "Sudamérica", false),
+                new PaisFuente("España", "/espana/", "ESP", "ES", "Europa", true)));
+
+        mockMvc.perform(get("/api/v1/paises/disponibles"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].isoAlpha2").value("CO"))
+                .andExpect(jsonPath("$[1].isoAlpha2").value("ES"))
+                .andExpect(jsonPath("$[1].continente").value("Europa"));
     }
 
     private Pais unPais(String nombre, String isoAlpha2, String continente, boolean mapeado) {

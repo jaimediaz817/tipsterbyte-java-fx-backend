@@ -17,11 +17,15 @@ package com.tipsterbyte.tipsterbytefxv2.infrastructure.adapter;
 import com.tipsterbyte.tipsterbytefxv2.application.dto.LigaFuente;
 import com.tipsterbyte.tipsterbytefxv2.application.dto.PaisFuente;
 import com.tipsterbyte.tipsterbytefxv2.application.port.LigaRepository;
+import com.tipsterbyte.tipsterbytefxv2.application.port.PaisInteresRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PaisRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorLigasPorPais;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorPaises;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCatalogoUseCase;
+import com.tipsterbyte.tipsterbytefxv2.domain.model.PaisInteres;
+import com.tipsterbyte.tipsterbytefxv2.infrastructure.persistence.entity.PaisEntity;
 import com.tipsterbyte.tipsterbytefxv2.infrastructure.persistence.repository.LigaJpaRepository;
+import com.tipsterbyte.tipsterbytefxv2.infrastructure.persistence.repository.PaisInteresJpaRepository;
 import com.tipsterbyte.tipsterbytefxv2.infrastructure.persistence.repository.PaisJpaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,6 +35,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 class SincronizarCatalogoUseCaseIntegrationTest extends AbstractRepositoryJpaAdapterTest {
@@ -42,10 +48,16 @@ class SincronizarCatalogoUseCaseIntegrationTest extends AbstractRepositoryJpaAda
     private LigaRepository ligaRepository;
 
     @Autowired
+    private LigaJpaRepository ligaJpaRepository;
+
+    @Autowired
     private PaisJpaRepository paisJpaRepository;
 
     @Autowired
-    private LigaJpaRepository ligaJpaRepository;
+    private PaisInteresRepository paisInteresRepository;
+
+    @Autowired
+    private PaisInteresJpaRepository paisInteresJpaRepository;
 
     @MockitoBean
     private ProveedorPaises proveedorPaises;
@@ -60,10 +72,11 @@ class SincronizarCatalogoUseCaseIntegrationTest extends AbstractRepositoryJpaAda
         // [POR QUÉ]: Los tests comparten el contenedor Testcontainers; se limpia para
         //            que los conteos de idempotencia sean estables entre tests.
         ligaJpaRepository.deleteAll();
+        paisInteresJpaRepository.deleteAll();
         paisJpaRepository.deleteAll();
 
         casoDeUso = new SincronizarCatalogoUseCase(
-                proveedorPaises, proveedorLigasPorPais, paisRepository, ligaRepository);
+                proveedorPaises, proveedorLigasPorPais, paisRepository, ligaRepository, paisInteresRepository);
     }
 
     @Test
@@ -113,5 +126,24 @@ class SincronizarCatalogoUseCaseIntegrationTest extends AbstractRepositoryJpaAda
         assertEquals(2, paisRepository.buscarTodos().size(), "ambos países se persisten");
         assertEquals(1, ligaJpaRepository.findAll().size(), "la liga inválida se omite");
         assertEquals("Liga Válida", ligaJpaRepository.findAll().get(0).getNombre());
+    }
+
+    @Test
+    void debe_persistir_primero_los_paises_de_interes_sin_omitir_el_resto() {
+        when(proveedorPaises.obtenerPaises()).thenReturn(List.of(
+                new PaisFuente("España", "/espana/", "81", "ES", "Europa", true),
+                new PaisFuente("Colombia", "/colombia/", "81", "CO", "Sudamérica", true)));
+        when(proveedorLigasPorPais.obtenerLigasPorPais(anyString(), anyInt()))
+                .thenReturn(List.of());
+        paisInteresRepository.guardar(new PaisInteres("CO", "Colombia", 1));
+        paisInteresRepository.guardar(new PaisInteres("ES", "España", 2));
+
+        casoDeUso.ejecutar();
+
+        // El orden físico de inserción refleja el orden de procesamiento (tabla limpia).
+        List<PaisEntity> paises = paisJpaRepository.findAll();
+        assertEquals(2, paises.size());
+        assertEquals("Colombia", paises.get(0).getNombre());
+        assertEquals("España", paises.get(1).getNombre());
     }
 }

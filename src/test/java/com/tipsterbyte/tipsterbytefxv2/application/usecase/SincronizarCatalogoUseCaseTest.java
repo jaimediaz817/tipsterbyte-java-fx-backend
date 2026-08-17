@@ -11,6 +11,7 @@ package com.tipsterbyte.tipsterbytefxv2.application.usecase;
 import com.tipsterbyte.tipsterbytefxv2.application.dto.LigaFuente;
 import com.tipsterbyte.tipsterbytefxv2.application.dto.PaisFuente;
 import com.tipsterbyte.tipsterbytefxv2.application.port.LigaRepository;
+import com.tipsterbyte.tipsterbytefxv2.application.port.PaisInteresRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PaisRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorLigasPorPais;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorPaises;
@@ -18,11 +19,13 @@ import com.tipsterbyte.tipsterbytefxv2.domain.event.DomainEvent;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.EstadoLiga;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Liga;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Pais;
+import com.tipsterbyte.tipsterbytefxv2.domain.model.PaisInteres;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Temporada;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -35,6 +38,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -51,13 +56,15 @@ class SincronizarCatalogoUseCaseTest {
     private PaisRepository paisRepository;
     @Mock
     private LigaRepository ligaRepository;
+    @Mock
+    private PaisInteresRepository paisInteresRepository;
 
     private SincronizarCatalogoUseCase casoDeUso;
 
     @BeforeEach
     void setUp() {
         casoDeUso = new SincronizarCatalogoUseCase(
-                proveedorPaises, proveedorLigasPorPais, paisRepository, ligaRepository);
+                proveedorPaises, proveedorLigasPorPais, paisRepository, ligaRepository, paisInteresRepository);
     }
 
     @Test
@@ -103,6 +110,27 @@ class SincronizarCatalogoUseCaseTest {
 
         verify(paisRepository, never()).guardar(any());
         verify(ligaRepository, never()).guardar(any());
+    }
+
+    @Test
+    void debe_priorizar_paises_de_interes_sin_omitir_el_resto() {
+        when(proveedorPaises.obtenerPaises()).thenReturn(List.of(
+                new PaisFuente("España", "/espana/", "81", "ES", "Europa", true),
+                new PaisFuente("Colombia", "/colombia/", "81", "CO", "Sudamérica", true),
+                new PaisFuente("Francia", "/francia/", "81", "FR", "Europa", true)));
+        when(paisInteresRepository.listarPorPrioridad()).thenReturn(List.of(
+                new PaisInteres("CO", "Colombia", 1),
+                new PaisInteres("ES", "España", 2)));
+        when(paisRepository.buscarPorIsoAlpha2(anyString())).thenReturn(Optional.empty());
+        when(proveedorLigasPorPais.obtenerLigasPorPais(anyString(), anyInt())).thenReturn(List.of());
+
+        casoDeUso.ejecutar();
+
+        InOrder inOrder = inOrder(paisRepository);
+        inOrder.verify(paisRepository).guardar(argThat(p -> p.nombre().equals("Colombia")));
+        inOrder.verify(paisRepository).guardar(argThat(p -> p.nombre().equals("España")));
+        inOrder.verify(paisRepository).guardar(argThat(p -> p.nombre().equals("Francia")));
+        verify(paisRepository, times(3)).guardar(any(Pais.class));
     }
 
     @Test

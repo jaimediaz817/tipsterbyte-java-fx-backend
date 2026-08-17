@@ -4,16 +4,20 @@
 // [POR QUÉ]: Puebla la base del sistema: países y ligas en BORRADOR para que luego
 //            puedan activarse (CU-04) y sincronizarse (CU-01/02/03). Orquesta la
 //            resolución de la Temporada desde el campo `anio` de la fuente #5 sin
-//            conocer el formato de la API (los DTOs de fuente lo aíslan).
+//            conocer el formato de la API (los DTOs de fuente lo aíslan). Los países
+//            de interés (CU-14) se procesan primero; el resto del mundo nunca se
+//            omite, solo se pospone.
 // [ALTERNATIVAS]: Cargar catálogo en la activación de liga (CU-04); se descarta porque
 //                 el catálogo es un paso previo e independiente de la activación.
-// [RELACIONES]: HU-10 → CU-10 → ProveedorPaises + ProveedorLigasPorPais + PaisRepository + LigaRepository.
+// [RELACIONES]: HU-10 → CU-10 → ProveedorPaises + ProveedorLigasPorPais + PaisRepository
+//               + LigaRepository + PaisInteresRepository (prioridad de poblamiento, CU-14).
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.application.usecase;
 
 import com.tipsterbyte.tipsterbytefxv2.application.dto.LigaFuente;
 import com.tipsterbyte.tipsterbytefxv2.application.dto.PaisFuente;
 import com.tipsterbyte.tipsterbytefxv2.application.port.LigaRepository;
+import com.tipsterbyte.tipsterbytefxv2.application.port.PaisInteresRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PaisRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorLigasPorPais;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorPaises;
@@ -21,12 +25,15 @@ import com.tipsterbyte.tipsterbytefxv2.domain.DomainException;
 import com.tipsterbyte.tipsterbytefxv2.domain.event.DomainEvent;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Liga;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Pais;
+import com.tipsterbyte.tipsterbytefxv2.domain.model.PaisInteres;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Temporada;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public final class SincronizarCatalogoUseCase {
 
@@ -36,30 +43,65 @@ public final class SincronizarCatalogoUseCase {
     private final ProveedorLigasPorPais proveedorLigasPorPais;
     private final PaisRepository paisRepository;
     private final LigaRepository ligaRepository;
+    private final PaisInteresRepository paisInteresRepository;
 
     // [QUÉ]: Construye el caso de uso con sus puertos (inyección por constructor).
     public SincronizarCatalogoUseCase(ProveedorPaises proveedorPaises,
                                       ProveedorLigasPorPais proveedorLigasPorPais,
                                       PaisRepository paisRepository,
-                                      LigaRepository ligaRepository) {
+                                      LigaRepository ligaRepository,
+                                      PaisInteresRepository paisInteresRepository) {
         this.proveedorPaises = proveedorPaises;
         this.proveedorLigasPorPais = proveedorLigasPorPais;
         this.paisRepository = paisRepository;
         this.ligaRepository = ligaRepository;
+        this.paisInteresRepository = paisInteresRepository;
     }
 
     // [QUÉ]: Ejecuta CU-10: obtiene los países (#1), los persiste si son nuevos,
     //        y por cada país obtiene sus ligas (#5) persistiéndolas en BORRADOR
     //        si no existen. Devuelve los eventos (ninguno en el catálogo).
+    // [POR QUÉ]: Los países de interés (CU-14) se procesan primero (prioridad de
+    //            poblamiento); el resto del mundo sigue en orden de fuente.
     public List<DomainEvent> ejecutar() {
         List<DomainEvent> eventos = new ArrayList<>();
         List<PaisFuente> paisesFuente = proveedorPaises.obtenerPaises();
 
-        for (PaisFuente paisFuente : paisesFuente) {
+        for (PaisFuente paisFuente : ordenarConPreferidos(paisesFuente)) {
             Pais pais = persistirPaisSiNuevo(paisFuente);
             sincronizarLigasDePais(pais.nombre());
         }
         return eventos;
+    }
+
+    // [QUÉ]: Ordena los países de la fuente con los de interés primero (por prioridad
+    //        de CU-14) y después el resto en orden de fuente. Nunca omite países.
+    // [POR QUÉ]: Ante una interrupción/reintento del poblamiento, los países que
+    //            importan al usuario quedan asegurados primero.
+    // [ALTERNATIVAS]: Sincronizar solo los de interés; se descarta porque el usuario
+    //                 quiere poblar el mundo completo, la prioridad solo define el orden.
+    private List<PaisFuente> ordenarConPreferidos(List<PaisFuente> paisesFuente) {
+        List<PaisInteres> preferidos = paisInteresRepository.listarPorPrioridad();
+        if (preferidos.isEmpty()) {
+            return paisesFuente;
+        }
+        Set<String> isoPreferidos = new HashSet<>();
+        for (PaisInteres preferido : preferidos) {
+            isoPreferidos.add(preferido.isoAlpha2());
+        }
+        List<PaisFuente> ordenados = new ArrayList<>();
+        for (PaisInteres preferido : preferidos) {
+            paisesFuente.stream()
+                    .filter(pais -> pais.isoAlpha2().equalsIgnoreCase(preferido.isoAlpha2()))
+                    .findFirst()
+                    .ifPresent(ordenados::add);
+        }
+        for (PaisFuente pais : paisesFuente) {
+            if (!isoPreferidos.contains(pais.isoAlpha2().toUpperCase())) {
+                ordenados.add(pais);
+            }
+        }
+        return ordenados;
     }
 
     // [QUÉ]: Persiste el país solo si no existe por su ISO alfa-2 (clave natural #1).

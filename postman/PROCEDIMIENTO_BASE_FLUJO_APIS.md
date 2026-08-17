@@ -55,6 +55,7 @@ Según `SecurityConfig.java`:
 | `GET /api/v1/fuentes`           | `SUPERADMIN`, `TIPSTER`, `CLIENTE`       |
 | `/api/v1/ligas/**`              | `SUPERADMIN`, `TIPSTER`                  |
 | `/api/v1/paises/**`             | `SUPERADMIN`, `TIPSTER`                  |
+| `/api/v1/paises-interes/**`     | `SUPERADMIN`, `TIPSTER`                  |
 | `/api/v1/partidos/**`           | `SUPERADMIN`, `TIPSTER`                  |
 | `/api/v1/pronosticos/**`        | `SUPERADMIN`, `TIPSTER`, `CLIENTE`       |
 | `/api/v1/suscripciones/**`      | `CLIENTE`                                |
@@ -200,6 +201,25 @@ pm.collectionVariables.set("clienteId", jsonData.usuarioId);
 ]
 ```
 
+#### 2.3.1 Listar Países Disponibles en la Fuente #1 (CU-14)
+- **Método**: `GET`
+- **URL**: `{{baseUrl}}/api/v1/paises/disponibles`
+- **Rol**: `SUPERADMIN` o `TIPSTER`
+- **Respuesta**: `200 OK` → `List<PaisDisponibleResponse>` (orden alfabético case-insensitive por `nombre`; **no** persiste nada):
+```json
+[
+  {
+    "isoAlpha2": "CO",
+    "nombre": "Colombia",
+    "continente": "Sudamérica",
+    "code": "COL",
+    "href": "/teams/colombia/8/",
+    "mapeado": true
+  }
+]
+```
+- **Nota**: este endpoint alimenta el selector de "países de interés" del frontend (sección 2.8); los `isoAlpha2` devueltos son los que acepta `POST /paises-interes`.
+
 #### 2.4 Listar Ligas del Catálogo por Estado
 - **Método**: `GET`
 - **URL**: `{{baseUrl}}/api/v1/ligas?estado=BORRADOR`
@@ -219,6 +239,51 @@ pm.collectionVariables.set("clienteId", jsonData.usuarioId);
 ]
 ```
 - **Nota**: sin query params devuelve **solo `ACTIVA`** (compatibilidad total). `?pais=X` sin `estado` filtra dentro del scope por defecto (`ACTIVA`). `?estado` inválido → `400`.
+
+#### 2.8 Países de Interés (CU-14)
+> **Rol**: `SUPERADMIN` o `TIPSTER` en todos los endpoints. La prioridad la deriva el backend: `POST` añade al final (prioridad = máxima + 1); `PUT` (reemplazo en bloque) asigna prioridad por posición de la lista enviada (1..n).
+
+**2.8.1 Listar países de interés**
+- **Método**: `GET`
+- **URL**: `{{baseUrl}}/api/v1/paises-interes`
+- **Respuesta**: `200 OK` → `List<PaisInteresResponse>` (orden por `prioridad` ascendente):
+```json
+[
+  { "isoAlpha2": "CO", "nombre": "Colombia", "prioridad": 1 },
+  { "isoAlpha2": "ES", "nombre": "España", "prioridad": 2 }
+]
+```
+
+**2.8.2 Registrar un país de interés (al final)**
+- **Método**: `POST`
+- **URL**: `{{baseUrl}}/api/v1/paises-interes`
+- **Body** (JSON):
+```json
+{ "isoAlpha2": "CO", "nombre": "Colombia" }
+```
+- **Respuesta**: `201 Created` (Location: `/api/v1/paises-interes`).
+- **Errores**: `400` si falta `isoAlpha2`/`nombre`; `422` si el `isoAlpha2` no existe en la fuente #1 (`/paises/disponibles`). Si ya está registrado se actualiza el nombre manteniendo su prioridad (*upsert*).
+
+**2.8.3 Reemplazar preferencias en bloque (guardar orden)**
+- **Método**: `PUT`
+- **URL**: `{{baseUrl}}/api/v1/paises-interes`
+- **Body** (JSON): lista completa, el orden del arreglo define la prioridad:
+```json
+[
+  { "isoAlpha2": "ES", "nombre": "España" },
+  { "isoAlpha2": "CO", "nombre": "Colombia" }
+]
+```
+- **Respuesta**: `204 No Content`.
+- **Nota**: elimina los países de interés que no vengan en la lista; valida todos contra la fuente #1 antes de persistir (todo-o-nada, 422 si alguno no existe).
+
+**2.8.4 Eliminar un país de interés**
+- **Método**: `DELETE`
+- **URL**: `{{baseUrl}}/api/v1/paises-interes/{isoAlpha2}`
+- **Respuesta**: `204 No Content`.
+- **Errores**: `422` si el país no está registrado.
+
+> **Efecto en CU-10**: al ejecutar la sincronización del catálogo (`POST /api/v1/catalogo/sincronizar`), los países de interés se procesan **primero** (en orden de prioridad) y después el resto, **sin omitir ningún país** del catálogo completo (~176).
 
 ---
 

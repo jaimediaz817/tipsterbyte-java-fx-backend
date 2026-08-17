@@ -3,7 +3,7 @@
     "_postman_id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
     "name": "TipsterByte Backend API",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Backend API TipsterByte agrupada por feature (Auth, Fuentes, Ligas, Partidos, Pronosticos, Suscripciones). Flujo completo: 20 endpoints.",
+    "description": "Backend API TipsterByte agrupada por feature (Auth, Fuentes, Catálogo y Países de Interés, Ligas, Partidos, Pronosticos, Suscripciones). Incluye CU-10 (catálogo geográfico), CU-14 (países de interés) y el flujo de activación de ligas con URLs de fuentes.",
     "version": "1.0.0"
   },
   "item": [
@@ -160,6 +160,260 @@
         }
       ],
       "description": "Catálogo de fuentes de extracción."
+    },
+    {
+      "name": "2.5 Catálogo y Países de Interés",
+      "item": [
+        {
+          "name": "Estado del Catálogo",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/catalogo/estado",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "catalogo",
+                "estado"
+              ]
+            },
+            "description": "Estado de la sincronización del catálogo (CU-10). Roles: SUPERADMIN, TIPSTER."
+          },
+          "response": []
+        },
+        {
+          "name": "Sincronizar Catálogo (CU-10)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/catalogo/activar",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "catalogo",
+                "activar"
+              ]
+            },
+            "description": "Dispara la sincronización de países y ligas (CU-10). Los países de interés (si existen) se procesan primero por prioridad, sin omitir el resto. Roles: SUPERADMIN, TIPSTER."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar Países del Catálogo",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/paises",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "paises"
+              ]
+            },
+            "description": "Catálogo geográfico persistido. Query opcional: ?continente=Europa / ?mapeado=true. Roles: SUPERADMIN, TIPSTER."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar Países Disponibles (fuente #1)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/paises/disponibles",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "paises",
+                "disponibles"
+              ]
+            },
+            "description": "Países disponibles en la fuente #1 (sin persistir). Alimenta el selector de países de interés. Roles: SUPERADMIN, TIPSTER."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar Países de Interés",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/paises-interes",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "paises-interes"
+              ]
+            },
+            "description": "Países de interés ordenados por prioridad ascendente (CU-14). Roles: SUPERADMIN, TIPSTER."
+          },
+          "response": []
+        },
+        {
+          "name": "Registrar País de Interés",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isoAlpha2\": \"CO\",\n  \"nombre\": \"Colombia\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/paises-interes",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "paises-interes"
+              ]
+            },
+            "description": "Registra un país de interés al final de la lista (CU-14). 422 si el isoAlpha2 no existe en la fuente #1. Roles: SUPERADMIN, TIPSTER."
+          },
+          "response": []
+        },
+        {
+          "name": "Reemplazar Países de Interés (orden)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  {\n    \"isoAlpha2\": \"ES\",\n    \"nombre\": \"España\"\n  },\n  {\n    \"isoAlpha2\": \"CO\",\n    \"nombre\": \"Colombia\"\n  }\n]",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/paises-interes",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "paises-interes"
+              ]
+            },
+            "description": "Reemplaza la lista completa de países de interés; el orden del arreglo define la prioridad (1..n). Elimina los que no vengan (CU-14). Roles: SUPERADMIN, TIPSTER."
+          },
+          "response": []
+        },
+        {
+          "name": "Eliminar País de Interés",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/paises-interes/{{isoAlpha2}}",
+              "protocol": "http",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "paises-interes",
+                "{{isoAlpha2}}"
+              ]
+            },
+            "description": "Elimina un país de interés por isoAlpha2 (CU-14). 422 si no está registrado. Variable: {{isoAlpha2}} (ej: CO). Roles: SUPERADMIN, TIPSTER."
+          },
+          "response": []
+        }
+      ],
+      "description": "Catálogo geográfico (CU-10), países disponibles de la fuente #1 y países de interés (CU-14)."
     },
     {
       "name": "3. Ligas",

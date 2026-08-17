@@ -17,6 +17,7 @@ import com.tipsterbyte.tipsterbytefxv2.application.port.CacheLecturas;
 import com.tipsterbyte.tipsterbytefxv2.application.port.DetalleFuenteExtraccionRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.FuenteExtraccionRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.LigaRepository;
+import com.tipsterbyte.tipsterbytefxv2.application.port.PaisInteresRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PaisRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PartidoRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PasswordHasher;
@@ -37,6 +38,7 @@ import com.tipsterbyte.tipsterbytefxv2.application.usecase.ObtenerJornadaActualU
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.CrearPronosticoUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.CrearSuscripcionUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.GestionarFuenteExtraccionUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.GestionarPaisesInteresUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.PublicarPronosticoUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.RegistrarResultadoUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.RegistrarUsuarioUseCase;
@@ -117,13 +119,16 @@ public class UseCaseConfig {
         return new CrearSuscripcionUseCase(suscripcionRepository);
     }
 
-    // [QUÉ]: Bean de CU-10 (sincronizar catálogo de países y ligas).
+    // [QUÉ]: Bean de CU-10 (sincronizar catálogo de países y ligas, con prioridad de
+    //        poblamiento por países de interés).
     @Bean
     public SincronizarCatalogoUseCase sincronizarCatalogoUseCase(ProveedorPaises proveedorPaises,
                                                                  ProveedorLigasPorPais proveedorLigasPorPais,
                                                                  PaisRepository paisRepository,
-                                                                 LigaRepository ligaRepository) {
-        return new SincronizarCatalogoUseCase(proveedorPaises, proveedorLigasPorPais, paisRepository, ligaRepository);
+                                                                 LigaRepository ligaRepository,
+                                                                 PaisInteresRepository paisInteresRepository) {
+        return new SincronizarCatalogoUseCase(proveedorPaises, proveedorLigasPorPais,
+                paisRepository, ligaRepository, paisInteresRepository);
     }
 
     // [QUÉ]: Bean de consulta del estado del catálogo (CU-10): deriva VACIO/POBLADO
@@ -147,6 +152,14 @@ public class UseCaseConfig {
             FuenteExtraccionRepository fuenteRepository,
             DetalleFuenteExtraccionRepository detalleRepository) {
         return new GestionarFuenteExtraccionUseCase(fuenteRepository, detalleRepository);
+    }
+
+    // [QUÉ]: Bean de CU-14 (gestionar países de interés, prioridad de poblamiento).
+    @Bean
+    public GestionarPaisesInteresUseCase gestionarPaisesInteresUseCase(
+            PaisInteresRepository paisInteresRepository,
+            ProveedorPaises proveedorPaises) {
+        return new GestionarPaisesInteresUseCase(paisInteresRepository, proveedorPaises);
     }
 
     // [QUÉ]: Bean de CU-12 (registro de usuario autenticable con BCrypt).

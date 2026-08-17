@@ -59,6 +59,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/fuentes", "/api/v1/fuentes/**").hasAnyRole("SUPERADMIN", "TIPSTER", "CLIENTE")
                         .requestMatchers("/api/v1/ligas/**").hasAnyRole("SUPERADMIN", "TIPSTER")
                         .requestMatchers("/api/v1/paises/**").hasAnyRole("SUPERADMIN", "TIPSTER")
+                        .requestMatchers("/api/v1/paises-interes/**").hasAnyRole("SUPERADMIN", "TIPSTER")
                         .requestMatchers("/api/v1/partidos/**").hasAnyRole("SUPERADMIN", "TIPSTER")
                         .requestMatchers("/api/v1/pronosticos/**").hasAnyRole("SUPERADMIN", "TIPSTER", "CLIENTE")
                         .requestMatchers("/api/v1/suscripciones/**").hasRole("CLIENTE")
