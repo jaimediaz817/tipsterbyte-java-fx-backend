@@ -73,17 +73,20 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // [QUÉ]: Configuración CORS para el frontend Angular en localhost:4200.
-    // [POR QUÉ]: El frontend Angular (dev server) realiza peticiones cross-origin
-    //            con credenciales (cookies/headers). Sin CORS explícito el navegador
-    //            bloquea las respuestas aunque el backend devuelva 200.
-    // [ALTERNATIVAS]: Proxy inverso (nginx) que unifique origen; se descarta porque
-    //                 en desarrollo los servidores dev corren en puertos distintos.
+    // [QUÉ]: Configuración CORS para los frontends Angular (dev servers) en
+    //        localhost:4200 y localhost:4201.
+    // [POR QUÉ]: El frontend Angular realiza peticiones cross-origin con credenciales
+    //            (Authorization/Content-Type). Sin CORS explícito el navegador bloquea
+    //            las respuestas. Ambos puertos son orígenes de desarrollo válidos; el
+    //            preflight OPTIONS lo permite la cadena de seguridad (permitAll) y este
+    //            bean le responde con los headers CORS.
+    // [ALTERNATIVAS]: Proxy inverso (nginx) que unifique origen; se descarta porque en
+    //                 desarrollo los servidores dev corren en puertos distintos.
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:4200"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedOrigins(List.of("http://localhost:4200", "http://localhost:4201"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         configuration.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
