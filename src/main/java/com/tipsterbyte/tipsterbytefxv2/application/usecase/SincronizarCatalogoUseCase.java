@@ -10,12 +10,15 @@
 // [ALTERNATIVAS]: Cargar catálogo en la activación de liga (CU-04); se descarta porque
 //                 el catálogo es un paso previo e independiente de la activación.
 // [RELACIONES]: HU-10 → CU-10 → ProveedorPaises + ProveedorLigasPorPais + PaisRepository
-//               + LigaRepository + PaisInteresRepository (prioridad de poblamiento, CU-14).
+//               + LigaRepository + PaisInteresRepository (prioridad de poblamiento, CU-14)
+//               + CacheLecturas (invalidación del cache de países, FASE 12.6).
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.application.usecase;
 
 import com.tipsterbyte.tipsterbytefxv2.application.dto.LigaFuente;
 import com.tipsterbyte.tipsterbytefxv2.application.dto.PaisFuente;
+import com.tipsterbyte.tipsterbytefxv2.application.port.CacheClaves;
+import com.tipsterbyte.tipsterbytefxv2.application.port.CacheLecturas;
 import com.tipsterbyte.tipsterbytefxv2.application.port.LigaRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PaisInteresRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PaisRepository;
@@ -44,18 +47,21 @@ public final class SincronizarCatalogoUseCase {
     private final PaisRepository paisRepository;
     private final LigaRepository ligaRepository;
     private final PaisInteresRepository paisInteresRepository;
+    private final CacheLecturas cacheLecturas;
 
     // [QUÉ]: Construye el caso de uso con sus puertos (inyección por constructor).
     public SincronizarCatalogoUseCase(ProveedorPaises proveedorPaises,
                                       ProveedorLigasPorPais proveedorLigasPorPais,
                                       PaisRepository paisRepository,
                                       LigaRepository ligaRepository,
-                                      PaisInteresRepository paisInteresRepository) {
+                                      PaisInteresRepository paisInteresRepository,
+                                      CacheLecturas cacheLecturas) {
         this.proveedorPaises = proveedorPaises;
         this.proveedorLigasPorPais = proveedorLigasPorPais;
         this.paisRepository = paisRepository;
         this.ligaRepository = ligaRepository;
         this.paisInteresRepository = paisInteresRepository;
+        this.cacheLecturas = cacheLecturas;
     }
 
     // [QUÉ]: Ejecuta CU-10: obtiene los países (#1), los persiste si son nuevos,
@@ -65,6 +71,9 @@ public final class SincronizarCatalogoUseCase {
     //            poblamiento); el resto del mundo sigue en orden de fuente.
     public List<DomainEvent> ejecutar() {
         List<DomainEvent> eventos = new ArrayList<>();
+        // Invalidación del cache-aside de países: la sincronización fuerza datos
+        // frescos para GET /paises/disponibles y la validación de CU-14 (FASE 12.6).
+        cacheLecturas.eliminar(CacheClaves.paises());
         List<PaisFuente> paisesFuente = proveedorPaises.obtenerPaises();
 
         for (PaisFuente paisFuente : ordenarConPreferidos(paisesFuente)) {

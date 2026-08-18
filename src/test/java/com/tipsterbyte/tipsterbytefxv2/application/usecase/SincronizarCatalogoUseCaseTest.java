@@ -10,6 +10,7 @@ package com.tipsterbyte.tipsterbytefxv2.application.usecase;
 
 import com.tipsterbyte.tipsterbytefxv2.application.dto.LigaFuente;
 import com.tipsterbyte.tipsterbytefxv2.application.dto.PaisFuente;
+import com.tipsterbyte.tipsterbytefxv2.application.port.CacheLecturas;
 import com.tipsterbyte.tipsterbytefxv2.application.port.LigaRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PaisInteresRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PaisRepository;
@@ -58,13 +59,16 @@ class SincronizarCatalogoUseCaseTest {
     private LigaRepository ligaRepository;
     @Mock
     private PaisInteresRepository paisInteresRepository;
+    @Mock
+    private CacheLecturas cacheLecturas;
 
     private SincronizarCatalogoUseCase casoDeUso;
 
     @BeforeEach
     void setUp() {
         casoDeUso = new SincronizarCatalogoUseCase(
-                proveedorPaises, proveedorLigasPorPais, paisRepository, ligaRepository, paisInteresRepository);
+                proveedorPaises, proveedorLigasPorPais, paisRepository, ligaRepository,
+                paisInteresRepository, cacheLecturas);
     }
 
     @Test
@@ -131,6 +135,18 @@ class SincronizarCatalogoUseCaseTest {
         inOrder.verify(paisRepository).guardar(argThat(p -> p.nombre().equals("España")));
         inOrder.verify(paisRepository).guardar(argThat(p -> p.nombre().equals("Francia")));
         verify(paisRepository, times(3)).guardar(any(Pais.class));
+    }
+
+    @Test
+    void debe_invalidar_el_cache_de_paises_antes_de_sincronizar() {
+        when(proveedorPaises.obtenerPaises()).thenReturn(List.of(
+                new PaisFuente("España", "/espana/", "81", "ES", "Europa", true)));
+        when(paisRepository.buscarPorIsoAlpha2(anyString())).thenReturn(Optional.empty());
+        when(proveedorLigasPorPais.obtenerLigasPorPais("España", 0)).thenReturn(List.of());
+
+        casoDeUso.ejecutar();
+
+        verify(cacheLecturas).eliminar("paises");
     }
 
     @Test

@@ -124,15 +124,16 @@ public class UseCaseConfig {
     }
 
     // [QUÉ]: Bean de CU-10 (sincronizar catálogo de países y ligas, con prioridad de
-    //        poblamiento por países de interés).
+    //        poblamiento por países de interés e invalidación del cache de países).
     @Bean
     public SincronizarCatalogoUseCase sincronizarCatalogoUseCase(ProveedorPaises proveedorPaises,
                                                                  ProveedorLigasPorPais proveedorLigasPorPais,
                                                                  PaisRepository paisRepository,
                                                                  LigaRepository ligaRepository,
-                                                                 PaisInteresRepository paisInteresRepository) {
+                                                                 PaisInteresRepository paisInteresRepository,
+                                                                 CacheLecturas cacheLecturas) {
         return new SincronizarCatalogoUseCase(proveedorPaises, proveedorLigasPorPais,
-                paisRepository, ligaRepository, paisInteresRepository);
+                paisRepository, ligaRepository, paisInteresRepository, cacheLecturas);
     }
 
     // [QUÉ]: Bean de consulta del estado del catálogo (CU-10): deriva VACIO/POBLADO

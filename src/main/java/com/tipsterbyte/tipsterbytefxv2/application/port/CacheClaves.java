@@ -29,4 +29,8 @@ public final class CacheClaves {
     public static String cuotas(UUID partidoId) {
         return "cuotas:" + partidoId;
     }
+
+    public static String paises() {
+        return "paises";
+    }
 }

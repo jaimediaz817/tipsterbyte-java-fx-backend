@@ -35,4 +35,9 @@ class CacheClavesTest {
 
         assertEquals("cuotas:" + partidoId, CacheClaves.cuotas(partidoId));
     }
+
+    @Test
+    void debe_generar_clave_global_de_paises() {
+        assertEquals("paises", CacheClaves.paises());
+    }
 }

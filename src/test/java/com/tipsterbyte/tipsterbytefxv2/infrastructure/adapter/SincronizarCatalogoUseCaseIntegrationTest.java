@@ -16,6 +16,7 @@ package com.tipsterbyte.tipsterbytefxv2.infrastructure.adapter;
 
 import com.tipsterbyte.tipsterbytefxv2.application.dto.LigaFuente;
 import com.tipsterbyte.tipsterbytefxv2.application.dto.PaisFuente;
+import com.tipsterbyte.tipsterbytefxv2.application.port.CacheLecturas;
 import com.tipsterbyte.tipsterbytefxv2.application.port.LigaRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PaisInteresRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PaisRepository;
@@ -59,6 +60,9 @@ class SincronizarCatalogoUseCaseIntegrationTest extends AbstractRepositoryJpaAda
     @Autowired
     private PaisInteresJpaRepository paisInteresJpaRepository;
 
+    @Autowired
+    private CacheLecturas cacheLecturas;
+
     @MockitoBean
     private ProveedorPaises proveedorPaises;
 
@@ -76,7 +80,8 @@ class SincronizarCatalogoUseCaseIntegrationTest extends AbstractRepositoryJpaAda
         paisJpaRepository.deleteAll();
 
         casoDeUso = new SincronizarCatalogoUseCase(
-                proveedorPaises, proveedorLigasPorPais, paisRepository, ligaRepository, paisInteresRepository);
+                proveedorPaises, proveedorLigasPorPais, paisRepository, ligaRepository,
+                paisInteresRepository, cacheLecturas);
     }
 
     @Test
