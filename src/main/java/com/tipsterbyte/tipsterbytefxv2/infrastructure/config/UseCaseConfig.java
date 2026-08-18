@@ -28,6 +28,8 @@ import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorLigasPorPais;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorPaises;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorPosiciones;
 import com.tipsterbyte.tipsterbytefxv2.application.port.SuscripcionRepository;
+import com.tipsterbyte.tipsterbytefxv2.application.port.TareaLogRepository;
+import com.tipsterbyte.tipsterbytefxv2.application.port.TareaProgramadaRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.TokenEmisor;
 import com.tipsterbyte.tipsterbytefxv2.application.port.UsuarioRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.ActivarLigaUseCase;
@@ -46,6 +48,8 @@ import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCalendario
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCatalogoUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCuotasUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarPosicionesUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.port.TareaProgramadaRepository;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.GestionarTareasProgramasUseCase;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -160,6 +164,16 @@ public class UseCaseConfig {
             PaisInteresRepository paisInteresRepository,
             ProveedorPaises proveedorPaises) {
         return new GestionarPaisesInteresUseCase(paisInteresRepository, proveedorPaises);
+    }
+
+    // [QUÉ]: Bean de CU-15 (gestionar tareas programadas).
+    @Bean
+    public GestionarTareasProgramasUseCase gestionarTareasProgramasUseCase(TareaProgramadaRepository tareaProgramadaRepository,
+                                                                           TareaLogRepository tareaLogRepository,
+                                                                           LigaRepository ligaRepository,
+                                                                           DetalleFuenteExtraccionRepository detalleRepository) {
+        return new GestionarTareasProgramasUseCase(tareaProgramadaRepository, tareaLogRepository,
+                ligaRepository, detalleRepository);
     }
 
     // [QUÉ]: Bean de CU-12 (registro de usuario autenticable con BCrypt).

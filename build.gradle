@@ -69,6 +69,19 @@ dependencies {
 	//               ProveedorXxxCacheable (FASE 12).
 	// ─────────────────────────────────────────────
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    // ─────────────────────────────────────────────
+    // [QUÉ]: Encoder JSON para Logback (logs estructurados con MDC) (FASE 12.6).
+    // [POR QUÉ]: Los logs del scheduler y de las sincronizaciones se emiten en JSON
+    //            (logback-spring.xml) para correlacionarlos en ELK/Loki/Grafana usando
+    //            el executionId del MDC; logstash-logback-encoder es el estándar de
+    //            facto para ello y no requiere cambiar el API de logging (SLF4J).
+    // [ALTERNATIVAS]: Serializar logs a JSON manualmente en un appender propio; se
+    //                 descarta por reinventar lo que ya aporta el encoder. Logback
+    //                 clásico en texto plano; se descarta porque pierde trazabilidad
+    //                 estructurada para el pipeline de observabilidad.
+    // [RELACIONES]: logback-spring.xml + MDCTaskContext + CatalogoScheduler (FASE 12.6).
+    // ─────────────────────────────────────────────
+    implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
 	// ─────────────────────────────────────────────
 	// [QUÉ]: Soporte Testcontainers para tests de integración de los adapters JPA.
 	// [POR QUÉ]: Los repository adapters se prueban contra un PostgreSQL real en

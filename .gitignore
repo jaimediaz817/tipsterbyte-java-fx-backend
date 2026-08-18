@@ -36,3 +36,6 @@ out/
 ### VS Code ###
 .vscode/
 .opencode/skills/diagram-design
+
+### Logs de ejecución (appender JSON, FASE 12.6) ###
+logs/

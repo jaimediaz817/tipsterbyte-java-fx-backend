@@ -1,14 +1,18 @@
 package com.tipsterbyte.tipsterbytefxv2.application.port;
 
 import com.tipsterbyte.tipsterbytefxv2.domain.model.TareaProgramada;
-import org.springframework.data.jpa.repository.JpaRepository;
+import com.tipsterbyte.tipsterbytefxv2.domain.model.TipoFuenteExtraccion;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface TareaProgramadaRepository extends JpaRepository<TareaProgramada, UUID> {
-    // Custom finder methods used by the scheduler and the service layer
-    Optional<TareaProgramada> buscarPorIsoAlpha2(String isoAlpha2);
-    Iterable<TareaProgramada> listarPorPrioridadAsc();
-    void eliminarPorIsoAlpha2(String isoAlpha2);
+public interface TareaProgramadaRepository {
+    // Custom methods needed for the use case and scheduler
+    Optional<TareaProgramada> buscarPorLigaIdYTipoFuente(UUID ligaId, TipoFuenteExtraccion tipoFuente);
+    Optional<TareaProgramada> buscarGlobal();
+    List<TareaProgramada> listarPorPrioridadAsc();
+    TareaProgramada guardar(TareaProgramada tarea);
+    void eliminarPorId(UUID id);
+    Optional<TareaProgramada> encontrarPorId(UUID id);
 }

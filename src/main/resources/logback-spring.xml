@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <springProfile name="!test">
+        <!-- ─────────────────────────────────────────────
+             [QUÉ]: Salida JSON en consola (FASE 12.6).
+             [POR QUÉ]: Permite ver los logs estructurados (con MDC: taskName,
+                        executionId, ligaId) en el terminal durante el desarrollo.
+             [RELACIONES]: logback-spring.xml + MDCTaskContext + CatalogoScheduler.
+             ───────────────────────────────────────────── -->
+        <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                <providers>
+                    <timestamp/>
+                    <logLevel/>
+                    <loggerName/>
+                    <message/>
+                    <stackTrace/>
+                    <arguments/>
+                    <mdc/>
+                </providers>
+            </encoder>
+        </appender>
+
+        <!-- ─────────────────────────────────────────────
+             [QUÉ]: Persistencia de logs JSON en archivo con rotación (FASE 12.6).
+             [POR QUÉ]: Los logs estructurados deben quedar en disco (logs/) para
+                        auditoría y para que el pipeline de observabilidad
+                        (ELK/Loki/Grafana) los ingiera sin depender de capturar la
+                        consola. Rotación por tamaño y tiempo evita archivos infinitos.
+             [ALTERNATIVAS]: Solo consola; se descarta porque pierde histórico en
+                             reinicios y no alimenta un shipper. Un solo archivo sin
+                             rotar; se descarta porque crece sin límite.
+             [RELACIONES]: Mismo encoder JSON que JSON_CONSOLE → correlación por MDC.
+             ───────────────────────────────────────────── -->
+        <appender name="JSON_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>logs/tipsterbytefxv2.json</file>
+            <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+                <fileNamePattern>logs/tipsterbytefxv2.%d{yyyy-MM-dd}.%i.json</fileNamePattern>
+                <maxFileSize>10MB</maxFileSize>
+                <maxHistory>14</maxHistory>
+                <totalSizeCap>100MB</totalSizeCap>
+            </rollingPolicy>
+            <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                <providers>
+                    <timestamp/>
+                    <logLevel/>
+                    <loggerName/>
+                    <message/>
+                    <stackTrace/>
+                    <arguments/>
+                    <mdc/>
+                </providers>
+            </encoder>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="JSON_CONSOLE"/>
+            <appender-ref ref="JSON_FILE"/>
+        </root>
+    </springProfile>
+
+    <!-- For test profile, use default console appender to avoid breaking tests -->
+    <springProfile name="test">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            </encoder>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+</configuration>

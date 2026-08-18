@@ -4,8 +4,8 @@ import java.util.UUID;
 
 public record TareaProgramada(
         UUID id,
-        String isoAlpha2,
-        String nombre,
+        UUID ligaId,
+        TipoFuenteExtraccion tipoFuente,
         String prioridad,
         String cronExpression,
         boolean activa,
