@@ -49,12 +49,19 @@ class PaisInteresControllerTest {
     }
 
     @Test
-    void debe_registrar_pais_de_interes() throws Exception {
+    void debe_registrar_pais_de_interes_y_devolverlo_con_su_prioridad() throws Exception {
+        when(gestionarPaisesInteresUseCase.registrar(
+                new RegistrarPaisInteresComando("CO", "Colombia")))
+                .thenReturn(new PaisInteres("CO", "Colombia", 1));
+
         mockMvc.perform(post("/api/v1/paises-interes")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"isoAlpha2": "CO", "nombre": "Colombia"}"""))
-                .andExpect(status().isCreated());
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.isoAlpha2").value("CO"))
+                .andExpect(jsonPath("$.nombre").value("Colombia"))
+                .andExpect(jsonPath("$.prioridad").value(1));
 
         verify(gestionarPaisesInteresUseCase).registrar(
                 new RegistrarPaisInteresComando("CO", "Colombia"));

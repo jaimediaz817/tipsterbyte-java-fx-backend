@@ -15,6 +15,7 @@ package com.tipsterbyte.tipsterbytefxv2.interfaces.rest.controller;
 
 import com.tipsterbyte.tipsterbytefxv2.application.dto.RegistrarPaisInteresComando;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.GestionarPaisesInteresUseCase;
+import com.tipsterbyte.tipsterbytefxv2.domain.model.PaisInteres;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.request.PaisInteresRequest;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.PaisInteresResponse;
 import jakarta.validation.Valid;
@@ -46,11 +47,14 @@ public class PaisInteresController {
 
     // [QUÉ]: Endpoint POST /api/v1/paises-interes — registra un país de interés al
     //        final de la lista (CU-14). Valida que exista en la fuente #1 (422 si no).
+    //        Devuelve el país creado con su prioridad asignada (PaisInteresResponse)
+    //        para que el frontend actualice el UI sin recalcular orden.
     @PostMapping
-    public ResponseEntity<Void> registrar(@Valid @RequestBody PaisInteresRequest request) {
-        gestionarPaisesInteresUseCase.registrar(new RegistrarPaisInteresComando(
+    public ResponseEntity<PaisInteresResponse> registrar(@Valid @RequestBody PaisInteresRequest request) {
+        PaisInteres creado = gestionarPaisesInteresUseCase.registrar(new RegistrarPaisInteresComando(
                 request.isoAlpha2(), request.nombre()));
-        return ResponseEntity.created(URI.create("/api/v1/paises-interes")).build();
+        return ResponseEntity.created(URI.create("/api/v1/paises-interes"))
+                .body(new PaisInteresResponse(creado.isoAlpha2(), creado.nombre(), creado.prioridad()));
     }
 
     // [QUÉ]: Endpoint GET /api/v1/paises-interes — lista los países de interés en

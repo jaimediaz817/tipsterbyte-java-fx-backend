@@ -17,6 +17,7 @@
 ## 2. `POST /api/v1/paises-interes` (upsert)
 
 - Responde **`201 Created` siempre** (Location: `/api/v1/paises-interes`), sea país nuevo o ya existente.
+- **Devuelve el país creado en el body**: `{ isoAlpha2, nombre, prioridad }` — la `prioridad` es la asignada por el backend (nueva = siguiente libre; existente = la que conserva). Usar el body para actualizar el UI sin recalcular el orden.
 - **Semántica de prioridad** (aclara la aparente contradicción del comunicado inicial):
   - **País ya registrado + POST** → *upsert*: se actualiza el nombre si cambió y **conserva su prioridad actual** (no se mueve al final).
   - **País desmarcado (`DELETE`) + `POST` de nuevo** → se agrega **al final** de la lista (prioridad = máxima + 1).

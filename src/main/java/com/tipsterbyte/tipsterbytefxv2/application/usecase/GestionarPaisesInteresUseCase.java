@@ -35,21 +35,22 @@ public final class GestionarPaisesInteresUseCase {
         this.proveedorPaises = proveedorPaises;
     }
 
-    // [QUÉ]: Ejecuta CU-14 alta: registra un país de interés al final de la lista.
+    // [QUÉ]: Ejecuta CU-14 alta: registra un país de interés al final de la lista y
+    //        devuelve la entidad guardada (el controller la mapea a PaisInteresResponse).
     // [POR QUÉ]: Solo se aceptan países que existan en la fuente #1 (regla de negocio:
     //            la preferencia se elige sobre los países disponibles). Si ya existe
-    //            la preferencia se actualiza (nombre) manteniendo su prioridad.
-    public List<DomainEvent> registrar(RegistrarPaisInteresComando comando) {
+    //            la preferencia se actualiza (nombre) manteniendo su prioridad. El
+    //            retorno expone la prioridad asignada al POST (el frontend la usa para
+    //            el UI sin recalcularla).
+    public PaisInteres registrar(RegistrarPaisInteresComando comando) {
         String isoAlpha2 = comando.isoAlpha2().trim().toUpperCase();
         validarDisponibleEnFuente(isoAlpha2);
-        paisInteresRepository.buscarPorIsoAlpha2(isoAlpha2)
+        PaisInteres pais = paisInteresRepository.buscarPorIsoAlpha2(isoAlpha2)
                 .map(existente -> new PaisInteres(
                         existente.id(), isoAlpha2, comando.nombre(), existente.prioridad()))
-                .ifPresentOrElse(
-                        paisInteresRepository::guardar,
-                        () -> paisInteresRepository.guardar(new PaisInteres(
-                                isoAlpha2, comando.nombre(), siguientePrioridad())));
-        return List.of();
+                .orElseGet(() -> new PaisInteres(isoAlpha2, comando.nombre(), siguientePrioridad()));
+        paisInteresRepository.guardar(pais);
+        return pais;
     }
 
     // [QUÉ]: Ejecuta CU-14 consulta: lista los países de interés por prioridad ascendente.
