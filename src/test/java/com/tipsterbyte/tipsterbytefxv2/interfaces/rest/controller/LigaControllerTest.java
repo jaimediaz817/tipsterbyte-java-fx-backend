@@ -261,6 +261,31 @@ class LigaControllerTest {
     }
 
     @Test
+    void debe_devolver_plantilla_de_equipos_de_la_temporada_vigente_con_escudos() throws Exception {
+        Liga liga = unaLigaConEquiposYEscudos();
+        when(ligaRepository.buscarPorId(liga.id())).thenReturn(Optional.of(liga));
+
+        mockMvc.perform(get("/api/v1/ligas/{ligaId}/equipos", liga.id()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ligaId").value(liga.id().toString()))
+                .andExpect(jsonPath("$.temporadaNombre").value("2024/2025"))
+                .andExpect(jsonPath("$.total").value(2))
+                .andExpect(jsonPath("$.equipos[0].nombre").value("Arsenal"))
+                .andExpect(jsonPath("$.equipos[0].logoUrl").value("https://escudos/arsenal.png"))
+                .andExpect(jsonPath("$.equipos[1].nombre").value("Chelsea"));
+    }
+
+    @Test
+    void debe_devolver_422_al_consultar_equipos_de_liga_inexistente() throws Exception {
+        UUID ligaId = UUID.randomUUID();
+        when(ligaRepository.buscarPorId(ligaId)).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/v1/ligas/{ligaId}/equipos", ligaId))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.status").value(422));
+    }
+
+    @Test
     void debe_sincronizar_equipos_de_liga_y_devolver_conteos() throws Exception {
         UUID ligaId = UUID.randomUUID();
         when(sincronizarEquiposLigaUseCase.ejecutar(ligaId))
@@ -276,6 +301,19 @@ class LigaControllerTest {
     private static Set<Temporada> temporadasDe(UUID ligaId, String nombre, int inicio, int fin) {
         return Set.of(new Temporada(ligaId, nombre, null, inicio, fin,
                 EstadoTemporada.PLANIFICADA));
+    }
+
+    private Liga unaLigaConEquiposYEscudos() {
+        UUID ligaId = UUID.randomUUID();
+        Equipo arsenal = new Equipo(UUID.randomUUID(), "Arsenal", "https://escudos/arsenal.png");
+        Equipo chelsea = new Equipo(UUID.randomUUID(), "Chelsea", null);
+        Set<Temporada> temporadas = Set.of(new Temporada(
+                UUID.randomUUID(), ligaId, "2024/2025", null, 2024, 2025,
+                EstadoTemporada.PLANIFICADA,
+                List.of(arsenal, chelsea), List.of()));
+        return Liga.reconstruir(
+                ligaId, "Premier League", "Inglaterra", null,
+                EstadoLiga.ACTIVA, temporadas);
     }
 
     private Liga unaLigaActiva() {

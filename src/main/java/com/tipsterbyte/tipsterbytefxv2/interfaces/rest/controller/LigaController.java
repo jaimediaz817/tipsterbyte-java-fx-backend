@@ -29,6 +29,8 @@ import com.tipsterbyte.tipsterbytefxv2.domain.model.PosicionTabla;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.request.ActivarLigaRequest;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.JornadaActualResponse;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.EquiposSincronizadosResponse;
+import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.EquipoResponse;
+import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.EquiposLigaResponse;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.LigaDetalleResponse;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.LigaResponse;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.PosicionTablaResponse;
@@ -168,6 +170,26 @@ public class LigaController {
                 .map(this::toPosicionResponse)
                 .toList();
         return ResponseEntity.ok(posiciones);
+    }
+
+    // [QUÉ]: Endpoint GET /api/v1/ligas/{ligaId}/equipos — plantilla de la temporada
+    //        vigente con escudos (H-03).
+    // [POR QUÉ]: Cierra el ciclo visible de HU-11: el badge totalEquipos del listado
+    //            enlaza aquí para ver los equipos poblados por la fuente #6.
+    @GetMapping("/{ligaId}/equipos")
+    public ResponseEntity<EquiposLigaResponse> obtenerEquipos(@PathVariable UUID ligaId) {
+        Liga liga = ligaRepository.buscarPorId(ligaId)
+                .orElseThrow(() -> new com.tipsterbyte.tipsterbytefxv2.domain.DomainException("Liga no encontrada: " + ligaId));
+        var temporada = liga.getTemporadaActual()
+                .or(() -> liga.getTemporadas().stream().findFirst())
+                .orElseThrow(() -> new com.tipsterbyte.tipsterbytefxv2.domain.DomainException(
+                        "La liga no tiene temporadas registradas: " + ligaId));
+        List<EquipoResponse> equipos = temporada.equipos().stream()
+                .map(e -> new EquipoResponse(e.id(), e.nombre(), e.logoUrl()))
+                .toList();
+        return ResponseEntity.ok(new EquiposLigaResponse(
+                liga.id(), temporada.id(), temporada.nombre(), temporada.estado(),
+                equipos.size(), equipos));
     }
 
     // [QUÉ]: Endpoint POST /api/v1/ligas/{ligaId}/equipos/sincronizar — (re)puebla la

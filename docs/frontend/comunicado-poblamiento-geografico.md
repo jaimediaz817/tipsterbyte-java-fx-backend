@@ -140,6 +140,29 @@ El poblamiento ahora deja cada liga de tus países de interés **con su plantill
 
 > `totalEquipos` = tamaño de la plantilla de la temporada vigente. El total esperado NO lo provee el backend (viene de la fuente al poblar): el frontend puede mostrar solo el número, o comparar contra el último valor conocido.
 
+### `GET /api/v1/ligas/{ligaId}/equipos` ⭐ nuevo (H-03)
+
+La plantilla completa de la temporada vigente, con escudos:
+
+```json
+→ 200 OK
+{
+  "ligaId": "uuid",
+  "temporadaId": "uuid",
+  "temporadaNombre": "2026/2027",
+  "temporadaEstado": "PLANIFICADA",
+  "total": 28,
+  "equipos": [
+    { "id": "uuid", "nombre": "Millonarios", "logoUrl": "https://static.flashscore.com/...png" },
+    { "id": "uuid", "nombre": "Atlético Nacional", "logoUrl": null }
+  ]
+}
+```
+
+- `logoUrl` puede ser `null` si el equipo entró por fuentes operativas (#3/#4) sin escudo.
+- `422` si la liga no existe o no tiene temporadas.
+- Ideal para: expandir la fila de la tabla ("ver plantilla"), modal con grid de escudos, o pantalla de detalle.
+
 ### `POST /api/v1/ligas/{ligaId}/equipos/sincronizar`
 
 Botón ⟳ **"Poblar equipos"** por liga. Reintenta la fuente #6 para esa liga sin re-ejecutar el poblamiento mundial (repara plantillas vacías, ej: scraper caído). Idempotente; roles SUPERADMIN/TIPSTER.

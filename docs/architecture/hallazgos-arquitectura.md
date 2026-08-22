@@ -40,7 +40,8 @@ Al cierre de FASE T2 el sistema dispone de:
 
 ---
 
-## 🟠 ALTA — H-03: Sin endpoint para pintar la plantilla poblada
+## 🟠 ALTA — H-03: Sin endpoint para pintar la plantilla poblada ✅ (RESUELTO)
+> **Cierre**: `GET /api/v1/ligas/{ligaId}/equipos` implementado (temporada vigente, escudos incluidos, 422 si liga inexistente/sin temporadas). Comunicado actualizado.
 
 - [QUÉ]: No existe `GET /ligas/{id}/equipos` (ni `/temporadas/{id}/equipos`). El frontend no puede mostrar los equipos/escudos que ya persisten tras #6.
 - [POR QUÉ]: Cierra el ciclo visible de HU-11. El badge `totalEquipos` añadido a `LigaResponse` solo da el conteo; la plantilla completa requiere el listado.
