@@ -52,22 +52,34 @@
 
 **Aggregate Root**: `Liga`
 
+> **Actualizado (refactor Torneos/Temporadas)**: `Temporada` es Entity con identidad propia y es el centro del modelo deportivo — compone los equipos y la tabla de posiciones (un equipo que desciende en 2024 no está en la tabla 2025). `Liga` delega en su *temporada vigente* (activa o, en su defecto, la primera registrada). `Partido` y `DetalleFuenteExtraccion` referencian `temporadaId`; `ligas.pais_id` es FK real al catálogo `Pais`. Detalle completo en `docs/REFactor-Torneos-Temporadas.md`.
+
 | Miembro | Tipo |
 | --- | --- |
 | `id` | Identity |
 | `nombre` | Value Object |
-| `pais` | Value Object (nombre denormalizado; ↔ catálogo `Pais`) |
-| `temporada` | Value Object (`Temporada`) |
+| `pais` | Value Object (nombre denormalizado; FK real `paisId` ↔ catálogo `Pais`) |
+| `temporadas` | `Set<Temporada>` — **Entity** con identidad (1:N) |
 | `urlSoccerway` | Opcional — path_to_scrape del calendario (fuente #5) |
 | `apiId` | Opcional — id en API-Football (fuente #5) |
-| `equipos` | Lista de `Equipo` (Entity) |
-| `posiciones` | Tabla de posiciones (`List<PosicionTabla>`) |
 | `estado` | enum: `BORRADOR`, `ACTIVA`, `INACTIVA` |
+
+**Miembros de `Temporada`**:
+
+| Miembro | Tipo |
+| --- | --- |
+| `id` / `ligaId` | Identity + referencia al aggregate padre |
+| `nombre` | Opcional — nombre del torneo (ej: "Apertura", "Clausura") |
+| `semestre` | Opcional — 1 o 2 |
+| `anioInicio` / `anioFin` | rango válido: fin > inicio |
+| `estado` | enum: `PLANIFICADA`, `ACTIVA`, `FINALIZADA` |
+| `equipos` | Lista de `Equipo` (Entity) — **de la temporada** |
+| `posiciones` | Tabla de posiciones (`List<PosicionTabla>`) — **de la temporada** |
 
 **Reglas del aggregate**:
 - Una liga solo puede **activarse** si tiene al menos una fuente de datos configurada y operativa.
-- Las posiciones se recalculan cuando llega la sincronización de la fuente.
-- Los equipos se agregan/desagregan desde la sincronización del calendario.
+- Las posiciones se recalculan cuando llega la sincronización de la fuente, sobre la temporada vigente.
+- Los equipos se agregan/desagregan desde la sincronización de posiciones/calendario, en la temporada vigente.
 
 ### Aggregate 2 — Partido
 
@@ -144,7 +156,6 @@
 
 | VO | Atributos | Reglas |
 | --- | --- | --- |
-| `Temporada` | `añoInicio`, `añoFin` | fin > inicio |
 | `Resultado` | `golesLocal`, `golesVisitante` | >= 0 |
 | `Cuota` | `valor` (decimal) | valor > 1.0 |
 | `PosicionTabla` | `equipo`, `posicion`, `jugados`, `ganados`, `empatados`, `perdidos`, `golesFavor`, `golesContra`, `puntos` | consistencia aritmética |

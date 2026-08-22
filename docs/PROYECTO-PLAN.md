@@ -21,7 +21,7 @@ FASE 9  Docker + Docker Compose
 FASE 10 Testing
 FASE 11 Spring Security + JWT
 FASE 12 Redis
-FASE 12.5 Scheduling / Async (definida, pendiente de aprobación)
+FASE 12.5 Scheduling / Async (completada)
 FASE 13 RabbitMQ
 FASE 14 Spring WebFlux
 FASE 15 Scheduling avanzado / Pipelines async
@@ -150,7 +150,8 @@ FASE T1 Frontend Angular 22 (transversal, proyecto hermano)
 - **Cobertura**: 246 tests en verde (+22). `./gradlew test` OK.
 - **Estado**: COMPLETADA.
 
-### FASE 12.5 — Scheduling / Async 📝 (DEFINIDA, pendiente de aprobación)
+### FASE 12.5 — Scheduling / Async ✅ (COMPLETADA)
+> **Nota de cierre**: implementada y verificada en código con tests — entity `TareaProgramada` + `TareaLog` (dominio), CU-15 `GestionarTareasProgramasUseCase`, `TareaProgramadaRepositoryJpaAdapter`, `CatalogoScheduler` (dispatcher `@Scheduled` con anti-solapamiento por tarea), endpoints `/api/v1/tareas-programadas/**` y tests (dominio, use case, adapter). El detalle original del plan se conserva abajo como referencia histórica.
 - **Contexto / [POR QUÉ]**: necesidad operativa real de ejecución programada de las extracciones — cuotas Wplay **cada hora** (ver variación), calendario **cada 8 días** (actualizar resultados), posiciones diario, catálogo semanal. Se adelanta antes de RabbitMQ/WebFlux porque **no depende de ellos**: los use cases de sincronización ya existen y ya invalidan el cache Redis al correr (CU-01/02/03). El scheduler solo debe invocarlos con cron expressions.
 - **Modelo (validado con el usuario, un job por fuente de extracción)**: cada `DetalleFuenteExtraccion` (liga + tipo `CALENDAR`/`ODDS_WPLAY`/`STANDINGS`) puede tener una **tarea programada** asociada; existe además una **tarea global de catálogo** (CU-10, no ligada a un detalle). Dos maneras de crear tareas desde Angular: (1) clicando sobre cada fuente de extracción en Geografía ("Programar"), (2) desde el ítem de agrupación **"Tareas programadas"** en Automatización.
 - **Domain**: nueva entity `TareaProgramada` (id UUID, nombre, `detalleFuenteExtraccionId` **nullable** = tarea global de catálogo, `cronExpression` validada con `CronExpression` de Spring — 6 segmentos, `activa` boolean, `fechaCreacion`). Reglas: una tarea por detalle (unique `detalle_fuente_extraccion_id`), **una sola tarea global** (unique sobre columna nullable o validación en use case), cron inválido → `DomainException` (422), no se puede programar un detalle inexistente/inactivo.
@@ -174,7 +175,7 @@ FASE T1 Frontend Angular 22 (transversal, proyecto hermano)
 - **¿Más potente que Python (APScheduler)?** Sí, para este stack: integración con el ciclo de vida y la configuración (properties/env, sin cron daemon), observabilidad con Micrometer (FASE 16), testabilidad con `TaskScheduler` mockeado y un único runtime (el job corre donde corre la API). Matiz: `@Scheduled` asume un solo nodo → ShedLock cuando haya N instancias.
 - **Tests esperados**: dominio (`TareaProgramadaTest`), use case CU-15, adapter JPA, controller, y scheduler unitario (evaluación de `CronExpression` + disparo al use case correcto). Sin nuevas dependencias (usa `spring-context`).
 - **Comunicado frontend**: ver sección "Comunicado Tareas programadas" abajo.
-- **Estado**: 📝 DEFINIDA — pendiente de aprobación para su ejecución.
+- **Estado**: ✅ COMPLETADA.
 
 #### 📣 Comunicado Tareas programadas (para el equipo frontend)
 
@@ -301,6 +302,41 @@ Automatización
 - **Tests**: 266 tests en verde (+20 unitarios/integración de controllers, CORS, seguridad y consultas end-to-end).
 - **Relaciones**: habilita FASE T1 (Angular 22); consume puertos de repositorio existentes y `app.api.rest.enabled`.
 - **Estado**: COMPLETADA.
+
+### FASE T2 — Poblamiento de equipos por liga (fuente #6) ✅ (COMPLETADA)
+
+> **Contexto / [POR QUÉ]**: completar el poblamiento geográfico con la plantilla oficial de equipos de cada liga. Hoy los equipos entran como subproducto de las fuentes operativas (#3/#4) con matching por nombre exacto y sin escudo. Con la fuente `#6 ext-soccerway-teams-by-league` (params `country_name` + `league_name`, datos que ya viven en el aggregate), cada temporada nace con su plantilla canónica (nombre + `logo_url`) durante el propio poblamiento — paso 2 de la secuencia: países (#1) → ligas/torneos (#5) → **equipos (#6)** → luego activar y sincronizar lo operativo. HU-11; esquema confirmado en `docs/architecture/fuentes-externas.md`.
+
+**Dominio (cambios mínimos)**:
+- `Equipo` gana atributo opcional `logoUrl` (String nullable; columna nueva `equipos.logo_url` creada por ddl-auto).
+- Normalizador de nombres en `domain.service` (`NormalizadorNombresEquipos`): sin tildes + trim + case-insensitive. Usado por el matching de `resolverEquipo` en CU-10/CU-01/CU-02 (los nombres se guardan tal cual llegan para display; solo la COMPARACIÓN normaliza).
+
+**Application**:
+- Puerto nuevo: `ProveedorEquiposPorLiga.obtenerEquipos(countryName, leagueName)` → DTO `EquipoFuente(nombre, logoUrl)`.
+- `CacheClaves.equipos(countryName, leagueName)` + decorador cache-aside `ProveedorEquiposCacheable` (`@Primary`, mismo patrón Jackson/TypeReference que los otros 3) con TTL largo (plantilla estable). El caso de uso invalida la clave antes de consultar (consistencia del patrón).
+
+**CU-10 encadenado (SincronizarCatalogoUseCase)**:
+- Tras persistir liga+temporada de catálogo de un **país de interés**, consumir `#6` y poblar la plantilla de la **temporada vigente** (activa o primera registrada): match normalizado contra existentes (reuso id + update `logo_url`) o alta nueva. Las ligas de países SIN preferencia se catalogan sin equipos (como hasta hoy).
+- **Tolerancia a fallos por liga**: un fallo de `#6` no aborta el poblamiento (log WARN con contexto país+liga vía MDC y continuar) — mismo patrón que temporada inválida.
+- Iteración trazable: log INFO por país y por liga (país → liga → N equipos registrados/reutilizados).
+- Idempotencia total: re-ejecutar no duplica nada.
+- Sin cambios en BR-001 (siguen siendo 3 URLs operativas en CU-04) ni en `DetalleFuenteExtraccion` (#6 no usa path_to_scrape).
+
+**Infrastructure**:
+- Adapter nuevo `SoccerwayEquiposAdapter implements ProveedorEquiposPorLiga` (RestClient a la base Python; parseo del envoltorio `{success, data.leagues[].teams[]}`, matcheando `leagues[].name == league_name`).
+- Migración manual dev: ninguna requerida más allá de arrancar bootRun (ddl-auto crea `equipos.logo_url`). Flyway formaliza en FASE 19/20.
+
+**Tests esperados**: dominio (`Equipo.logoUrl`, normalizador: tildes/case/trim), CU-10 encadenado (alta, reuso por nombre normalizado, fallo de #6 tolerado, cache invalidada), adapter (JSON real mockeado), integración JPA (`equipos.logo_url` persistida). Suite completa en verde como señal de éxito.
+
+**Decisiones cerradas con el usuario**:
+1. **Alcance**: poblar equipos SOLO de las ligas pertenecientes a **países de interés** (el resto del mundo se cataloga sin equipos, como hasta hoy). Controla el volumen de llamadas al scraper.
+2. **Sin flag de configuración**: no se añade `app.poblamiento.equipos-enabled`; el alcance limitado a países de interés ya controla el costo. Se evaluará un interruptor solo si surge la necesidad operativa.
+3. **#6 nunca elimina**: los equipos presentes en la plantilla que NO aparezcan en la respuesta de #6 se conservan tal cual (agregar/actualizar únicamente). Eliminar quedará para cuando exista fuzzy matching (FASE 17), porque un nombre escrito distinto podría provocar borrados injustificados.
+
+**Tests esperados**: dominio (`Equipo.logoUrl`, normalizador: tildes/case/trim), CU-10 encadenado (alta, reuso por nombre normalizado, fallo de #6 tolerado, cache invalidada, equipos SOLO para países de interés), adapter (JSON real mockeado), integración JPA (`equipos.logo_url` persistida). Suite completa en verde como señal de éxito.
+
+- **Relaciones**: HU-11 → CU-10 → `ProveedorEquiposPorLiga`; consume el modelo de temporadas (plantilla por temporada vigente); habilita matching más estable para FASE 17.
+- **Estado**: ✅ COMPLETADA — implementada con suite en verde (426 tests). Nota: los equipos se poblan solo para ligas de países de interés; #6 nunca elimina; matching normalizado centralizado en `NormalizadorNombresEquipos` (también adoptado por CU-01/CU-02).
 
 ---
 

@@ -144,6 +144,35 @@ para [beneficio/valor].
 
 ---
 
+## HU-10 — Configurar países de interés
+
+**Como** SUPERADMIN/TIPSTER, **quiero** marcar los países preferidos con su orden y un límite opcional de ligas por país (`maxLigasPorPais`), **para** que el poblamiento geográfico los procese primero y acote cuántas ligas extrae de cada uno.
+
+**Criterios de aceptación**:
+- AC1: Alta/lista/eliminación/reemplazo en bloque vía `/api/v1/paises-interes` (upsert conserva prioridad).
+- AC2: Solo se aceptan países presentes en la fuente #1.
+- AC3: CU-10 procesa primero estos países (por prioridad) y aplica su límite en la fuente #5 y localmente; el resto del mundo nunca se omite.
+
+**Trazabilidad**: → CU-14 → `PaisInteresRepository` + `ProveedorPaises` (+ `CacheLecturas` para `/paises/disponibles`)
+
+---
+
+## HU-11 — Poblar equipos de cada liga del catálogo (fuente #6)
+
+**Como** SUPERADMIN/TIPSTER, **quiero** que, durante el poblamiento geográfico y tras crear las ligas y sus temporadas de cada país, el sistema consuma la fuente #6 (`ext-soccerway-teams-by-league`) **país por país y liga por liga**, **para** que cada temporada quede con su plantilla oficial de equipos (nombre + escudo) antes de activar las fuentes operativas (#2/#3/#4).
+
+**Criterios de aceptación**:
+- AC1: Por cada liga procesada se consulta `#6` con `country_name = liga.pais()` y `league_name = liga.nombre()`; los equipos se asignan a la **temporada vigente** (activa o primera registrada).
+- AC2: Matching por nombre **normalizado** (sin tildes + trim + case-insensitive): si el equipo ya existe en la plantilla se reutiliza su id (y se actualiza `logo_url` si cambió); si no existe, se crea.
+- AC3: El resultado es idempotente: re-ejecutar el poblamiento no duplica equipos ni ligas.
+- AC4: La consulta a `#6` usa cache-aside Redis (clave país+liga, TTL largo); el caso de uso invalida la clave antes de consultar.
+- AC5: Un fallo al poblar los equipos de una liga NO aborta el poblamiento: se registra (log MDC con contexto país+liga) y se continúa con la siguiente.
+- AC6: Los equipos quedan persistidos en `equipos (id, nombre, logo_url, temporada_id)` referenciando su temporada.
+
+**Trazabilidad**: → CU-10 (encadenado post-catalogación) → `ProveedorEquiposPorLiga` + `LigaRepository` + `CacheLecturas`
+
+---
+
 ## Matriz de trazabilidad HU → CU → Puertos
 
 | HU | Caso de uso | Puertos |
@@ -157,3 +186,5 @@ para [beneficio/valor].
 | HU-07 | CU-07 | `PronosticoRepository` |
 | HU-08 | CU-08 | `PronosticoRepository`, `SuscripcionRepository` |
 | HU-09 | CU-09 | `SuscripcionRepository` |
+| HU-10 | CU-14 | `PaisInteresRepository`, `ProveedorPaises`, `CacheLecturas` |
+| HU-11 | CU-10 (encadenado) | `ProveedorEquiposPorLiga`, `LigaRepository`, `CacheLecturas` |

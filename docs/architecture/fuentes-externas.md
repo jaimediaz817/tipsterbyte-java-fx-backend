@@ -19,17 +19,25 @@
 | 3 | `/ext-position-table-by-league-stable` | `path_to_scrape` (URL de clasificación en Flashscore) | **Tabla de posiciones** de la liga con los **últimos 5 resultados de cada equipo** | `ProveedorPosiciones` (CU-01) |
 | 4 | `/ext-calendar-league-by-league-v2` | `path_to_scrape` (URL de resultados en Soccerway) | **Calendario completo** de partidos jugados con estadísticas | `ProveedorCalendario` (CU-02) |
 | 5 | `/ext-soccerway-leagues-by-country` | `country_name` (nombre del país) y `limit` | **Ligas existentes/activas en la web** de ese país (no implica ligas activas en nuestro contexto) | Poblar catálogo de **ligas** por país (CU-10) |
+| 6 | `/ext-soccerway-teams-by-league` | `country_name` + `league_name` | **Equipos (plantilla oficial)** de una liga: nombre + escudo (`logo_url`) | Poblar **equipos por liga/temporada** (poblamiento, paso 2 — CU-10 encadenado) |
+
+> **Naturaleza de #6**: es una fuente de **POBLAMIENTO** (como #1 y #5), no operativa: se consume con datos que ya viven en el aggregate (`liga.pais()` + `liga.nombre()`), **sin** `path_to_scrape` ni URL asociada en `DetalleFuenteExtraccion`, y **sin** participar en BR-001. Las fuentes operativas siguen siendo solo #2/#3/#4.
 
 ## Orden correcto de extracción
 
 ```
-#1 obtener países → #5 obtener ligas por cada país → luego por liga:
-#3 posiciones (con últimos 5 resultados), #4 calendario, #2 cuotas (partidos próximos)
+#1 obtener países → #5 obtener ligas por cada país → por cada liga nueva:
+   [Liga BORRADOR + Temporada PLANIFICADA + pais_id]
+   → #6 equipos de esa liga (plantilla + escudos, cache Redis)
+→ luego, por liga ACTIVADA (fuera del poblamiento):
+   #3 posiciones (con últimos 5 resultados), #4 calendario, #2 cuotas (partidos próximos)
 ```
 
 1. **Países** (`#1`): sin parámetros; devuelve todos los países con ligas.
 2. **Ligas por país** (`#5`): se itera sobre cada país obtenido en `#1`; `country_name` es el nombre del país y `limit` acota el número de ligas.
-3. Por cada liga activada (o candidata):
+3. Por cada liga nueva del catálogo:
+   - **Equipos** (`#6`): `country_name` + `league_name` (ambos ya presentes en el aggregate). Pobla la plantilla de la temporada vigente con nombre y escudo. Con tolerancia a fallos por liga (log y continuar).
+4. Por cada liga activada (o candidata):
    - **Posiciones** (`#3`): `path_to_scrape` apunta a la clasificación en Flashscore; incluye últimos 5 resultados por equipo.
    - **Calendario** (`#4`): `path_to_scrape` apunta a los resultados en Soccerway.
    - **Cuotas** (`#2`): `path_to_scrape` apunta a la liga en Wplay; trae cuotas y doble oportunidad de los próximos partidos.
@@ -40,6 +48,7 @@
 | --- | --- |
 | `#1` países | CU-10 (nuevo): poblar catálogo de países |
 | `#5` ligas por país | CU-10 (nuevo): poblar catálogo de ligas |
+| `#6` equipos por liga | `ProveedorEquiposPorLiga` → CU-10 encadenado: poblar equipos de la temporada vigente |
 | `#2` cuotas Wplay | `ProveedorCuotas` → CU-03 (Sincronizar cuotas) |
 | `#3` posiciones + últimos 5 | `ProveedorPosiciones` → CU-01 (Sincronizar posiciones) |
 | `#4` calendario + estadísticas | `ProveedorCalendario` → CU-02 (Sincronizar calendario) |
@@ -114,6 +123,48 @@ Parámetros: `country_name`, `limit`. Respuesta anidada por país.
 | `nombre_torneo` | string | Nombre comercial del torneo |
 | `semestre` | string | Inconsistente: a veces temporada (`2026/2027`), a veces categoría (`Grupo 1`) → **NO usar como temporada** |
 | `anio` | string | Temporada en formato `AAAA/AAAA` → mapea a `Temporada` |
+
+### `#6` — `/ext-soccerway-teams-by-league` ✅ JSON confirmado
+
+**Petición**: `GET /ext-soccerway-teams-by-league?country_name=Argentina&league_name=Liga%20Profesional`
+
+```json
+{
+    "success": true,
+    "data": {
+        "country_name": "Argentina",
+        "leagues": [
+            {
+                "name": "Liga Profesional",
+                "total_teams": 30,
+                "teams": [
+                    {
+                        "name": "Instituto",
+                        "logo_url": "https://static.flashscore.com/res/image/data/IuZoU3iT-ImUFDktI.png"
+                    },
+                    {
+                        "name": "Vélez Sarsfield",
+                        "logo_url": "https://static.flashscore.com/res/image/data/SzosWlSq-Yf2zL4v9.png"
+                    }
+                ]
+            }
+        ]
+    }
+}
+```
+
+| Campo | Tipo | Notas |
+| --- | --- | --- |
+| `success` | boolean `true` | Envoltorio igual a `#1`/`#4` |
+| `data.country_name` | string | Eco del parámetro de consulta |
+| `data.leagues[]` | array | Puede traer varias ligas cuyo nombre coincida; matchear por `name == league_name` |
+| `data.leagues[].teams[].name` | string | Nombre del equipo (puede contener tildes — normalizar al comparar) |
+| `data.leagues[].teams[].logo_url` | string | URL del escudo → columna nueva `equipos.logo_url` |
+
+**Implicaciones registradas**:
+- No trae referencia de temporada/anio: la plantilla se asigna a la **temporada vigente** de la liga (activa o primera registrada).
+- Los nombres pueden diferir de los que traigan #3/#4 (tildes, abreviaturas): el matching se hará con un **normalizador** (sin tildes + trim + case-insensitive) centralizado en el dominio.
+- Cacheable con cache-aside Redis (clave por país+liga, TTL largo): la plantilla cambia raramente.
 
 ### `#2` — `/ext-next-matches-wplay-by-league` ✅ JSON confirmado
 
