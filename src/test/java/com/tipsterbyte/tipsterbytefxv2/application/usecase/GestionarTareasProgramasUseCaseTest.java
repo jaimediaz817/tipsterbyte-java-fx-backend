@@ -262,7 +262,8 @@ class GestionarTareasProgramasUseCaseTest {
         UUID ligaId = UUID.randomUUID();
         when(tareaProgramadaRepository.buscarGlobal()).thenReturn(Optional.empty());
         when(ligaRepository.buscarActivas()).thenReturn(List.of(
-                new Liga(ligaId, "Premier League", "Inglaterra", new Temporada(2026, 2027), EstadoLiga.ACTIVA)));
+                Liga.reconstruir(ligaId, "Premier League", "Inglaterra", null, EstadoLiga.ACTIVA,
+                        java.util.Set.of())));
         when(detalleRepository.buscarPorLiga(ligaId)).thenReturn(List.of(
                 new DetalleFuenteExtraccion(ligaId, new FuenteExtraccion("Standings", TipoFuenteExtraccion.STANDINGS, true),
                         "/posiciones/", true)));
@@ -282,7 +283,8 @@ class GestionarTareasProgramasUseCaseTest {
     void debe_obtener_nombre_de_liga_para_la_vista() {
         UUID ligaId = UUID.randomUUID();
         when(ligaRepository.buscarPorId(ligaId)).thenReturn(Optional.of(
-                new Liga(ligaId, "Premier League", "Inglaterra", new Temporada(2026, 2027), EstadoLiga.ACTIVA)));
+                Liga.reconstruir(ligaId, "Premier League", "Inglaterra", null, EstadoLiga.ACTIVA,
+                        java.util.Set.of())));
 
         assertEquals("Premier League", casoDeUso.obtenerNombreLiga(ligaId));
         assertEquals(null, casoDeUso.obtenerNombreLiga(null));

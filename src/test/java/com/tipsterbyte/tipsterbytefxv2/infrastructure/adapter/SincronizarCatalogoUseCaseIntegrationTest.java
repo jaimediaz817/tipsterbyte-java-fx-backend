@@ -20,9 +20,11 @@ import com.tipsterbyte.tipsterbytefxv2.application.port.CacheLecturas;
 import com.tipsterbyte.tipsterbytefxv2.application.port.LigaRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PaisInteresRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PaisRepository;
+import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorEquiposPorLiga;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorLigasPorPais;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorPaises;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCatalogoUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarEquiposLigaUseCase;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.PaisInteres;
 import com.tipsterbyte.tipsterbytefxv2.infrastructure.persistence.entity.PaisEntity;
 import com.tipsterbyte.tipsterbytefxv2.infrastructure.persistence.repository.LigaJpaRepository;
@@ -69,6 +71,9 @@ class SincronizarCatalogoUseCaseIntegrationTest extends AbstractRepositoryJpaAda
     @MockitoBean
     private ProveedorLigasPorPais proveedorLigasPorPais;
 
+    @MockitoBean
+    private ProveedorEquiposPorLiga proveedorEquiposPorLiga;
+
     private SincronizarCatalogoUseCase casoDeUso;
 
     @BeforeEach
@@ -79,9 +84,11 @@ class SincronizarCatalogoUseCaseIntegrationTest extends AbstractRepositoryJpaAda
         paisInteresJpaRepository.deleteAll();
         paisJpaRepository.deleteAll();
 
+        SincronizarEquiposLigaUseCase sincronizarEquipos =
+                new SincronizarEquiposLigaUseCase(proveedorEquiposPorLiga, cacheLecturas, ligaRepository);
         casoDeUso = new SincronizarCatalogoUseCase(
-                proveedorPaises, proveedorLigasPorPais, paisRepository, ligaRepository,
-                paisInteresRepository, cacheLecturas);
+                proveedorPaises, proveedorLigasPorPais, sincronizarEquipos,
+                paisRepository, ligaRepository, paisInteresRepository, cacheLecturas);
     }
 
     @Test
@@ -140,8 +147,8 @@ class SincronizarCatalogoUseCaseIntegrationTest extends AbstractRepositoryJpaAda
                 new PaisFuente("Colombia", "/colombia/", "81", "CO", "Sudamérica", true)));
         when(proveedorLigasPorPais.obtenerLigasPorPais(anyString(), anyInt()))
                 .thenReturn(List.of());
-        paisInteresRepository.guardar(new PaisInteres("CO", "Colombia", 1));
-        paisInteresRepository.guardar(new PaisInteres("ES", "España", 2));
+        paisInteresRepository.guardar(new PaisInteres("CO", "Colombia", 1, null));
+        paisInteresRepository.guardar(new PaisInteres("ES", "España", 2, null));
 
         casoDeUso.ejecutar();
 

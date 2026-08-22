@@ -59,8 +59,8 @@ class WplayCuotasAdapterTest {
         DetalleFuenteExtraccionRepository detalleRepository = mock(DetalleFuenteExtraccionRepository.class);
         FuenteExtraccion fuente = new FuenteExtraccion("Cuotas Wplay", TipoFuenteExtraccion.ODDS_WPLAY, true);
         DetalleFuenteExtraccion detalle = new DetalleFuenteExtraccion(
-                UUID.randomUUID(), partido.ligaId(), fuente, "https://www.wplay.co/es/apuestas-deportivas/futbol/colombia", true);
-        when(detalleRepository.buscarPorLigaYTipo(partido.ligaId(), TipoFuenteExtraccion.ODDS_WPLAY))
+                UUID.randomUUID(), partido.temporadaId(), fuente, "https://www.wplay.co/es/apuestas-deportivas/futbol/colombia", true);
+        when(detalleRepository.buscarPorTemporadaYTipo(partido.temporadaId(), TipoFuenteExtraccion.ODDS_WPLAY))
                 .thenReturn(Optional.of(detalle));
 
         adapter = new WplayCuotasAdapter(builder.build(), partidoRepository, detalleRepository);

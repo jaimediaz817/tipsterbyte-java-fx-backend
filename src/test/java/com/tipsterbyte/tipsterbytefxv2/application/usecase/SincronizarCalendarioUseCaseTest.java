@@ -8,6 +8,7 @@ import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorCalendario;
 import com.tipsterbyte.tipsterbytefxv2.domain.DomainException;
 import com.tipsterbyte.tipsterbytefxv2.domain.event.DomainEvent;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.EstadoLiga;
+import com.tipsterbyte.tipsterbytefxv2.domain.model.EstadoTemporada;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Liga;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Partido;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Temporada;
@@ -51,7 +52,9 @@ class SincronizarCalendarioUseCaseTest {
     }
 
     private Liga ligaActiva() {
-        Liga liga = new Liga("La Liga", "España", new Temporada(2025, 2026));
+        Liga liga = new Liga("La Liga", "España");
+        liga.addTemporada(new Temporada(liga.id(), "2025/2026", null, 2025, 2026,
+                EstadoTemporada.PLANIFICADA));
         liga.activar(true, true, true);
         return liga;
     }
@@ -59,6 +62,7 @@ class SincronizarCalendarioUseCaseTest {
     @Test
     void debe_crear_partidos_y_emitir_partido_programado() {
         Liga liga = ligaActiva();
+        UUID temporadaVigenteId = liga.getTemporadas().iterator().next().id();
         when(ligaRepository.buscarPorId(liga.id())).thenReturn(Optional.of(liga));
         when(proveedorCalendario.obtenerCalendario(liga.id())).thenReturn(List.of(
                 new PartidoFuente("Real Madrid", "FC Barcelona",
@@ -68,6 +72,8 @@ class SincronizarCalendarioUseCaseTest {
 
         ArgumentCaptor<Partido> captor = ArgumentCaptor.forClass(Partido.class);
         verify(partidoRepository).guardar(captor.capture());
+        // El partido pertenece a la TEMPORADA vigente (no al ligaId): FK partidos.temporada_id.
+        assertEquals(temporadaVigenteId, captor.getValue().temporadaId());
         assertEquals(4, captor.getValue().jornada());
         assertEquals(1, eventos.size());
         assertTrue(eventos.stream().anyMatch(e -> e.getClass().getSimpleName().equals("PartidoProgramado")));
@@ -76,7 +82,9 @@ class SincronizarCalendarioUseCaseTest {
 
     @Test
     void debe_rechazar_calendario_si_liga_inactiva() {
-        Liga liga = new Liga("La Liga", "España", new Temporada(2025, 2026));
+        Liga liga = new Liga("La Liga", "España");
+        liga.addTemporada(new Temporada(liga.id(), "2025/2026", null, 2025, 2026,
+                EstadoTemporada.PLANIFICADA));
         when(ligaRepository.buscarPorId(liga.id())).thenReturn(Optional.of(liga));
 
         assertThrows(DomainException.class, () -> casoDeUso.ejecutar(liga.id()));

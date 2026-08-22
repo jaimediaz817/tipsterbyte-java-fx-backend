@@ -18,6 +18,7 @@ import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarPosiciones
 import com.tipsterbyte.tipsterbytefxv2.domain.DomainException;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Equipo;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.EstadoLiga;
+import com.tipsterbyte.tipsterbytefxv2.domain.model.EstadoTemporada;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Liga;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.PosicionTabla;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Temporada;
@@ -33,6 +34,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.nullValue;
@@ -62,6 +64,9 @@ class LigaControllerTest {
     @Mock
     private ObtenerJornadaActualUseCase obtenerJornadaActualUseCase;
 
+    @Mock
+    private com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarEquiposLigaUseCase sincronizarEquiposLigaUseCase;
+
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -69,7 +74,7 @@ class LigaControllerTest {
         mockMvc = MockMvcBuilders.standaloneSetup(
                         new LigaController(activarLigaUseCase, sincronizarPosicionesUseCase,
                                 sincronizarCalendarioUseCase, sincronizarCuotasUseCase, ligaRepository,
-                                obtenerJornadaActualUseCase))
+                                obtenerJornadaActualUseCase, sincronizarEquiposLigaUseCase))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -178,10 +183,10 @@ class LigaControllerTest {
 
     @Test
     void debe_filtrar_ligas_por_pais_sin_estado_dentro_del_scope_activa() throws Exception {
+        UUID ligaId = UUID.randomUUID();
         Liga liga = Liga.reconstruir(
-                UUID.randomUUID(), "LaLiga EA Sports", "España",
-                new Temporada(2026, 2027), EstadoLiga.ACTIVA,
-                List.of(), List.of());
+                ligaId, "LaLiga EA Sports", "España", null,
+                EstadoLiga.ACTIVA, temporadasDe(ligaId, "2026/2027", 2026, 2027));
         when(ligaRepository.buscarPorEstadoYPais(EstadoLiga.ACTIVA, "España"))
                 .thenReturn(List.of(liga));
 
@@ -255,27 +260,49 @@ class LigaControllerTest {
                 .andExpect(jsonPath("$.proximaJornada").value(nullValue()));
     }
 
+    @Test
+    void debe_sincronizar_equipos_de_liga_y_devolver_conteos() throws Exception {
+        UUID ligaId = UUID.randomUUID();
+        when(sincronizarEquiposLigaUseCase.ejecutar(ligaId))
+                .thenReturn(new com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarEquiposLigaUseCase.ResultadoPoblacionEquipos(5, 2, 30));
+
+        mockMvc.perform(post("/api/v1/ligas/{ligaId}/equipos/sincronizar", ligaId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.creados").value(5))
+                .andExpect(jsonPath("$.actualizados").value(2))
+                .andExpect(jsonPath("$.totalEquipos").value(30));
+    }
+
+    private static Set<Temporada> temporadasDe(UUID ligaId, String nombre, int inicio, int fin) {
+        return Set.of(new Temporada(ligaId, nombre, null, inicio, fin,
+                EstadoTemporada.PLANIFICADA));
+    }
+
     private Liga unaLigaActiva() {
+        UUID ligaId = UUID.randomUUID();
         return Liga.reconstruir(
-                UUID.randomUUID(), "Premier League", "Inglaterra",
-                new Temporada(2024, 2025), EstadoLiga.ACTIVA,
-                List.of(), List.of());
+                ligaId, "Premier League", "Inglaterra", null,
+                EstadoLiga.ACTIVA, temporadasDe(ligaId, "2024/2025", 2024, 2025));
     }
 
     private Liga unaLigaBorradorCatalogo() {
+        UUID ligaId = UUID.randomUUID();
         return Liga.reconstruir(
-                UUID.randomUUID(), "LaLiga EA Sports", "España",
-                new Temporada(2026, 2027), EstadoLiga.BORRADOR,
-                "/path/to/scrape/calendar", "api-football-140", List.of(), List.of());
+                ligaId, "LaLiga EA Sports", "España", null,
+                EstadoLiga.BORRADOR, "/path/to/scrape/calendar", "api-football-140",
+                temporadasDe(ligaId, "2026/2027", 2026, 2027));
     }
 
     private Liga unaLigaConPosiciones() {
         UUID ligaId = UUID.randomUUID();
         Equipo arsenal = new Equipo(UUID.randomUUID(), "Arsenal");
         PosicionTabla posicion = new PosicionTabla(arsenal, 1, 3, 3, 0, 0, 9, 2, 9, List.of());
+        Set<Temporada> temporadas = Set.of(new Temporada(
+                UUID.randomUUID(), ligaId, "2024/2025", null, 2024, 2025,
+                EstadoTemporada.PLANIFICADA,
+                List.of(arsenal), List.of(posicion)));
         return Liga.reconstruir(
-                ligaId, "Premier League", "Inglaterra",
-                new Temporada(2024, 2025), EstadoLiga.ACTIVA,
-                List.of(arsenal), List.of(posicion));
+                ligaId, "Premier League", "Inglaterra", null,
+                EstadoLiga.ACTIVA, temporadas);
     }
 }

@@ -7,6 +7,7 @@ import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorPosiciones;
 import com.tipsterbyte.tipsterbytefxv2.domain.DomainException;
 import com.tipsterbyte.tipsterbytefxv2.domain.event.DomainEvent;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.EstadoLiga;
+import com.tipsterbyte.tipsterbytefxv2.domain.model.EstadoTemporada;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Liga;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.PosicionTabla;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.ResultadoReciente;
@@ -47,7 +48,9 @@ class SincronizarPosicionesUseCaseTest {
     }
 
     private Liga ligaActiva() {
-        Liga liga = new Liga("La Liga", "España", new Temporada(2025, 2026));
+        Liga liga = new Liga("La Liga", "España");
+        liga.addTemporada(new Temporada(liga.id(), "2025/2026", null, 2025, 2026,
+                EstadoTemporada.PLANIFICADA));
         liga.activar(true, true, true);
         liga.pullEventos();
         return liga;
@@ -99,7 +102,9 @@ class SincronizarPosicionesUseCaseTest {
 
     @Test
     void debe_rechazar_sincronizacion_si_liga_inactiva_br002() {
-        Liga liga = new Liga("La Liga", "España", new Temporada(2025, 2026));
+        Liga liga = new Liga("La Liga", "España");
+        liga.addTemporada(new Temporada(liga.id(), "2025/2026", null, 2025, 2026,
+                EstadoTemporada.PLANIFICADA));
         when(ligaRepository.buscarPorId(liga.id())).thenReturn(Optional.of(liga));
         when(proveedorPosiciones.obtenerPosiciones(liga.id())).thenReturn(List.of(
                 new PosicionFuente("Real Madrid", 1, 5, 3, 1, 1, 10, 4, 10)));

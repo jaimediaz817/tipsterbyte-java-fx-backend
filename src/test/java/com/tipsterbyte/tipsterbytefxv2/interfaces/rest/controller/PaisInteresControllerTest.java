@@ -2,7 +2,8 @@
 // [QUÉ]: Test unitario de PaisInteresController (MockMvc standalone): cubre CU-14
 //        (POST/GET/DELETE/PUT de países de interés) y el manejo de errores 400/422.
 // [POR QUÉ]: Valida el contrato HTTP del recurso de preferencia de poblamiento sin
-//            levantar Spring: códigos de estado, validación del body y DomainException.
+//            levantar Spring: códigos de estado, validación del body, DomainException
+//            y la propagación de maxLigasPorPais (límite opcional por país).
 // [RELACIONES]: PaisInteresController → GestionarPaisesInteresUseCase (CU-14).
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.interfaces.rest.controller;
@@ -51,8 +52,8 @@ class PaisInteresControllerTest {
     @Test
     void debe_registrar_pais_de_interes_y_devolverlo_con_su_prioridad() throws Exception {
         when(gestionarPaisesInteresUseCase.registrar(
-                new RegistrarPaisInteresComando("CO", "Colombia")))
-                .thenReturn(new PaisInteres("CO", "Colombia", 1));
+                new RegistrarPaisInteresComando("CO", "Colombia", null)))
+                .thenReturn(new PaisInteres("CO", "Colombia", 1, null));
 
         mockMvc.perform(post("/api/v1/paises-interes")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -61,10 +62,28 @@ class PaisInteresControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.isoAlpha2").value("CO"))
                 .andExpect(jsonPath("$.nombre").value("Colombia"))
-                .andExpect(jsonPath("$.prioridad").value(1));
+                .andExpect(jsonPath("$.prioridad").value(1))
+                .andExpect(jsonPath("$.maxLigasPorPais").doesNotExist());
 
         verify(gestionarPaisesInteresUseCase).registrar(
-                new RegistrarPaisInteresComando("CO", "Colombia"));
+                new RegistrarPaisInteresComando("CO", "Colombia", null));
+    }
+
+    @Test
+    void debe_registrar_pais_con_max_ligas_por_pais() throws Exception {
+        when(gestionarPaisesInteresUseCase.registrar(
+                new RegistrarPaisInteresComando("CO", "Colombia", 5)))
+                .thenReturn(new PaisInteres("CO", "Colombia", 1, 5));
+
+        mockMvc.perform(post("/api/v1/paises-interes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"isoAlpha2": "CO", "nombre": "Colombia", "maxLigasPorPais": 5}"""))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.maxLigasPorPais").value(5));
+
+        verify(gestionarPaisesInteresUseCase).registrar(
+                new RegistrarPaisInteresComando("CO", "Colombia", 5));
     }
 
     @Test
@@ -78,16 +97,27 @@ class PaisInteresControllerTest {
     }
 
     @Test
+    void debe_devolver_400_cuando_max_ligas_por_pais_es_menor_que_uno() throws Exception {
+        mockMvc.perform(post("/api/v1/paises-interes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"isoAlpha2": "CO", "nombre": "Colombia", "maxLigasPorPais": 0}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
     void debe_listar_paises_de_interes_por_prioridad() throws Exception {
         when(gestionarPaisesInteresUseCase.listar()).thenReturn(List.of(
-                new PaisInteres("CO", "Colombia", 1),
-                new PaisInteres("ES", "España", 2)));
+                new PaisInteres("CO", "Colombia", 1, 3),
+                new PaisInteres("ES", "España", 2, null)));
 
         mockMvc.perform(get("/api/v1/paises-interes"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[0].isoAlpha2").value("CO"))
                 .andExpect(jsonPath("$[0].prioridad").value(1))
+                .andExpect(jsonPath("$[0].maxLigasPorPais").value(3))
                 .andExpect(jsonPath("$[1].isoAlpha2").value("ES"))
                 .andExpect(jsonPath("$[1].prioridad").value(2));
     }
@@ -101,24 +131,24 @@ class PaisInteresControllerTest {
     }
 
     @Test
-    void debe_reemplazar_preferencias_completas() throws Exception {
+    void debe_reemplazar_preferencias_completas_con_limites_de_ligas() throws Exception {
         mockMvc.perform(put("/api/v1/paises-interes")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                [{"isoAlpha2": "CO", "nombre": "Colombia"},
+                                [{"isoAlpha2": "CO", "nombre": "Colombia", "maxLigasPorPais": 4},
                                  {"isoAlpha2": "ES", "nombre": "España"}]"""))
                 .andExpect(status().isNoContent());
 
         verify(gestionarPaisesInteresUseCase).reemplazarPreferencias(List.of(
-                new RegistrarPaisInteresComando("CO", "Colombia"),
-                new RegistrarPaisInteresComando("ES", "España")));
+                new RegistrarPaisInteresComando("CO", "Colombia", 4),
+                new RegistrarPaisInteresComando("ES", "España", null)));
     }
 
     @Test
     void debe_devolver_422_cuando_el_pais_no_esta_disponible() throws Exception {
         doThrow(new DomainException("El país no está disponible en la fuente de países: XX"))
                 .when(gestionarPaisesInteresUseCase).registrar(
-                        new RegistrarPaisInteresComando("XX", "No existe"));
+                        new RegistrarPaisInteresComando("XX", "No existe", null));
 
         mockMvc.perform(post("/api/v1/paises-interes")
                         .contentType(MediaType.APPLICATION_JSON)

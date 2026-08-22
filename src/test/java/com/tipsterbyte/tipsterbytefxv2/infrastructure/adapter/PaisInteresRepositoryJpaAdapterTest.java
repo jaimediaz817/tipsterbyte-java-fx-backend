@@ -37,7 +37,7 @@ class PaisInteresRepositoryJpaAdapterTest extends AbstractRepositoryJpaAdapterTe
 
     @Test
     void debe_guardar_y_recuperar_por_iso() {
-        paisInteresRepository.guardar(new PaisInteres("CO", "Colombia", 1));
+        paisInteresRepository.guardar(new PaisInteres("CO", "Colombia", 1, null));
 
         PaisInteres recuperado = paisInteresRepository.buscarPorIsoAlpha2("CO").orElseThrow();
 
@@ -47,9 +47,18 @@ class PaisInteresRepositoryJpaAdapterTest extends AbstractRepositoryJpaAdapterTe
     }
 
     @Test
+    void debe_guardar_y_recuperar_max_ligas_por_pais() {
+        paisInteresRepository.guardar(new PaisInteres("CO", "Colombia", 1, 5));
+
+        PaisInteres recuperado = paisInteresRepository.buscarPorIsoAlpha2("CO").orElseThrow();
+
+        assertEquals(5, recuperado.maxLigasPorPais());
+    }
+
+    @Test
     void debe_listar_ordenado_por_prioridad() {
-        paisInteresRepository.guardar(new PaisInteres("ES", "España", 2));
-        paisInteresRepository.guardar(new PaisInteres("CO", "Colombia", 1));
+        paisInteresRepository.guardar(new PaisInteres("ES", "España", 2, null));
+        paisInteresRepository.guardar(new PaisInteres("CO", "Colombia", 1, null));
 
         List<PaisInteres> lista = paisInteresRepository.listarPorPrioridad();
 
@@ -60,7 +69,7 @@ class PaisInteresRepositoryJpaAdapterTest extends AbstractRepositoryJpaAdapterTe
 
     @Test
     void debe_eliminar_por_iso() {
-        paisInteresRepository.guardar(new PaisInteres("CO", "Colombia", 1));
+        paisInteresRepository.guardar(new PaisInteres("CO", "Colombia", 1, null));
 
         paisInteresRepository.eliminar("CO");
 
@@ -69,9 +78,9 @@ class PaisInteresRepositoryJpaAdapterTest extends AbstractRepositoryJpaAdapterTe
 
     @Test
     void debe_rechazar_iso_duplicado() {
-        paisInteresRepository.guardar(new PaisInteres("CO", "Colombia", 1));
+        paisInteresRepository.guardar(new PaisInteres("CO", "Colombia", 1, null));
 
         assertThrows(DataIntegrityViolationException.class,
-                () -> paisInteresRepository.guardar(new PaisInteres("CO", "Colombia", 2)));
+                () -> paisInteresRepository.guardar(new PaisInteres("CO", "Colombia", 2, null)));
     }
 }

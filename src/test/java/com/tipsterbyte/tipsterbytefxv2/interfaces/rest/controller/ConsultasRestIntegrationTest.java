@@ -19,6 +19,7 @@ import com.tipsterbyte.tipsterbytefxv2.application.port.SuscripcionRepository;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Cuota;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Equipo;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.EstadoLiga;
+import com.tipsterbyte.tipsterbytefxv2.domain.model.EstadoTemporada;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.FechaProgramada;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Liga;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Mercado;
@@ -122,7 +123,7 @@ class ConsultasRestIntegrationTest extends AbstractRepositoryJpaAdapterTest {
         registrarUsuario("tipster@example.com", "TIPSTER");
         String token = loginYExtraerToken("tipster@example.com", "clave-secreta");
         Liga liga = crearLigaActivaConPosiciones();
-        Partido partido = crearPartidoConCuotas(liga.id());
+        Partido partido = crearPartidoConCuotas(liga);
 
         mockMvc.perform(get("/api/v1/partidos")
                         .param("ligaId", liga.id().toString())
@@ -137,7 +138,7 @@ class ConsultasRestIntegrationTest extends AbstractRepositoryJpaAdapterTest {
         registrarUsuario("tipster@example.com", "TIPSTER");
         String token = loginYExtraerToken("tipster@example.com", "clave-secreta");
         Liga liga = crearLigaActivaConPosiciones();
-        Partido partido = crearPartidoConCuotas(liga.id());
+        Partido partido = crearPartidoConCuotas(liga);
 
         mockMvc.perform(get("/api/v1/partidos/{id}/cuotas", partido.id())
                         .header("Authorization", "Bearer " + token))
@@ -151,8 +152,8 @@ class ConsultasRestIntegrationTest extends AbstractRepositoryJpaAdapterTest {
         registrarUsuario("tipster@example.com", "TIPSTER");
         String token = loginYExtraerToken("tipster@example.com", "clave-secreta");
         Liga liga = crearLigaActivaConPosiciones();
-        crearPartidoConJornada(liga.id(), LocalDateTime.now().minusDays(1), 3);
-        crearPartidoConJornada(liga.id(), LocalDateTime.now().plusDays(1), 4);
+        crearPartidoConJornada(liga, LocalDateTime.now().minusDays(1), 3);
+        crearPartidoConJornada(liga, LocalDateTime.now().plusDays(1), 4);
 
         mockMvc.perform(get("/api/v1/ligas/{id}/jornada-actual", liga.id())
                         .header("Authorization", "Bearer " + token))
@@ -210,8 +211,10 @@ class ConsultasRestIntegrationTest extends AbstractRepositoryJpaAdapterTest {
     void debe_listar_ligas_borrador_del_catalogo_con_token_tipster() throws Exception {
         registrarUsuario("tipster@example.com", "TIPSTER");
         String token = loginYExtraerToken("tipster@example.com", "clave-secreta");
-        Liga ligaBorrador = new Liga("LaLiga EA Sports", "España", new Temporada(2026, 2027),
+        Liga ligaBorrador = new Liga("LaLiga EA Sports", "España",
                 "/path/to/scrape/calendar", "api-football-140");
+        ligaBorrador.addTemporada(new Temporada(ligaBorrador.id(), "2026/2027", null, 2026, 2027,
+                EstadoTemporada.PLANIFICADA));
         ligaRepository.guardar(ligaBorrador);
 
         mockMvc.perform(get("/api/v1/ligas")
@@ -240,8 +243,10 @@ class ConsultasRestIntegrationTest extends AbstractRepositoryJpaAdapterTest {
         registrarUsuario("tipster@example.com", "TIPSTER");
         String token = loginYExtraerToken("tipster@example.com", "clave-secreta");
         crearLigaActivaConPosiciones();
-        ligaRepository.guardar(new Liga("Segunda Inglaterra", "Inglaterra", new Temporada(2024, 2025),
-                "/path/to/segunda", null));
+        Liga segunda = new Liga("Segunda Inglaterra", "Inglaterra", "/path/to/segunda", null);
+        segunda.addTemporada(new Temporada(segunda.id(), "2024/2025", null, 2024, 2025,
+                EstadoTemporada.PLANIFICADA));
+        ligaRepository.guardar(segunda);
 
         mockMvc.perform(get("/api/v1/ligas")
                         .param("pais", "Inglaterra")
@@ -253,7 +258,9 @@ class ConsultasRestIntegrationTest extends AbstractRepositoryJpaAdapterTest {
     }
 
     private Liga crearLigaActivaConPosiciones() {
-        Liga liga = new Liga("Premier League", "Inglaterra", new Temporada(2024, 2025));
+        Liga liga = new Liga("Premier League", "Inglaterra");
+        liga.addTemporada(new Temporada(liga.id(), "2024/2025", null, 2024, 2025,
+                EstadoTemporada.PLANIFICADA));
         liga.activar(true, true, true);
         Equipo arsenal = new Equipo(UUID.randomUUID(), "Arsenal");
         Equipo chelsea = new Equipo(UUID.randomUUID(), "Chelsea");
@@ -265,20 +272,22 @@ class ConsultasRestIntegrationTest extends AbstractRepositoryJpaAdapterTest {
         return liga;
     }
 
-    private Partido crearPartidoConCuotas(UUID ligaId) {
+    private Partido crearPartidoConCuotas(Liga liga) {
+        UUID temporadaId = liga.getTemporadas().iterator().next().id();
         Equipo arsenal = new Equipo(UUID.randomUUID(), "Arsenal");
         Equipo chelsea = new Equipo(UUID.randomUUID(), "Chelsea");
-        Partido partido = new Partido(ligaId, arsenal, chelsea,
+        Partido partido = new Partido(temporadaId, arsenal, chelsea,
                 new FechaProgramada(LocalDateTime.now().plusDays(1)));
         partido.actualizarCuotas(List.of(new Cuota(Mercado.UNO_X_DOS, new BigDecimal("1.85"))));
         partidoRepository.guardar(partido);
         return partido;
     }
 
-    private void crearPartidoConJornada(UUID ligaId, LocalDateTime fecha, Integer jornada) {
+    private void crearPartidoConJornada(Liga liga, LocalDateTime fecha, Integer jornada) {
+        UUID temporadaId = liga.getTemporadas().iterator().next().id();
         Equipo local = new Equipo(UUID.randomUUID(), "Equipo Local");
         Equipo visitante = new Equipo(UUID.randomUUID(), "Equipo Visitante");
-        Partido partido = new Partido(ligaId, local, visitante, new FechaProgramada(fecha), jornada);
+        Partido partido = new Partido(temporadaId, local, visitante, new FechaProgramada(fecha), jornada);
         partidoRepository.guardar(partido);
     }
 
