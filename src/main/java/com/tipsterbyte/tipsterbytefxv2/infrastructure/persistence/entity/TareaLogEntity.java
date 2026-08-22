@@ -25,7 +25,9 @@ public class TareaLogEntity {
     @Id
     private UUID id;
 
-    @Column(name = "tarea_programada_id", nullable = false)
+    // [POR QUÉ]: Nullable desde FASE T3 — las ejecuciones MANUALES del poblamiento
+    //            geográfico no tienen tarea programada asociada (solo executionId).
+    @Column(name = "tarea_programada_id")
     private UUID tareaProgramadaId;
 
     @Column(name = "execution_id", nullable = false, length = 36)

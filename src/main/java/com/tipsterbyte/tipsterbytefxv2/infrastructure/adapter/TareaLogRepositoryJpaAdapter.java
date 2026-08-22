@@ -51,4 +51,12 @@ public class TareaLogRepositoryJpaAdapter implements TareaLogRepository {
                 .map(TareaLogEntity::toDomainModel)
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public List<TareaLog> buscarPorExecutionId(String executionId) {
+        return jpaRepository.findByExecutionIdOrderByTimestampDesc(executionId)
+                .stream()
+                .map(TareaLogEntity::toDomainModel)
+                .collect(Collectors.toList());
+    }
 }

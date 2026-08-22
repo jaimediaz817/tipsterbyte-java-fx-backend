@@ -26,6 +26,7 @@ import com.tipsterbyte.tipsterbytefxv2.application.port.LigaRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PaisInteresRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PaisRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorLigasPorPais;
+import com.tipsterbyte.tipsterbytefxv2.application.port.ProgresoPoblamiento;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorPaises;
 import com.tipsterbyte.tipsterbytefxv2.domain.DomainException;
 import com.tipsterbyte.tipsterbytefxv2.domain.event.DomainEvent;
@@ -55,10 +56,9 @@ public final class SincronizarCatalogoUseCase {
     private final LigaRepository ligaRepository;
     private final PaisInteresRepository paisInteresRepository;
     private final CacheLecturas cacheLecturas;
+    private final ProgresoPoblamiento progreso;
 
-    // [QUÉ]: Construye el caso de uso (puertos + CU-16 para la plantilla de equipos).
-    // [POR QUÉ]: La regla de poblamiento de equipos vive UNA sola vez (CU-16); CU-10 la
-    //            reutiliza encadenada al crear cada liga de país de interés.
+    // [QUÉ]: Constructor sin progreso (compatibilidad tests/uso síncrono puro).
     public SincronizarCatalogoUseCase(ProveedorPaises proveedorPaises,
                                       ProveedorLigasPorPais proveedorLigasPorPais,
                                       SincronizarEquiposLigaUseCase sincronizarEquiposLigaUseCase,
@@ -66,6 +66,22 @@ public final class SincronizarCatalogoUseCase {
                                       LigaRepository ligaRepository,
                                       PaisInteresRepository paisInteresRepository,
                                       CacheLecturas cacheLecturas) {
+        this(proveedorPaises, proveedorLigasPorPais, sincronizarEquiposLigaUseCase,
+                paisRepository, ligaRepository, paisInteresRepository, cacheLecturas, null);
+    }
+
+    // [QUÉ]: Construye el caso de uso (puertos + CU-16 + progreso opcional FASE T3).
+    // [POR QUÉ]: La regla de poblamiento de equipos vive UNA sola vez (CU-16); CU-10 la
+    //            reutiliza encadenada al crear cada liga de país de interés. El progreso
+    //            es opcional: si no hay consumidor, el poblamiento corre igual.
+    public SincronizarCatalogoUseCase(ProveedorPaises proveedorPaises,
+                                      ProveedorLigasPorPais proveedorLigasPorPais,
+                                      SincronizarEquiposLigaUseCase sincronizarEquiposLigaUseCase,
+                                      PaisRepository paisRepository,
+                                      LigaRepository ligaRepository,
+                                      PaisInteresRepository paisInteresRepository,
+                                      CacheLecturas cacheLecturas,
+                                      ProgresoPoblamiento progreso) {
         this.proveedorPaises = proveedorPaises;
         this.proveedorLigasPorPais = proveedorLigasPorPais;
         this.sincronizarEquiposLigaUseCase = sincronizarEquiposLigaUseCase;
@@ -73,6 +89,7 @@ public final class SincronizarCatalogoUseCase {
         this.ligaRepository = ligaRepository;
         this.paisInteresRepository = paisInteresRepository;
         this.cacheLecturas = cacheLecturas;
+        this.progreso = progreso;
     }
 
     // [QUÉ]: Ejecuta CU-10: obtiene los países (#1), los persiste si son nuevos, y por
@@ -89,8 +106,16 @@ public final class SincronizarCatalogoUseCase {
         List<PaisFuente> paisesFuente = proveedorPaises.obtenerPaises();
         Set<String> isoPreferidos = isoPaisesDeInteres();
 
+        if (progreso != null) {
+            progreso.reiniciar();
+        }
+        int orden = 0;
         for (PaisFuente paisFuente : ordenarConPreferidos(paisesFuente)) {
             Pais pais = persistirPaisSiNuevo(paisFuente);
+            orden++;
+            if (progreso != null) {
+                progreso.actualizar(pais.nombre(), orden);
+            }
             boolean esDeInteres = isoPreferidos.contains(pais.isoAlpha2().toUpperCase());
             sincronizarLigasDePais(pais, esDeInteres);
         }

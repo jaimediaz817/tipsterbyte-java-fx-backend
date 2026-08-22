@@ -23,4 +23,7 @@ public interface TareaLogJpaRepository extends JpaRepository<TareaLogEntity, UUI
     // [QUÉ]: Últimos (n) logs globales, más reciente primero; el límite lo inyecta
     //        Pageable en runtime (findTopN exige una N fija en el nombre del método).
     List<TareaLogEntity> findByOrderByTimestampDesc(Pageable pageable);
+
+    // [QUÉ]: Logs de una ejecución concreta, más reciente primero (FASE T3).
+    List<TareaLogEntity> findByExecutionIdOrderByTimestampDesc(String executionId);
 }

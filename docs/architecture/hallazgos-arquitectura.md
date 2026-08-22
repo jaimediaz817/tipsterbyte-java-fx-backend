@@ -34,6 +34,7 @@ Al cierre de FASE T2 el sistema dispone de:
 - [POR QUÉ]: Un admin dispara y se queda a ciegas; un segundo clic duplica la carga sin saber si el primero sigue corriendo.
 - [IMPACTO]: Experiencia de usuario rota en el flujo principal; imposible monitorear/reintentar.
 - [RECOMENDACIÓN]: Volverlo asíncrono (`202 Accepted` + `executionId`/`tareaLog`) con endpoint de progreso/estado, o al menos registrar `TareaLog` también para ejecuciones manuales. El mecanismo del scheduler es reutilizable.
+- [ESTADO]: ✅ RESUELTO — implementado como **FASE T3** (ver `docs/PROYECTO-PLAN.md`): `202 Accepted` + polling de progreso por país, anti-solapamiento `409`, trazabilidad `TareaLog` para la vía manual. Comunicado frontend actualizado.
 - [ALTERNATIVAS]: Mantener síncrono con timeout largo; se descarta por UX y por riesgo de doble ejecución.
 - [AFECTA]: `CatalogoController`, CU-10, `TareaLog`, observabilidad (FASE 16).
 

@@ -338,6 +338,45 @@ Automatización
 - **Relaciones**: HU-11 → CU-10 → `ProveedorEquiposPorLiga`; consume el modelo de temporadas (plantilla por temporada vigente); habilita matching más estable para FASE 17.
 - **Estado**: ✅ COMPLETADA — implementada con suite en verde (426 tests). Nota: los equipos se poblan solo para ligas de países de interés; #6 nunca elimina; matching normalizado centralizado en `NormalizadorNombresEquipos` (también adoptado por CU-01/CU-02).
 
+### FASE T3 — Poblamiento asíncrono con progreso y trazabilidad (H-02) ✅ (COMPLETADA)
+
+> **Contexto / [POR QUÉ]**: `POST /api/v1/catalogo/activar` hoy ejecuta CU-10 de forma síncrona en el hilo HTTP. Con 176 países × ligas × #6 puede tardar 10-30 min: timeout del navegador, spinner infinito, sin feedback y sin rastro. El scheduler CU-15 ya resuelve el mismo problema para tareas programadas (hilos virtuales + anti-solapamiento + `tarea_log` con `executionId`/`duracionMs`/`estado`). H-02 propone reutilizar ese mecanismo para la vía manual, sin duplicar infraestructura. Ver `docs/architecture/hallazgos-arquitectura.md` (H-02).
+
+**Domain (sin nueva Entity)**:
+- Reutiliza `TareaLog` (id, tareaProgramadaId nullable, executionId, fechaEjecucion, estado SUCCESS/ERROR/RUNNING, duracionMs, tipoError, mensaje) + `TareaProgramada` como origen opcional.
+- Para ejecuciones manuales, `tareaProgramadaId` es `null` (no hay tarea programada asociada) y `executionId` es el correlador visible para el frontend. Alternativa considerada y descartada: nueva Entity `PoblamientoEjecucion` — se descarta porque duplica `TareaLog` y el scheduler ya aporta el modelo.
+
+**Application**:
+- Wrapper asíncrono de CU-10: `SincronizarCatalogoAsyncUseCase` o extensión de `SincronizarCatalogoUseCase` con método `ejecutarAsync() → UUID executionId` que: genera `executionId`, persiste `TareaLog` en RUNNING, lanza CU-10 en `ExecutorService` de hilos virtuales, al terminar actualiza a SUCCESS/ERROR con `duracionMs`.
+- Puerto `EstadoPoblamiento` (opcional, fachada de lectura): `Optional<TareaLog> buscarPorExecutionId(executionId)` + `Set<UUID> ejecucionesEnCurso()` (reutiliza `EstadoEjecucionTareas` del scheduler).
+- Regla: una sola ejecución manual en curso a la vez (anti-solapamiento por clave global, mismo `ConcurrentHashMap` del scheduler). Segundo `POST` mientras hay RUNNING → `409 Conflict` con `executionId` en curso.
+- DTO `PoblamientoEstadoDto(executionId, estado, paisActual, ligasProcesadas, totalLigasEstimado, equiposCreados, mensaje)`: progreso derivado de contadores en memoria + `TareaLog`.
+
+**Infrastructure**:
+- `ExecutorService` de hilos virtuales (ya existe en `CatalogoScheduler`; extraer a bean compartido `poblamientoExecutor` o reutilizar el del scheduler).
+- `CatalogoScheduler` aporta el patrón; no se modifica su tick. El wrapper manual usa el mismo `MDCTaskContext` para correlacionar logs JSON por `executionId`.
+- `TareaLogRepositoryJpaAdapter` ya persiste el historial.
+
+**Interfaces (roles SUPERADMIN)**:
+| Método | Ruta | Descripción |
+|---|---|---|
+| `POST` | `/api/v1/catalogo/activar` | **Cambia a `202 Accepted`**: `{executionId}`. Antes `200` síncrono. Mantener compatibilidad una versión vía `?sync=true` opcional para tests. |
+| `GET` | `/api/v1/catalogo/activar/{executionId}` | Estado/progreso de esa ejecución: `{estado: RUNNING\|SUCCESS\|ERROR, paisActual, ligasProcesadas, totalLigasEstimado, duracionMs, mensaje}`. `404` si no existe. |
+| `GET` | `/api/v1/catalogo/estado` | Sin cambios (VACIO/POBLADO + conteos). Útil para badge inicial antes de disparar. |
+
+**Alternativas descartadas**:
+- Mantener síncrono con timeout largo; se descarta por UX y riesgo de doble ejecución.
+- WebSocket/SSE para push de progreso en v1; se descarta por complejidad — polling del `GET /{executionId}` cada 5-10 s es suficiente; push queda para FASE 16 (observabilidad).
+- Nueva tabla `poblamiento_ejecuciones`; se descarta por duplicar `tarea_log`.
+
+**Tests esperados**: use case async (genera executionId, persiste RUNNING, actualiza a SUCCESS/ERROR, anti-solapamiento → 409), controller (`202` + `Location`, `GET` progreso, `404`), scheduler sin regresión, integración con `TareaLog` real. Sin nuevas dependencias (usa `spring-context` + hilos virtuales).
+
+**Comunicado frontend**: actualizar `docs/frontend/comunicado-poblamiento-geografico.md` (sección 2/3): botón deshabilitado + polling del `GET /{executionId}` con barra de progreso por país, toast final con conteos, y manejo de `409` ("ya hay un poblamiento en curso").
+
+- **Relaciones**: H-02 → CU-10 + `TareaLog`/`EstadoEjecucionTareas`; reutiliza `CatalogoScheduler` (FASE 12.5). No toca BR-001, fuentes #1/#5/#6 ni `Temporada`.
+- **Estado**: ✅ COMPLETADA — implementada con suite en verde (433 tests). Implementado tal al diseño: `SincronizarCatalogoAsyncUseCase` (hilos virtuales + RUNNING/SUCCESS/ERROR en `tarea_log` + anti-solapamiento), `POST /catalogo/activar` → `202` (`409` si en curso vía `PoblamientoEnCursoException`), `GET /catalogo/activar/{executionId}` con progreso por país (`ProgresoPoblamientoEnMemoria`). Nota infra: `tarea_log.tarea_programada_id` ahora nullable (ejecuciones manuales sin tarea asociada); parche aplicado a dev BD.
+> Nota de cierre: ver comunicado actualizado en `docs/frontend/comunicado-poblamiento-geografico.md` (secciones 3/4).
+
 ---
 
 ## Orden de trabajo (regla de oro)

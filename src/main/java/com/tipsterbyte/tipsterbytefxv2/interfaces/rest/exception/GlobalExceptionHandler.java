@@ -11,6 +11,7 @@
 package com.tipsterbyte.tipsterbytefxv2.interfaces.rest.exception;
 
 import com.tipsterbyte.tipsterbytefxv2.domain.DomainException;
+import com.tipsterbyte.tipsterbytefxv2.domain.PoblamientoEnCursoException;
 import com.tipsterbyte.tipsterbytefxv2.infrastructure.exception.InfraestructureException;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.ApiError;
 import jakarta.servlet.http.HttpServletRequest;
@@ -39,6 +40,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DomainException.class)
     public ResponseEntity<ApiError> manejarDomainException(DomainException ex, HttpServletRequest request) {
         return construir(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage(), request);
+    }
+
+    // [QUÉ]: Anti-solapamiento del poblamiento manual (FASE T3): 409 Conflict.
+    // [POR QUÉ]: No es una regla de negocio (422) sino de concurrencia — ya hay una
+    //            ejecución en curso. El frontend muestra "espera o consulta el estado".
+    @ExceptionHandler(PoblamientoEnCursoException.class)
+    public ResponseEntity<ApiError> manejarPoblamientoEnCurso(PoblamientoEnCursoException ex, HttpServletRequest request) {
+        return construir(HttpStatus.CONFLICT, ex.getMessage(), request);
     }
 
     // [QUÉ]: Traduce errores operativos de infraestructura (red, cache, serialización)

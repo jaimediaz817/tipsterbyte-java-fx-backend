@@ -70,12 +70,39 @@ class CatalogoControllerIntegrationTest extends AbstractRepositoryJpaAdapterTest
     }
 
     @Test
-    void debe_activar_catalogo_y_devolver_estado_poblado() throws Exception {
+    void debe_activar_catalogo_asincrono_llegar_a_success_y_devolver_estado_poblado() throws Exception {
         registrarUsuario("admin@example.com", "SUPERADMIN");
         String token = loginYExtraerToken("admin@example.com", "clave-secreta");
         simularFuentesConDatos();
 
-        mockMvc.perform(post("/api/v1/catalogo/activar")
+        // FASE T3: el lanzamiento responde 202 inmediato con executionId.
+        MvcResult lanzamiento = mockMvc.perform(post("/api/v1/catalogo/activar")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.estado").value("RUNNING"))
+                .andReturn();
+        String executionId = objectMapper.readTree(lanzamiento.getResponse().getContentAsString())
+                .get("executionId").asText();
+
+        // Polling hasta SUCCESS (el poblamiento corre en un hilo virtual).
+        boolean success = false;
+        for (int i = 0; i < 60 && !success; i++) {
+            MvcResult consulta = mockMvc.perform(get("/api/v1/catalogo/activar/{executionId}", executionId)
+                            .header("Authorization", "Bearer " + token))
+                    .andReturn();
+            org.junit.jupiter.api.Assertions.assertEquals(200,
+                    consulta.getResponse().getStatus(),
+                    "polling falló: " + consulta.getResponse().getContentAsString());
+            String estado = objectMapper.readTree(consulta.getResponse().getContentAsString())
+                    .get("estado").asText();
+            success = "SUCCESS".equals(estado);
+            if (!success) {
+                Thread.sleep(500);
+            }
+        }
+        org.junit.jupiter.api.Assertions.assertTrue(success, "el poblamiento debe llegar a SUCCESS");
+
+        mockMvc.perform(get("/api/v1/catalogo/estado")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("POBLADO"))

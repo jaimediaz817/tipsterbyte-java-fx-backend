@@ -1,18 +1,23 @@
 // ─────────────────────────────────────────────
-// [QUÉ]: Test unitario de CatalogoController (MockMvc standalone): cubre POST
-//        /api/v1/catalogo/activar y GET /api/v1/catalogo/estado (CU-10).
+// [QUÉ]: Test unitario de CatalogoController (MockMvc standalone): cubre el contrato
+//        ASÍNCRONO de FASE T3 — POST /catalogo/activar (202 + executionId), GET
+//        /catalogo/activar/{executionId} (polling RUNNING/SUCCESS/404) y 409 si ya hay
+//        una ejecución en curso.
 // [POR QUÉ]: Valida el contrato HTTP del panel del SUPERADMIN sin levantar Spring:
-//            estado derivado, conteos y el 503 cuando la fuente externa falla.
-// [RELACIONES]: CatalogoController → SincronizarCatalogoUseCase +
-//               ConsultarEstadoCatalogoUseCase → CatalogoEstadoResponse.
+//            lanzamiento en background, anti-solapamiento y progreso por país.
+// [RELACIONES]: CatalogoController → SincronizarCatalogoAsyncUseCase +
+//               TareaLogRepository + ProgresoPoblamiento.
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.interfaces.rest.controller;
 
 import com.tipsterbyte.tipsterbytefxv2.application.dto.CatalogoEstadoDto;
+import com.tipsterbyte.tipsterbytefxv2.application.port.ProgresoPoblamiento;
+import com.tipsterbyte.tipsterbytefxv2.application.port.TareaLogRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.ConsultarEstadoCatalogoUseCase;
-import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCatalogoUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCatalogoAsyncUseCase;
+import com.tipsterbyte.tipsterbytefxv2.domain.PoblamientoEnCursoException;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.EstadoCatalogo;
-import com.tipsterbyte.tipsterbytefxv2.infrastructure.exception.InfraestructureException;
+import com.tipsterbyte.tipsterbytefxv2.domain.model.TareaLog;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.exception.GlobalExceptionHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,8 +27,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.verify;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -33,34 +41,87 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith(MockitoExtension.class)
 class CatalogoControllerTest {
 
+    private static final String EXECUTION_ID = "exec-123";
+
     @Mock
-    private SincronizarCatalogoUseCase sincronizarCatalogoUseCase;
+    private SincronizarCatalogoAsyncUseCase sincronizarCatalogoAsyncUseCase;
 
     @Mock
     private ConsultarEstadoCatalogoUseCase consultarEstadoCatalogoUseCase;
+
+    @Mock
+    private TareaLogRepository tareaLogRepository;
+
+    @Mock
+    private ProgresoPoblamiento progresoPoblamiento;
 
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(
-                        new CatalogoController(sincronizarCatalogoUseCase, consultarEstadoCatalogoUseCase))
+        mockMvc = MockMvcBuilders.standaloneSetup(new CatalogoController(
+                        sincronizarCatalogoAsyncUseCase, consultarEstadoCatalogoUseCase,
+                        tareaLogRepository, progresoPoblamiento))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
 
     @Test
-    void debe_activar_catalogo_y_devolver_estado_poblado() throws Exception {
-        when(consultarEstadoCatalogoUseCase.ejecutar())
-                .thenReturn(new CatalogoEstadoDto(EstadoCatalogo.POBLADO, 176, 620));
+    void debe_lanzar_poblamiento_y_devolver_202_con_execution_id() throws Exception {
+        when(sincronizarCatalogoAsyncUseCase.ejecutarAsync()).thenReturn(EXECUTION_ID);
 
         mockMvc.perform(post("/api/v1/catalogo/activar"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.estado").value("POBLADO"))
-                .andExpect(jsonPath("$.totalPaises").value(176))
-                .andExpect(jsonPath("$.totalLigas").value(620));
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.executionId").value(EXECUTION_ID))
+                .andExpect(jsonPath("$.estado").value("RUNNING"))
+                .andExpect(jsonPath("$.urlEstado").value("/api/v1/catalogo/activar/" + EXECUTION_ID));
+    }
 
-        verify(sincronizarCatalogoUseCase).ejecutar();
+    @Test
+    void debe_devolver_409_si_ya_hay_un_poblamiento_en_curso() throws Exception {
+        when(sincronizarCatalogoAsyncUseCase.ejecutarAsync())
+                .thenThrow(new PoblamientoEnCursoException("Ya hay un poblamiento geográfico en curso"));
+
+        mockMvc.perform(post("/api/v1/catalogo/activar"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409));
+    }
+
+    @Test
+    void debe_exponer_progreso_running_pais_en_curso() throws Exception {
+        when(tareaLogRepository.buscarPorExecutionId(EXECUTION_ID)).thenReturn(List.of(
+                new TareaLog(null, null, EXECUTION_ID, Instant.parse("2026-08-22T05:00:00Z"),
+                        "RUNNING", null, null, "Poblamiento geográfico manual en curso")));
+        when(progresoPoblamiento.snapshot()).thenReturn(Optional.of(
+                new ProgresoPoblamiento.Progreso("Colombia", 12)));
+
+        mockMvc.perform(get("/api/v1/catalogo/activar/{executionId}", EXECUTION_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.executionId").value(EXECUTION_ID))
+                .andExpect(jsonPath("$.estado").value("RUNNING"))
+                .andExpect(jsonPath("$.paisActual").value("Colombia"))
+                .andExpect(jsonPath("$.paisesProcesados").value(12));
+    }
+
+    @Test
+    void debe_exponer_estado_success_con_duracion_sin_pais_actual() throws Exception {
+        when(tareaLogRepository.buscarPorExecutionId(EXECUTION_ID)).thenReturn(List.of(
+                new TareaLog(null, null, EXECUTION_ID, Instant.parse("2026-08-22T05:00:00Z"),
+                        "SUCCESS", 240_000L, null, "Poblamiento geográfico manual completado")));
+
+        mockMvc.perform(get("/api/v1/catalogo/activar/{executionId}", EXECUTION_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("SUCCESS"))
+                .andExpect(jsonPath("$.duracionMs").value(240_000))
+                .andExpect(jsonPath("$.paisActual").doesNotExist());
+    }
+
+    @Test
+    void debe_devolver_404_para_execution_id_desconocido() throws Exception {
+        when(tareaLogRepository.buscarPorExecutionId(anyString())).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/catalogo/activar/{executionId}", "no-existe"))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -73,15 +134,5 @@ class CatalogoControllerTest {
                 .andExpect(jsonPath("$.estado").value("VACIO"))
                 .andExpect(jsonPath("$.totalPaises").value(0))
                 .andExpect(jsonPath("$.totalLigas").value(0));
-    }
-
-    @Test
-    void debe_devolver_503_cuando_la_fuente_externa_falla() throws Exception {
-        doThrow(new InfraestructureException("Fuente de países no disponible"))
-                .when(sincronizarCatalogoUseCase).ejecutar();
-
-        mockMvc.perform(post("/api/v1/catalogo/activar"))
-                .andExpect(status().isServiceUnavailable())
-                .andExpect(jsonPath("$.status").value(503));
     }
 }

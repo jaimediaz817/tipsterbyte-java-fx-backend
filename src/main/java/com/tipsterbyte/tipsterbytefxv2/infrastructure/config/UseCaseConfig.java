@@ -25,6 +25,9 @@ import com.tipsterbyte.tipsterbytefxv2.application.port.PronosticoRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorCalendario;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorCuotas;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorEquiposPorLiga;
+import com.tipsterbyte.tipsterbytefxv2.application.port.ProgresoPoblamiento;
+import com.tipsterbyte.tipsterbytefxv2.application.port.TareaLogRepository;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCatalogoAsyncUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorLigasPorPais;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorPaises;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorPosiciones;
@@ -140,6 +143,8 @@ public class UseCaseConfig {
         return new SincronizarEquiposLigaUseCase(proveedorEquiposPorLiga, cacheLecturas, ligaRepository);
     }
 
+    // [QUÉ]: Bean de CU-10 con reporte de progreso (FASE T3): alimenta el snapshot que
+    //        lee el endpoint GET /catalogo/activar/{executionId} durante el polling.
     @Bean
     public SincronizarCatalogoUseCase sincronizarCatalogoUseCase(ProveedorPaises proveedorPaises,
                                                                  ProveedorLigasPorPais proveedorLigasPorPais,
@@ -147,10 +152,21 @@ public class UseCaseConfig {
                                                                  PaisRepository paisRepository,
                                                                  LigaRepository ligaRepository,
                                                                  PaisInteresRepository paisInteresRepository,
-                                                                 CacheLecturas cacheLecturas) {
+                                                                 CacheLecturas cacheLecturas,
+                                                                 ProgresoPoblamiento progresoPoblamiento) {
         return new SincronizarCatalogoUseCase(proveedorPaises, proveedorLigasPorPais,
                 sincronizarEquiposLigaUseCase, paisRepository, ligaRepository,
-                paisInteresRepository, cacheLecturas);
+                paisInteresRepository, cacheLecturas, progresoPoblamiento);
+    }
+
+    // [QUÉ]: Bean del wrapper asíncrono de CU-10 (FASE T3 / H-02): 202 + polling.
+    @Bean
+    public SincronizarCatalogoAsyncUseCase sincronizarCatalogoAsyncUseCase(
+            SincronizarCatalogoUseCase sincronizarCatalogoUseCase,
+            TareaLogRepository tareaLogRepository,
+            ProgresoPoblamiento progresoPoblamiento) {
+        return new SincronizarCatalogoAsyncUseCase(sincronizarCatalogoUseCase,
+                tareaLogRepository, progresoPoblamiento);
     }
 
     // [QUÉ]: Bean de consulta del estado del catálogo (CU-10): deriva VACIO/POBLADO

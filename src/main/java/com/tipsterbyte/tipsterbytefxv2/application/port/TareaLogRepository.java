@@ -22,4 +22,9 @@ public interface TareaLogRepository {
     void guardar(TareaLog log);
     List<TareaLog> buscarPorTareaProgramadaId(UUID tareaProgramadaId);
     List<TareaLog> listarUltimas(int limite);
+
+    // [QUÉ]: Logs de una ejecución (FASE T3), más reciente primero.
+    // [POR QUÉ]: El ciclo RUNNING -> SUCCESS/ERROR registra una fila por transición con
+    //            el MISMO executionId; el polling consume la más reciente (estado actual).
+    List<TareaLog> buscarPorExecutionId(String executionId);
 }

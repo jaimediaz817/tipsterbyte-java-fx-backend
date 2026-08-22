@@ -30,26 +30,63 @@ Es **idempotente**: pulsarlo dos veces no duplica nada (países por ISO, ligas p
 
 ## 3. Endpoints
 
+> ⚠️ **FASE T3 — el disparo es ASÍNCRONO**: el poblamiento corre en background y se monitorea por polling. Ya no hay respuesta síncrona con conteos.
+
 ### `POST /api/v1/catalogo/activar`
 
 - **Rol**: SUPERADMIN (403 para otros roles).
-- Dispara el poblamiento completo (CU-10) y responde con el estado resultante.
+- Lanza el poblamiento en background y responde **inmediatamente**:
 
 ```json
-→ 200 OK
+→ 202 Accepted
 {
-  "estado": "POBLADO",
-  "totalPaises": 176,
-  "totalLigas": 842
+  "executionId": "uuid-de-ejecucion",
+  "estado": "RUNNING",
+  "urlEstado": "/api/v1/catalogo/activar/uuid-de-ejecucion"
 }
 ```
 
-- Errores: `403` si el rol no es SUPERADMIN. No hay 422 esperable (la operación es idempotente y tolerante a filas malformadas de las fuentes: las omite con log).
+- **`409 Conflict`** si ya hay un poblamiento en curso (`{mensaje}`): mostrar "Espera o consulta el estado del poblamiento actual" y ofrecer ir al polling.
+
+### `GET /api/v1/catalogo/activar/{executionId}` — polling
+
+```json
+→ 200 OK (RUNNING — con progreso)
+{
+  "executionId": "uuid",
+  "estado": "RUNNING",
+  "paisActual": "Colombia",
+  "paisesProcesados": 12,
+  "fechaInicio": "2026-08-22T05:00:00Z",
+  "duracionMs": null,
+  "mensaje": "Poblamiento geográfico manual en curso"
+}
+
+→ 200 OK (SUCCESS — final, sin paisActual)
+{
+  "executionId": "uuid",
+  "estado": "SUCCESS",
+  "paisActual": null,
+  "paisesProcesados": null,
+  "fechaInicio": "...",
+  "duracionMs": 240000,
+  "mensaje": "Poblamiento geográfico manual completado"
+}
+```
+
+| Campo | RUNNING | SUCCESS | ERROR |
+|---|---|---|---|
+| `paisActual` / `paisesProcesados` | ✅ snapshot en vivo | `null` | `null` |
+| `duracionMs` | `null` | ✅ total | ✅ hasta el fallo |
+| `mensaje` | "en curso" | "completado" | causa del error |
+
+- `404` si el executionId no existe.
+- Tras `SUCCESS`, refrescar `GET /catalogo/estado` para los conteos finales.
 
 ### `GET /api/v1/catalogo/estado`
 
 - **Rol**: SUPERADMIN.
-- Devuelve el estado actual sin ejecutar nada:
+- Estado actual sin ejecutar nada:
 
 | Campo | Tipo | Valores |
 |---|---|---|
@@ -59,12 +96,23 @@ Es **idempotente**: pulsarlo dos veces no duplica nada (países por ISO, ligas p
 
 Útil para: mostrar badge "Catálogo vacío" al primer arranque, o "X países · Y ligas" cuando ya está poblado.
 
-## 4. Resumen de status codes
+## 4. Guía UI/UX del botón (actualizada a async)
+
+1. **Clic en "Poblar catálogo"** → `POST /activar`.
+   - `202` → el botón pasa a estado "Ejecutando…" (disabled) y arranca **polling cada 5 s** sobre `urlEstado`.
+   - `409` → toast *"Ya hay un poblamiento en curso"* + botón para consultar su progreso.
+2. **Mientras RUNNING**: barra de progreso indeterminada + texto dinámico `"Procesando: Colombia (12 países)"` con `paisActual`/`paisesProcesados`. El usuario puede navegar libremente (el proceso sigue en el backend).
+3. **Al recibir SUCCESS**: toast con duración ("Poblamiento completado en 4 min"), refrescar `GET /catalogo/estado`, rehabilitar botón.
+4. **Al recibir ERROR**: toast rojo con `mensaje`, sugerir reintentar (es idempotente).
+5. **Accesibilidad**: `aria-live="polite"` en el texto de progreso; mantener el estado del botón si el usuario recarga la página (al cargar, consultar si hay ejecución reciente — v2: endpoint de "última ejecución").
+
+## 4b. Resumen de status codes (disparo)
 
 | Operación | Éxito | Errores |
 |---|---|---|
-| `POST /catalogo/activar` | `200` (con estado resultante) | `403` (rol) |
-| `GET /catalogo/estado` | `200` | `403` (rol) |
+| `POST /catalogo/activar` | `202` + executionId | `409` en curso · `403` rol |
+| `GET /catalogo/activar/{executionId}` | `200` | `404` desconocido |
+| `GET /catalogo/estado` | `200` | `403` rol |
 
 ## 5. Relación con otras pantallas
 

@@ -1,23 +1,28 @@
 // ─────────────────────────────────────────────
-// [QUÉ]: Controller REST del catálogo geográfico (CU-10): dispara la sincronización
-//        de países y ligas desde las fuentes #1/#5 y expone el estado del catálogo.
-// [POR QUÉ]: Es el "momento 0" del panel del SUPERADMIN: un botón dispara POST
-//            /activar y consulta GET /estado para saber si el catálogo está poblado.
-//            La sincronización es síncrona e idempotente (CU-10), por lo que el
-//            estado tras la activación refleja los conteos reales persistidos.
-// [ALTERNATIVAS]: Activación asíncrona con tracking de progreso; se descarta porque
-//                 CU-10 es síncrono y el volumen (176 países) no lo justifica aún.
-// [RELACIONES]: CU-10 → SincronizarCatalogoUseCase + ConsultarEstadoCatalogoUseCase
-//               → CatalogoEstadoResponse. Acceso solo SUPERADMIN.
+// [QUÉ]: Controller REST del catálogo geográfico (CU-10): dispara el poblamiento
+//        ASÍNCRONO (FASE T3, H-02) y expone el estado del catálogo y el progreso de la
+//        ejecución por executionId.
+// [POR QUÉ]: El poblamiento tarda 10-30 min: responder 202 con executionId y dejar que
+//            el frontend haga polling evita timeouts, spinner infinito y doble
+//            ejecución. La vía programada (tarea global) ya usaba este patrón.
+// [ALTERNATIVAS]: Mantener síncrono; se descarta en hallazgos-arquitectura.md (H-02).
+// [RELACIONES]: CU-10 → SincronizarCatalogoAsyncUseCase + ConsultarEstadoCatalogoUseCase.
+//               Roles: SUPERADMIN. Anti-solapamiento → 409 vía PoblamientoEnCursoException.
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.interfaces.rest.controller;
 
+import com.tipsterbyte.tipsterbytefxv2.application.port.ProgresoPoblamiento;
+import com.tipsterbyte.tipsterbytefxv2.application.port.TareaLogRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.ConsultarEstadoCatalogoUseCase;
-import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCatalogoUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCatalogoAsyncUseCase;
+import com.tipsterbyte.tipsterbytefxv2.domain.model.TareaLog;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.CatalogoEstadoResponse;
+import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.PoblamientoEstadoResponse;
+import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.PoblamientoIniciadoResponse;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,24 +32,57 @@ import org.springframework.web.bind.annotation.RestController;
 @ConditionalOnProperty(name = "app.api.rest.enabled", havingValue = "true")
 public class CatalogoController {
 
-    private final SincronizarCatalogoUseCase sincronizarCatalogoUseCase;
+    private final SincronizarCatalogoAsyncUseCase sincronizarCatalogoAsyncUseCase;
     private final ConsultarEstadoCatalogoUseCase consultarEstadoCatalogoUseCase;
+    private final TareaLogRepository tareaLogRepository;
+    private final ProgresoPoblamiento progresoPoblamiento;
 
-    // [QUÉ]: Construye el controller con sus casos de uso (inyección por constructor).
-    public CatalogoController(SincronizarCatalogoUseCase sincronizarCatalogoUseCase,
-                              ConsultarEstadoCatalogoUseCase consultarEstadoCatalogoUseCase) {
-        this.sincronizarCatalogoUseCase = sincronizarCatalogoUseCase;
+    public CatalogoController(SincronizarCatalogoAsyncUseCase sincronizarCatalogoAsyncUseCase,
+                              ConsultarEstadoCatalogoUseCase consultarEstadoCatalogoUseCase,
+                              TareaLogRepository tareaLogRepository,
+                              ProgresoPoblamiento progresoPoblamiento) {
+        this.sincronizarCatalogoAsyncUseCase = sincronizarCatalogoAsyncUseCase;
         this.consultarEstadoCatalogoUseCase = consultarEstadoCatalogoUseCase;
+        this.tareaLogRepository = tareaLogRepository;
+        this.progresoPoblamiento = progresoPoblamiento;
     }
 
-    // [QUÉ]: Endpoint POST /api/v1/catalogo/activar — dispara la sincronización del
-    //        catálogo (CU-10) y devuelve el estado resultante.
-    // [POR QUÉ]: Es el "momento 0": el SUPERADMIN pulsa el botón del panel y el
-    //            backend puebla países y ligas desde las fuentes #1/#5.
+    // [QUÉ]: Endpoint POST /api/v1/catalogo/activar — lanza el poblamiento geográfico
+    //        en background (FASE T3) y devuelve 202 con el executionId para polling.
+    // [POR QUÉ]: Evita timeouts y doble ejecución: si ya hay una en curso responde 409
+    //            (PoblamientoEnCursoException) sin lanzar otra.
     @PostMapping("/activar")
-    public ResponseEntity<CatalogoEstadoResponse> activar() {
-        sincronizarCatalogoUseCase.ejecutar();
-        return ResponseEntity.ok(toResponse(consultarEstadoCatalogoUseCase.ejecutar()));
+    public ResponseEntity<PoblamientoIniciadoResponse> activar() {
+        String executionId = sincronizarCatalogoAsyncUseCase.ejecutarAsync();
+        return ResponseEntity.accepted().body(new PoblamientoIniciadoResponse(
+                executionId,
+                SincronizarCatalogoAsyncUseCase.ESTADO_RUNNING,
+                "/api/v1/catalogo/activar/" + executionId));
+    }
+
+    // [QUÉ]: Endpoint GET /api/v1/catalogo/activar/{executionId} — estado/progreso de
+    //        una ejecución manual de poblamiento para el polling del frontend.
+    // [POR QUÉ]: RUNNING lee el snapshot en memoria (país en curso); SUCCESS/ERROR leen
+    //            el TareaLog finalizado (duración, mensaje de error).
+    @GetMapping("/activar/{executionId}")
+    public ResponseEntity<PoblamientoEstadoResponse> estadoActivacion(@PathVariable String executionId) {
+        var logs = tareaLogRepository.buscarPorExecutionId(executionId);
+        if (logs.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        TareaLog log = logs.get(0);
+        boolean running = SincronizarCatalogoAsyncUseCase.ESTADO_RUNNING.equals(log.status());
+        java.util.Optional<ProgresoPoblamiento.Progreso> snapshot = running
+                ? progresoPoblamiento.snapshot()
+                : java.util.Optional.empty();
+        return ResponseEntity.ok(new PoblamientoEstadoResponse(
+                log.executionId(),
+                log.status(),
+                snapshot.map(p -> p.paisActual()).orElse(null),
+                snapshot.map(p -> p.paisesProcesados()).orElse(null),
+                log.timestamp() != null ? log.timestamp().toString() : null,
+                log.durationMs(),
+                log.mensaje()));
     }
 
     // [QUÉ]: Endpoint GET /api/v1/catalogo/estado — devuelve el estado actual del
