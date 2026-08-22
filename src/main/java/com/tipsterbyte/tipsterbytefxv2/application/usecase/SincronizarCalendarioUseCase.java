@@ -24,6 +24,8 @@ import com.tipsterbyte.tipsterbytefxv2.domain.model.EstadoLiga;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.FechaProgramada;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Liga;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Partido;
+import com.tipsterbyte.tipsterbytefxv2.domain.model.Temporada;
+import com.tipsterbyte.tipsterbytefxv2.domain.service.NormalizadorNombresEquipos;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,7 +50,8 @@ public final class SincronizarCalendarioUseCase {
     }
 
     // [QUÉ]: Ejecuta CU-02: obtiene la liga activa, consulta el calendario, crea los
-    //        partidos y los persiste. Devuelve los eventos PartidoProgramado emitidos.
+    //        partidos (de la temporada vigente) y los persiste. Devuelve los eventos
+    //        PartidoProgramado emitidos.
     public List<DomainEvent> ejecutar(UUID ligaId) {
         cacheLecturas.eliminar(CacheClaves.calendario(ligaId));
         Liga liga = ligaRepository.buscarPorId(ligaId)
@@ -56,6 +59,7 @@ public final class SincronizarCalendarioUseCase {
         if (liga.estado() != EstadoLiga.ACTIVA) {
             throw new DomainException("No se puede sincronizar calendario de una liga inactiva");
         }
+        UUID temporadaId = resolverTemporadaVigente(liga).id();
 
         List<PartidoFuente> fuentes = proveedorCalendario.obtenerCalendario(ligaId);
 
@@ -63,7 +67,7 @@ public final class SincronizarCalendarioUseCase {
         for (PartidoFuente fuente : fuentes) {
             Equipo local = resolverEquipo(liga, fuente.equipoLocalNombre());
             Equipo visitante = resolverEquipo(liga, fuente.equipoVisitanteNombre());
-            Partido partido = new Partido(ligaId, local, visitante,
+            Partido partido = new Partido(temporadaId, local, visitante,
                     new FechaProgramada(fuente.fechaHora()), fuente.jornada());
             partidoRepository.guardar(partido);
             eventos.addAll(partido.pullEventos()); // PartidoProgramado
@@ -71,10 +75,25 @@ public final class SincronizarCalendarioUseCase {
         return eventos;
     }
 
+    // [QUÉ]: Temporada que recibe el calendario: la ACTIVA o, en su defecto, la primera
+    //        registrada (mismo criterio de "temporada vigente" del aggregate).
+    // [POR QUÉ]: Los partidos pertenecen a una temporada concreta (FK
+    //            partidos.temporada_id); pasar el ligaId violaría la FK en BD.
+    private Temporada resolverTemporadaVigente(Liga liga) {
+        return liga.getTemporadaActual()
+                .or(() -> liga.getTemporadas().stream().findFirst())
+                .orElseThrow(() -> new DomainException(
+                        "La liga no tiene temporadas registradas: " + liga.id()));
+    }
+
     // [QUÉ]: Resuelve el Equipo de la liga por nombre; si no existe, lo crea y lo agrega.
     private Equipo resolverEquipo(Liga liga, String nombre) {
+        // [POR QUÉ]: Matching por nombre NORMALIZADO (sin tildes/case/espacios): las
+        //            fuentes escriben distinto ("Atlético" vs "Atletico") y el exacto
+        //            creaba duplicados. Regla centralizada en el dominio.
+        String buscado = NormalizadorNombresEquipos.normalizar(nombre);
         return liga.equipos().stream()
-                .filter(e -> e.nombre().equals(nombre))
+                .filter(e -> NormalizadorNombresEquipos.normalizar(e.nombre()).equals(buscado))
                 .findFirst()
                 .orElseGet(() -> {
                     Equipo nuevo = new Equipo(nombre);

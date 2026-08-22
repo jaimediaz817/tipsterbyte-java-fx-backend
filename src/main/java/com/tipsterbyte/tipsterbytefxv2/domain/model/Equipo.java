@@ -1,10 +1,14 @@
 // ─────────────────────────────────────────────
-// [QUÉ]: Entity que representa un club que participa en una liga.
+// [QUÉ]: Entity que representa un club que participa en una liga/temporada.
 // [POR QUÉ]: Un equipo tiene identidad propia que permanece (su id), aunque sus
-//            atributos (nombre, estadio) cambien. Por eso es Entity y no VO.
+//            atributos (nombre, escudo) cambien. Por eso es Entity y no VO.
+//            El logoUrl (escudo) llega de la fuente de poblamiento #6
+//            (ext-soccerway-teams-by-league) y es opcional: los equipos registrados
+//            por las fuentes operativas (#3/#4) pueden no tenerlo.
 // [ALTERNATIVAS]: VO sin identidad; se descarta porque dos equipos con el mismo
 //                 nombre serían el mismo, lo cual es incorrecto en el negocio.
-// [RELACIONES]: Miembro del aggregate Liga; referenciado por Partido y PosicionTabla.
+// [RELACIONES]: Miembro del aggregate Liga vía Temporada; referenciado por Partido,
+//               PosicionTabla y PosicionTablaEntity (persistido en equipos.logo_url).
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.domain.model;
 
@@ -17,15 +21,24 @@ public final class Equipo {
 
     private final UUID id;
     private final String nombre;
+    private final String logoUrl;
 
-    // [QUÉ]: Construye un equipo generando su identidad.
+    // [QUÉ]: Construye un equipo generando su identidad (sin escudo conocido).
     public Equipo(String nombre) {
-        this(UUID.randomUUID(), nombre);
+        this(UUID.randomUUID(), nombre, null);
+    }
+
+    // [QUÉ]: Construye un equipo generando identidad, con escudo (fuente #6).
+    public Equipo(String nombre, String logoUrl) {
+        this(UUID.randomUUID(), nombre, logoUrl);
     }
 
     // [QUÉ]: Construye un equipo con identidad provista (reconstrucción desde persistencia).
-    // [POR QUÉ]: En FASE 8 el id puede venir de la BD; este constructor lo soporta.
     public Equipo(UUID id, String nombre) {
+        this(id, nombre, null);
+    }
+
+    public Equipo(UUID id, String nombre, String logoUrl) {
         if (id == null) {
             throw new DomainException("Equipo requiere id");
         }
@@ -34,6 +47,7 @@ public final class Equipo {
         }
         this.id = id;
         this.nombre = nombre;
+        this.logoUrl = logoUrl;
     }
 
     public UUID id() {
@@ -42,6 +56,10 @@ public final class Equipo {
 
     public String nombre() {
         return nombre;
+    }
+
+    public String logoUrl() {
+        return logoUrl;
     }
 
     @Override

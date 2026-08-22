@@ -52,9 +52,10 @@ public class PaisInteresController {
     @PostMapping
     public ResponseEntity<PaisInteresResponse> registrar(@Valid @RequestBody PaisInteresRequest request) {
         PaisInteres creado = gestionarPaisesInteresUseCase.registrar(new RegistrarPaisInteresComando(
-                request.isoAlpha2(), request.nombre()));
+                request.isoAlpha2(), request.nombre(), request.maxLigasPorPais()));
         return ResponseEntity.created(URI.create("/api/v1/paises-interes"))
-                .body(new PaisInteresResponse(creado.isoAlpha2(), creado.nombre(), creado.prioridad()));
+                .body(new PaisInteresResponse(creado.isoAlpha2(), creado.nombre(),
+                        creado.prioridad(), creado.maxLigasPorPais()));
     }
 
     // [QUÉ]: Endpoint GET /api/v1/paises-interes — lista los países de interés en
@@ -62,7 +63,8 @@ public class PaisInteresController {
     @GetMapping
     public ResponseEntity<List<PaisInteresResponse>> listar() {
         List<PaisInteresResponse> respuestas = gestionarPaisesInteresUseCase.listar().stream()
-                .map(p -> new PaisInteresResponse(p.isoAlpha2(), p.nombre(), p.prioridad()))
+                .map(p -> new PaisInteresResponse(p.isoAlpha2(), p.nombre(),
+                        p.prioridad(), p.maxLigasPorPais()))
                 .toList();
         return ResponseEntity.ok(respuestas);
     }
@@ -81,7 +83,7 @@ public class PaisInteresController {
     @PutMapping
     public ResponseEntity<Void> reemplazarPreferencias(@Valid @RequestBody List<PaisInteresRequest> preferencias) {
         gestionarPaisesInteresUseCase.reemplazarPreferencias(preferencias.stream()
-                .map(p -> new RegistrarPaisInteresComando(p.isoAlpha2(), p.nombre()))
+                .map(p -> new RegistrarPaisInteresComando(p.isoAlpha2(), p.nombre(), p.maxLigasPorPais()))
                 .toList());
         return ResponseEntity.noContent().build();
     }

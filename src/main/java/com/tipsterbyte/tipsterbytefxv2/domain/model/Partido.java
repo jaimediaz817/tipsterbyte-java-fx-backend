@@ -27,7 +27,7 @@ import java.util.UUID;
 public final class Partido {
 
     private final UUID id;
-    private final UUID ligaId;
+    private final UUID temporadaId;
     private final Equipo equipoLocal;
     private final Equipo equipoVisitante;
     private final FechaProgramada fechaProgramada;
@@ -37,54 +37,39 @@ public final class Partido {
     private EstadoPartido estado;
     private final List<DomainEvent> eventos;
 
-    // [QUÉ]: Construye un partido programado sin cuotas, sin resultado y sin jornada
-    //        conocida (legado/otras fuentes sin dato de jornada).
-    public Partido(UUID ligaId, Equipo equipoLocal, Equipo equipoVisitante, FechaProgramada fechaProgramada) {
-        this(ligaId, equipoLocal, equipoVisitante, fechaProgramada, null);
+    public Partido(UUID temporadaId, Equipo equipoLocal, Equipo equipoVisitante, FechaProgramada fechaProgramada) {
+        this(temporadaId, equipoLocal, equipoVisitante, fechaProgramada, null);
     }
 
-    // [QUÉ]: Construye un partido programado con su jornada (CU-02, fuente #4).
-    // [POR QUÉ]: La fuente #4 entrega "Jornada N" por partido; se persiste para que el
-    //            frontend muestre el indicador cronológico por liga.
-    public Partido(UUID ligaId, Equipo equipoLocal, Equipo equipoVisitante, FechaProgramada fechaProgramada,
+    public Partido(UUID temporadaId, Equipo equipoLocal, Equipo equipoVisitante, FechaProgramada fechaProgramada,
                    Integer jornada) {
-        this(UUID.randomUUID(), ligaId, equipoLocal, equipoVisitante, fechaProgramada, EstadoPartido.PROGRAMADO,
+        this(UUID.randomUUID(), temporadaId, equipoLocal, equipoVisitante, fechaProgramada, EstadoPartido.PROGRAMADO,
                 List.of(), null, jornada);
         this.eventos.add(new PartidoProgramado(this.id));
     }
 
-    // [QUÉ]: Construye un partido con identidad y estado provistos (reconstrucción desde persistencia).
-    public Partido(UUID id, UUID ligaId, Equipo equipoLocal, Equipo equipoVisitante,
+    public Partido(UUID id, UUID temporadaId, Equipo equipoLocal, Equipo equipoVisitante,
                    FechaProgramada fechaProgramada, EstadoPartido estado) {
-        this(id, ligaId, equipoLocal, equipoVisitante, fechaProgramada, estado, List.of(), null, null);
+        this(id, temporadaId, equipoLocal, equipoVisitante, fechaProgramada, estado, List.of(), null, null);
         if (estado == EstadoPartido.PROGRAMADO) {
             this.eventos.add(new PartidoProgramado(this.id));
         }
     }
 
-    // [QUÉ]: Factory de reconstrucción completa del aggregate desde persistencia (FASE 8).
-    // [POR QUÉ]: Al cargar un partido de la BD se deben restaurar también sus cuotas,
-    //            resultado y jornada. No se usan actualizarCuotas/asignarResultado porque
-    //            son transiciones de negocio (asignarResultado exige FINALIZADO, BR-003)
-    //            y actualizarCuotas emite evento. Reconstruir no debe emitir eventos
-    //            (no es una nueva programación) ni aplicar reglas de transición.
-    // [ALTERNATIVAS]: Hidratar vía setters de negocio; se descarta porque re-emitiría
-    //                 PartidoProgramado/CuotaActualizada al leer de BD.
-    // [RELACIONES]: Usado por PartidoRepositoryJpaAdapter (FASE 8).
-    public static Partido reconstruir(UUID id, UUID ligaId, Equipo equipoLocal, Equipo equipoVisitante,
+    public static Partido reconstruir(UUID id, UUID temporadaId, Equipo equipoLocal, Equipo equipoVisitante,
                                       FechaProgramada fechaProgramada, EstadoPartido estado,
                                       List<Cuota> cuotas, Resultado resultado, Integer jornada) {
-        return new Partido(id, ligaId, equipoLocal, equipoVisitante, fechaProgramada, estado, cuotas, resultado, jornada);
+        return new Partido(id, temporadaId, equipoLocal, equipoVisitante, fechaProgramada, estado, cuotas, resultado, jornada);
     }
 
-    private Partido(UUID id, UUID ligaId, Equipo equipoLocal, Equipo equipoVisitante,
+    private Partido(UUID id, UUID temporadaId, Equipo equipoLocal, Equipo equipoVisitante,
                     FechaProgramada fechaProgramada, EstadoPartido estado,
                     List<Cuota> cuotas, Resultado resultado, Integer jornada) {
         if (id == null) {
             throw new DomainException("Partido requiere id");
         }
-        if (ligaId == null) {
-            throw new DomainException("Partido requiere liga");
+        if (temporadaId == null) {
+            throw new DomainException("Partido requiere temporadaId");
         }
         if (equipoLocal == null || equipoVisitante == null) {
             throw new DomainException("Partido requiere equipos local y visitante");
@@ -99,7 +84,7 @@ public final class Partido {
             throw new DomainException("Jornada debe ser un número positivo");
         }
         this.id = id;
-        this.ligaId = ligaId;
+        this.temporadaId = temporadaId;
         this.equipoLocal = equipoLocal;
         this.equipoVisitante = equipoVisitante;
         this.fechaProgramada = fechaProgramada;
@@ -110,9 +95,6 @@ public final class Partido {
         this.eventos = new ArrayList<>();
     }
 
-    // [QUÉ]: Reemplaza las cuotas con las recibidas de la fuente de odds (CU-03).
-    // [POR QUÉ]: Las cuotas nunca se inventan localmente; llegan del ProveedorCuotas.
-    //            Solo se aceptan cuotas válidas (BR-007 valida valor > 1.0 en el VO).
     public void actualizarCuotas(List<Cuota> nuevasCuotas) {
         if (nuevasCuotas == null || nuevasCuotas.isEmpty()) {
             throw new DomainException("La sincronización de cuotas no puede estar vacía");
@@ -122,7 +104,6 @@ public final class Partido {
         this.eventos.add(new CuotaActualizada(this.id));
     }
 
-    // [QUÉ]: Marca el partido como EN_VIVO cuando llega su hora.
     public void iniciar() {
         if (estado != EstadoPartido.PROGRAMADO) {
             throw new DomainException("Solo un partido programado puede iniciar");
@@ -130,7 +111,6 @@ public final class Partido {
         this.estado = EstadoPartido.EN_VIVO;
     }
 
-    // [QUÉ]: Finaliza el partido (paso previo a asignar el resultado, BR-003).
     public void finalizar() {
         if (estado != EstadoPartido.EN_VIVO && estado != EstadoPartido.PROGRAMADO) {
             throw new DomainException("Partido no puede finalizar desde estado " + estado);
@@ -138,8 +118,6 @@ public final class Partido {
         this.estado = EstadoPartido.FINALIZADO;
     }
 
-    // [QUÉ]: Asigna el resultado final del partido (BR-003).
-    // [POR QUÉ]: El resultado solo es válido una vez que el partido finalizó.
     public void asignarResultado(Resultado resultado) {
         if (resultado == null) {
             throw new DomainException("Resultado no puede ser nulo");
@@ -154,8 +132,13 @@ public final class Partido {
         return id;
     }
 
+    public UUID temporadaId() {
+        return temporadaId;
+    }
+
+    @Deprecated
     public UUID ligaId() {
-        return ligaId;
+        return null;
     }
 
     public Equipo equipoLocal() {

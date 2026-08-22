@@ -1,13 +1,17 @@
 // ─────────────────────────────────────────────
-// [QUÉ]: Entidad JPA de una fila de la tabla de posiciones (tabla posiciones_tabla).
+// [QUÉ]: Entidad JPA de una fila de la tabla de posiciones (tabla posiciones_tabla),
+//        perteneciente a una TEMPORADA.
 // [POR QUÉ]: PosicionTabla es un VO del dominio sin identidad; al persistirse necesita
-//            un id técnico de fila. Se guarda con referencia al equipo al que pertenece.
-//            La racha de últimos 5 resultados se persiste como columna delimitada
-//            (ej: "G,E,P,G,G", índice 0 = más reciente) por decisión de FASE 8.5:
-//            la fuente #3 la entrega como diccionario {1..5} y no necesita relacional.
-// [ALTERNATIVAS]: Tabla de resultados; se descartó por simplicidad (máx. 5 valores fijos).
-// [RELACIONES]: Mapea domain.model.PosicionTabla. Compuesta por LigaEntity; refiere
-//               a EquipoEntity.
+//            un id técnico de fila. Se guarda con referencia a la temporada (la tabla
+//            es de una temporada concreta: posiciones_tabla.temporada_id →
+//            temporadas.id) y al equipo al que pertenece. La racha de últimos 5
+//            resultados se persiste como columna delimitada (ej: "G,E,P,G,G", índice
+//            0 = más reciente) por decisión de FASE 8.5: la fuente #3 la entrega como
+//            diccionario {1..5} y no necesita relacional.
+// [ALTERNATIVAS]: FK a ligas (modelo anterior); se descarta porque con múltiples
+//                 temporadas por liga la tabla quedaría ambigua.
+// [RELACIONES]: Mapea domain.model.PosicionTabla (colección de Temporada). Refiere a
+//               EquipoEntity. Propietario de la FK: TemporadaEntity.
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.infrastructure.persistence.entity;
 
@@ -37,9 +41,10 @@ public class PosicionTablaEntity {
     @Column(name = "id", nullable = false, updatable = false)
     private Long id;
 
+    // Temporada a la que pertenece esta fila de la tabla de posiciones.
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "liga_id", nullable = false)
-    private LigaEntity liga;
+    @JoinColumn(name = "temporada_id", nullable = false)
+    private TemporadaEntity temporada;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "equipo_id", nullable = false)
@@ -91,8 +96,12 @@ public class PosicionTablaEntity {
         this.ultimosResultados = codificarRacha(ultimosResultados);
     }
 
-    public void setLiga(LigaEntity liga) {
-        this.liga = liga;
+    public void setTemporada(TemporadaEntity temporada) {
+        this.temporada = temporada;
+    }
+
+    public TemporadaEntity getTemporada() {
+        return temporada;
     }
 
     public EquipoEntity getEquipo() {

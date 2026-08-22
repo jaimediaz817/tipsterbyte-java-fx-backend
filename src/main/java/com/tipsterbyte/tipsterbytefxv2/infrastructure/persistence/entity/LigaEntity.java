@@ -1,12 +1,23 @@
 // ─────────────────────────────────────────────
-// [QUÉ]: Entidad JPA del aggregate Liga (tabla ligas).
+// [QUÉ]: Entidad JPA del aggregate Liga (tabla ligas), con referencia real a su país.
 // [POR QUÉ]: Es la representación persistente del aggregate Liga del dominio. Vive en
 //            infraestructura para que el dominio no conozca JPA ni PostgreSQL. El
 //            adapter/mapper convierte entre LigaEntity y el aggregate Liga.
+//            Las temporadas viven en tabla propia (temporadas) con relación 1:N, y SON
+//            quienes componen equipos y posiciones (fase dedicada de temporadas): una
+//            liga puede tener varias temporadas y cada una conserva su plantilla e
+//            historial de tablas.
+//            pais_id es FK real a paises.id (integridad referencial); el nombre del
+//            país se conserva denormalizado para display.
 // [ALTERNATIVAS]: Anotar el aggregate de dominio con @Entity; se descarta porque
 //                 acoplaría el dominio a JPA, violando la Dependency Rule.
+//                 Columnas planas temporada_anio_inicio/fin; se descartan porque no
+//                 soportan múltiples temporadas por liga.
+//                 Colecciones equipos/posiciones aquí (modelo anterior); se descartan
+//                 porque son de la temporada, no de la liga genérica.
 // [RELACIONES]: Mapea el aggregate Liga (CU-01, CU-02, CU-04). Convertida por
-//               LigaRepositoryJpaAdapter. Compone EquipoEntity y PosicionTablaEntity.
+//               LigaRepositoryJpaAdapter. Compone TemporadaEntity (FK
+//               temporadas.liga_id → ligas.id). Refiere PaisEntity (pais_id).
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.infrastructure.persistence.entity;
 
@@ -18,12 +29,13 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
-import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -37,15 +49,15 @@ public class LigaEntity {
     @Column(name = "nombre", nullable = false, length = 100)
     private String nombre;
 
+    // Nombre del país denormalizado para display (la relación real es pais_id).
     @Column(name = "pais", nullable = false, length = 60)
-    private String pais;
+    private String paisNombre;
 
-    // Temporada embebida como columnas planas (año inicio/fin).
-    @Column(name = "temporada_anio_inicio", nullable = false)
-    private int temporadaAnioInicio;
-
-    @Column(name = "temporada_anio_fin", nullable = false)
-    private int temporadaAnioFin;
+    // País del catálogo (FK ligas.pais_id → paises.id). Nullable para ligas creadas
+    // manualmente sin catálogo previo; CU-10 siempre lo provee.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pais_id")
+    private PaisEntity pais;
 
     // Datos de la fuente #5 (catálogo): URL de Soccerway (path_to_scrape del calendario #4)
     // y api_id opcional de API-Football. Pueden ser nulos si la liga se creó manualmente.
@@ -59,50 +71,36 @@ public class LigaEntity {
     @Column(name = "estado", nullable = false, length = 20)
     private EstadoLiga estado;
 
-    // Equipos que pertenecen a la liga (owned side: EquipoEntity lleva la FK liga_id).
+    // Temporadas de la liga (owned side: TemporadaEntity lleva la FK liga_id).
+    // Los equipos y las posiciones cuelgan de TemporadaEntity, no de aquí.
     @OneToMany(mappedBy = "liga", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private List<EquipoEntity> equipos = new ArrayList<>();
-
-    // Posiciones de la tabla de la liga.
-    @OneToMany(mappedBy = "liga", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @OrderBy("posicion ASC")
-    private List<PosicionTablaEntity> posiciones = new ArrayList<>();
+    private Set<TemporadaEntity> temporadas = new HashSet<>();
 
     protected LigaEntity() {
     }
 
-    public LigaEntity(UUID id, String nombre, String pais, int temporadaAnioInicio,
-                      int temporadaAnioFin, EstadoLiga estado) {
+    public LigaEntity(UUID id, String nombre, String pais, EstadoLiga estado) {
         this.id = id;
         this.nombre = nombre;
-        this.pais = pais;
-        this.temporadaAnioInicio = temporadaAnioInicio;
-        this.temporadaAnioFin = temporadaAnioFin;
+        this.paisNombre = pais;
         this.urlSoccerway = null;
         this.apiId = null;
         this.estado = estado;
     }
 
-    public LigaEntity(UUID id, String nombre, String pais, int temporadaAnioInicio,
-                      int temporadaAnioFin, String urlSoccerway, String apiId, EstadoLiga estado) {
+    public LigaEntity(UUID id, String nombre, String pais, String urlSoccerway,
+                      String apiId, EstadoLiga estado) {
         this.id = id;
         this.nombre = nombre;
-        this.pais = pais;
-        this.temporadaAnioInicio = temporadaAnioInicio;
-        this.temporadaAnioFin = temporadaAnioFin;
+        this.paisNombre = pais;
         this.urlSoccerway = urlSoccerway;
         this.apiId = apiId;
         this.estado = estado;
     }
 
-    public void agregarEquipo(EquipoEntity equipo) {
-        equipo.setLiga(this);
-        this.equipos.add(equipo);
-    }
-
-    public void agregarPosicion(PosicionTablaEntity posicion) {
-        posicion.setLiga(this);
-        this.posiciones.add(posicion);
+    public void agregarTemporada(TemporadaEntity temporada) {
+        temporada.setLiga(this);
+        this.temporadas.add(temporada);
     }
 
     public UUID getId() {
@@ -113,16 +111,17 @@ public class LigaEntity {
         return nombre;
     }
 
+    // Nombre del país denormalizado (display).
     public String getPais() {
+        return paisNombre;
+    }
+
+    public PaisEntity getPaisRef() {
         return pais;
     }
 
-    public int getTemporadaAnioInicio() {
-        return temporadaAnioInicio;
-    }
-
-    public int getTemporadaAnioFin() {
-        return temporadaAnioFin;
+    public void setPaisRef(PaisEntity pais) {
+        this.pais = pais;
     }
 
     public EstadoLiga getEstado() {
@@ -137,28 +136,12 @@ public class LigaEntity {
         return apiId;
     }
 
-    public List<EquipoEntity> getEquipos() {
-        return equipos;
-    }
-
-    public List<PosicionTablaEntity> getPosiciones() {
-        return posiciones;
+    public Set<TemporadaEntity> getTemporadas() {
+        return temporadas;
     }
 
     public void setNombre(String nombre) {
         this.nombre = nombre;
-    }
-
-    public void setPais(String pais) {
-        this.pais = pais;
-    }
-
-    public void setTemporadaAnioInicio(int temporadaAnioInicio) {
-        this.temporadaAnioInicio = temporadaAnioInicio;
-    }
-
-    public void setTemporadaAnioFin(int temporadaAnioFin) {
-        this.temporadaAnioFin = temporadaAnioFin;
     }
 
     public void setEstado(EstadoLiga estado) {

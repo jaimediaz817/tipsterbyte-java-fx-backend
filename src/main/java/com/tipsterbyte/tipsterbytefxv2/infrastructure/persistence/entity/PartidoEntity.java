@@ -5,11 +5,16 @@
 //            respetar la regla de "referencias por id entre agregados" y evitar ciclos
 //            JPA (Equipo ya pertenece a Liga). El resultado se guarda como columnas
 //            anulables (solo existe al finalizar, BR-003).
+//            El partido referencia su temporada (FK partidos.temporada_id →
+//            temporadas.id, Bridge Fix Torneos/Temporadas): la liga se resuelve vía
+//            JOIN a través de la temporada (temporadas.liga_id), no por columna propia.
 // [ALTERNATIVAS]: @ManyToOne a EquipoEntity para local/visitante; se descarta porque
 //                 crea un ciclo de asociaciones Liga→Equipo→Partido y acopla agregados
 //                 que el dominio relaciona por id.
+//                 Columna plana liga_id (modelo anterior); se descarta porque el
+//                 partido pertenece a una temporada concreta de la liga.
 // [RELACIONES]: Mapea domain.model.Partido (CU-02, CU-03, CU-05). Convertida por
-//               PartidoRepositoryJpaAdapter. Compone CuotaEntity.
+//               PartidoRepositoryJpaAdapter. Compone CuotaEntity. Refiere TemporadaEntity.
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.infrastructure.persistence.entity;
 
@@ -21,6 +26,8 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
@@ -37,9 +44,11 @@ public class PartidoEntity {
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
 
-    // Referencias por id entre agregados (Partido → Liga).
-    @Column(name = "liga_id", nullable = false)
-    private UUID ligaId;
+    // Temporada del partido (FK partidos.temporada_id → temporadas.id). La liga se
+    // deriva vía temporada.liga para las consultas por liga (JOIN en el repositorio).
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "temporada_id", nullable = false)
+    private TemporadaEntity temporada;
 
     // Equipos denormalizados: solo se necesitan id y nombre para reconstruir el dominio.
     @Column(name = "equipo_local_id", nullable = false)
@@ -78,13 +87,13 @@ public class PartidoEntity {
     protected PartidoEntity() {
     }
 
-    public PartidoEntity(UUID id, UUID ligaId, UUID equipoLocalId, String equipoLocalNombre,
+    public PartidoEntity(UUID id, TemporadaEntity temporada, UUID equipoLocalId, String equipoLocalNombre,
                          UUID equipoVisitanteId, String equipoVisitanteNombre,
                          LocalDateTime fechaHora, EstadoPartido estado,
                          Integer resultadoGolesLocal, Integer resultadoGolesVisitante,
                          Integer jornada) {
         this.id = id;
-        this.ligaId = ligaId;
+        this.temporada = temporada;
         this.equipoLocalId = equipoLocalId;
         this.equipoLocalNombre = equipoLocalNombre;
         this.equipoVisitanteId = equipoVisitanteId;
@@ -105,8 +114,13 @@ public class PartidoEntity {
         return id;
     }
 
-    public UUID getLigaId() {
-        return ligaId;
+    public TemporadaEntity getTemporada() {
+        return temporada;
+    }
+
+    // [QUÉ]: Conveniencia de lectura del id de la temporada (evita inicializar el proxy).
+    public UUID getTemporadaId() {
+        return temporada != null ? temporada.getId() : null;
     }
 
     public UUID getEquipoLocalId() {

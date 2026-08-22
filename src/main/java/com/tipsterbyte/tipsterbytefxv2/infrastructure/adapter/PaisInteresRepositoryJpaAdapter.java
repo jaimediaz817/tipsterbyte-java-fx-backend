@@ -47,7 +47,8 @@ public class PaisInteresRepositoryJpaAdapter implements PaisInteresRepository {
     @Transactional
     public void guardar(PaisInteres paisInteres) {
         jpaRepository.save(new PaisInteresEntity(
-                paisInteres.id(), paisInteres.isoAlpha2(), paisInteres.nombre(), paisInteres.prioridad()));
+                paisInteres.id(), paisInteres.isoAlpha2(), paisInteres.nombre(),
+                paisInteres.prioridad(), paisInteres.maxLigasPorPais()));
     }
 
     @Override
@@ -58,6 +59,7 @@ public class PaisInteresRepositoryJpaAdapter implements PaisInteresRepository {
 
     private PaisInteres toDominio(PaisInteresEntity entidad) {
         return new PaisInteres(
-                entidad.getId(), entidad.getIsoAlpha2(), entidad.getNombre(), entidad.getPrioridad());
+                entidad.getId(), entidad.getIsoAlpha2(), entidad.getNombre(),
+                entidad.getPrioridad(), entidad.getMaxLigasPorPais());
     }
 }

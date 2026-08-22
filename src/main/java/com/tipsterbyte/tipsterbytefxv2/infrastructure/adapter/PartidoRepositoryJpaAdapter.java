@@ -4,9 +4,12 @@
 // [POR QUÉ]: Implementa el puerto definido en application sin que el dominio conozca
 //            JPA. Lecturas @Transactional(readOnly = true) para mapear cuotas (LAZY).
 //            Los equipos se denormalizan (id + nombre) según la decisión de FASE 8.
+//            El partido referencia su temporada (Bridge Fix Torneos/Temporadas): al
+//            guardar se resuelve la TemporadaEntity por id (referencia perezosa) y las
+//            consultas por liga se resuelven vía JOIN temporada → liga.
 // [ALTERNATIVAS]: @EntityGraph para cuotas; se descarta por simplicidad.
 // [RELACIONES]: Implementa application.port.PartidoRepository (CU-02, CU-03, CU-05,
-//               CU-06, CU-07).
+//               CU-06, CU-07). Refiere TemporadaJpaRepository para resolver la FK.
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.infrastructure.adapter;
 
@@ -20,6 +23,7 @@ import com.tipsterbyte.tipsterbytefxv2.domain.model.Resultado;
 import com.tipsterbyte.tipsterbytefxv2.infrastructure.persistence.entity.CuotaEntity;
 import com.tipsterbyte.tipsterbytefxv2.infrastructure.persistence.entity.PartidoEntity;
 import com.tipsterbyte.tipsterbytefxv2.infrastructure.persistence.repository.PartidoJpaRepository;
+import com.tipsterbyte.tipsterbytefxv2.infrastructure.persistence.repository.TemporadaJpaRepository;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,9 +41,12 @@ public class PartidoRepositoryJpaAdapter implements PartidoRepository {
             List.of(EstadoPartido.PROGRAMADO, EstadoPartido.EN_VIVO);
 
     private final PartidoJpaRepository jpaRepository;
+    private final TemporadaJpaRepository temporadaJpaRepository;
 
-    public PartidoRepositoryJpaAdapter(PartidoJpaRepository jpaRepository) {
+    public PartidoRepositoryJpaAdapter(PartidoJpaRepository jpaRepository,
+                                       TemporadaJpaRepository temporadaJpaRepository) {
         this.jpaRepository = jpaRepository;
+        this.temporadaJpaRepository = temporadaJpaRepository;
     }
 
     @Override
@@ -57,7 +64,7 @@ public class PartidoRepositoryJpaAdapter implements PartidoRepository {
     @Override
     @Transactional(readOnly = true)
     public List<Partido> buscarProximosPorLiga(UUID ligaId) {
-        return jpaRepository.findByLigaIdAndEstadoIn(ligaId, ESTADOS_PROXIMOS).stream()
+        return jpaRepository.findProximosByLigaId(ligaId, ESTADOS_PROXIMOS).stream()
                 .map(this::toDominio)
                 .toList();
     }
@@ -87,7 +94,7 @@ public class PartidoRepositoryJpaAdapter implements PartidoRepository {
                 ? new Resultado(entidad.getResultadoGolesLocal(), entidad.getResultadoGolesVisitante())
                 : null;
         return Partido.reconstruir(
-                entidad.getId(), entidad.getLigaId(),
+                entidad.getId(), entidad.getTemporada().getId(),
                 new Equipo(entidad.getEquipoLocalId(), entidad.getEquipoLocalNombre()),
                 new Equipo(entidad.getEquipoVisitanteId(), entidad.getEquipoVisitanteNombre()),
                 new FechaProgramada(entidad.getFechaHora()), entidad.getEstado(),
@@ -95,8 +102,9 @@ public class PartidoRepositoryJpaAdapter implements PartidoRepository {
     }
 
     private PartidoEntity toEntity(Partido partido) {
+        // Referencia perezosa a la temporada: no requiere SELECT previo (la FK basta).
         PartidoEntity entidad = new PartidoEntity(
-                partido.id(), partido.ligaId(),
+                partido.id(), temporadaJpaRepository.getReferenceById(partido.temporadaId()),
                 partido.equipoLocal().id(), partido.equipoLocal().nombre(),
                 partido.equipoVisitante().id(), partido.equipoVisitante().nombre(),
                 partido.fechaProgramada().fechaHora(), partido.estado(),

@@ -1,12 +1,18 @@
 // ─────────────────────────────────────────────
-// [QUÉ]: Aggregate root que representa una competición de fútbol, con sus
-//        equipos, temporada, estado y tabla de posiciones.
-// [POR QUÉ]: Es la frontera de consistencia del negocio de ligas. Protege sus
-//            reglas: activación solo con fuentes operativas (BR-001), no extraer
-//            para ligas inactivas (BR-002) y consistencia de posiciones (BR-008).
+// [QUÉ]: Aggregate root que representa una competición de fútbol, con sus temporadas
+//        y estado. Los equipos y la tabla de posiciones son de la TEMPORADA (delegan).
+// [POR QUÉ]: Es la frontera de consistencia del negocio de ligas. Protege sus reglas:
+//            activación solo con fuentes operativas (BR-001), no extraer para ligas
+//            inactivas (BR-002). La plantilla de equipos y la tabla de posiciones son
+//            de una temporada concreta (un equipo que desciende en 2024 no está en la
+//            tabla 2025), por eso Liga delega en su temporada vigente (activa o, en su
+//            defecto, la primera registrada) y ya no las posee directamente.
 // [ALTERNATIVAS]: Entidad anémica con getters/setters; se descarta porque dejaría
 //                 las reglas de negocio fuera del dominio (service anémico).
+//                 Conservar colecciones propias; se descarta porque con múltiples
+//                 temporadas el dato queda ambiguo.
 // [RELACIONES]: Aggregate de CU-01 (posiciones), CU-02 (calendario) y CU-04 (activar).
+//               Compone Temporada (1:N); referencia Pais por identidad (pais_id).
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.domain.model;
 
@@ -15,9 +21,11 @@ import com.tipsterbyte.tipsterbytefxv2.domain.event.DomainEvent;
 import com.tipsterbyte.tipsterbytefxv2.domain.event.LigaActivada;
 
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 public final class Liga {
@@ -25,53 +33,44 @@ public final class Liga {
     private final UUID id;
     private final String nombre;
     private final String pais;
-    private final Temporada temporada;
+    // Referencia por identidad al país del catálogo (tabla paises). Nullable para
+    // ligas creadas manualmente sin catálogo previo.
+    private final UUID paisId;
+    private final Set<Temporada> temporadas;
     private final String urlSoccerway;
     private final String apiId;
-    private final List<Equipo> equipos;
-    private final List<PosicionTabla> posiciones;
     private EstadoLiga estado;
     private final List<DomainEvent> eventos;
 
-    // [QUÉ]: Construye una liga en estado BORRADOR, sin equipos ni posiciones.
-    public Liga(String nombre, String pais, Temporada temporada) {
-        this(UUID.randomUUID(), nombre, pais, temporada, EstadoLiga.BORRADOR, null, null, List.of(), List.of());
+    public Liga(String nombre, String pais) {
+        this(UUID.randomUUID(), nombre, pais, null, EstadoLiga.BORRADOR, null, null, new HashSet<>());
     }
 
-    // [QUÉ]: Construye una liga de catálogo (CU-10) con los datos de la fuente #5:
-    //        url de Soccerway (path_to_scrape del calendario) y api_id opcional.
-    public Liga(String nombre, String pais, Temporada temporada, String urlSoccerway, String apiId) {
-        this(UUID.randomUUID(), nombre, pais, temporada, EstadoLiga.BORRADOR, urlSoccerway, apiId, List.of(), List.of());
+    public Liga(String nombre, String pais, String urlSoccerway, String apiId) {
+        this(UUID.randomUUID(), nombre, pais, null, EstadoLiga.BORRADOR, urlSoccerway, apiId, new HashSet<>());
     }
 
-    // [QUÉ]: Construye una liga con identidad y estado provistos (reconstrucción desde persistencia).
-    public Liga(UUID id, String nombre, String pais, Temporada temporada, EstadoLiga estado) {
-        this(id, nombre, pais, temporada, estado, null, null, List.of(), List.of());
+    // [QUÉ]: Alta de liga de catálogo (CU-10) con vínculo real al país del catálogo.
+    public Liga(String nombre, String pais, UUID paisId, String urlSoccerway, String apiId) {
+        this(UUID.randomUUID(), nombre, pais, paisId, EstadoLiga.BORRADOR, urlSoccerway, apiId, new HashSet<>());
     }
 
-    // [QUÉ]: Factory de reconstrucción completa del aggregate desde persistencia (FASE 8).
-    // [POR QUÉ]: Al cargar una liga de la BD se deben restaurar también sus equipos y
-    //            posiciones. No se usan agregarEquipo/actualizarPosiciones porque son
-    //            transiciones de negocio (actualizarPosiciones exige ACTIVA, BR-002);
-    //            reconstruir no debe emitir eventos ni aplicar reglas de transición,
-    //            solo invariantes estructurales. Patrón DDD: reconstrucción ≠ transición.
-    // [ALTERNATIVAS]: Setear listas vía métodos de negocio; se descarta porque
-    //                 re-emitiría reglas/validaciones incorrectas al hidratar desde BD.
-    // [RELACIONES]: Usado por LigaRepositoryJpaAdapter (FASE 8).
-    public static Liga reconstruir(UUID id, String nombre, String pais, Temporada temporada,
-                                   EstadoLiga estado, List<Equipo> equipos, List<PosicionTabla> posiciones) {
-        return new Liga(id, nombre, pais, temporada, estado, null, null, equipos, posiciones);
+    public Liga(UUID id, String nombre, String pais, EstadoLiga estado) {
+        this(id, nombre, pais, null, estado, null, null, new HashSet<>());
     }
 
-    // [QUÉ]: Factory de reconstrucción con datos de la fuente (#5): restaura también
-    //        urlSoccerway y apiId para conservar el path_to_scrape del calendario.
-    public static Liga reconstruir(UUID id, String nombre, String pais, Temporada temporada, EstadoLiga estado,
-                                   String urlSoccerway, String apiId, List<Equipo> equipos, List<PosicionTabla> posiciones) {
-        return new Liga(id, nombre, pais, temporada, estado, urlSoccerway, apiId, equipos, posiciones);
+    public static Liga reconstruir(UUID id, String nombre, String pais, UUID paisId, EstadoLiga estado,
+                                   Set<Temporada> temporadas) {
+        return new Liga(id, nombre, pais, paisId, estado, null, null, temporadas);
     }
 
-    private Liga(UUID id, String nombre, String pais, Temporada temporada, EstadoLiga estado,
-                 String urlSoccerway, String apiId, List<Equipo> equipos, List<PosicionTabla> posiciones) {
+    public static Liga reconstruir(UUID id, String nombre, String pais, UUID paisId, EstadoLiga estado,
+                                   String urlSoccerway, String apiId, Set<Temporada> temporadas) {
+        return new Liga(id, nombre, pais, paisId, estado, urlSoccerway, apiId, temporadas);
+    }
+
+    private Liga(UUID id, String nombre, String pais, UUID paisId, EstadoLiga estado,
+                 String urlSoccerway, String apiId, Set<Temporada> temporadas) {
         if (id == null) {
             throw new DomainException("Liga requiere id");
         }
@@ -81,24 +80,17 @@ public final class Liga {
         if (pais == null || pais.isBlank()) {
             throw new DomainException("Liga requiere país");
         }
-        if (temporada == null) {
-            throw new DomainException("Liga requiere temporada");
-        }
         this.id = id;
         this.nombre = nombre;
         this.pais = pais;
-        this.temporada = temporada;
+        this.paisId = paisId;
+        this.temporadas = new HashSet<>(temporadas != null ? temporadas : new HashSet<>());
         this.urlSoccerway = urlSoccerway;
         this.apiId = apiId;
-        this.equipos = new ArrayList<>(equipos != null ? equipos : List.of());
-        this.posiciones = new ArrayList<>(posiciones != null ? posiciones : List.of());
         this.estado = estado;
         this.eventos = new ArrayList<>();
     }
 
-    // [QUÉ]: Activa la liga si las fuentes de datos están operativas (BR-001).
-    // [POR QUÉ]: Una liga activa inicia el proceso de extracción; si las fuentes
-    //            no están listas, los datos llegarían incompletos.
     public void activar(boolean posicionesDisponible, boolean calendarioDisponible, boolean cuotasDisponibles) {
         if (estado == EstadoLiga.ACTIVA) {
             return;
@@ -107,32 +99,69 @@ public final class Liga {
             throw new DomainException("Liga no activable: fuentes de datos no operativas (BR-001)");
         }
         this.estado = EstadoLiga.ACTIVA;
+        temporadaVigente().activar();
         this.eventos.add(new LigaActivada(this.id));
     }
 
-    // [QUÉ]: Agrega un equipo a la liga.
+    // [QUÉ]: Registra un equipo en la temporada vigente de la liga.
+    // [POR QUÉ]: La plantilla es de una temporada concreta; el aggregate mantiene la
+    //            frontera (el caso de uso sigue hablando "con la liga").
     public void agregarEquipo(Equipo equipo) {
-        if (equipo == null) {
-            throw new DomainException("Equipo no puede ser nulo");
-        }
-        if (equipos.contains(equipo)) {
-            throw new DomainException("Equipo ya está registrado en la liga");
-        }
-        this.equipos.add(equipo);
+        temporadaVigente().agregarEquipo(equipo);
     }
 
-    // [QUÉ]: Reemplaza la tabla de posiciones con los datos sincronizados (CU-01).
-    // [POR QUÉ]: La tabla se recalcula desde la fuente; no se muta fila a fila.
-    //            Exige liga ACTIVA: no se extrae para ligas inactivas (BR-002).
+    // [QUÉ]: Reemplaza la tabla de posiciones de la temporada vigente.
+    // [POR QUÉ]: BR-002 se exige a nivel liga (estado ACTIVA); el reemplazo en bloque
+    //            aplica sobre la temporada vigente (activa o primera registrada).
     public void actualizarPosiciones(List<PosicionTabla> nuevasPosiciones) {
         if (estado != EstadoLiga.ACTIVA) {
             throw new DomainException("No se puede extraer posiciones de una liga inactiva (BR-002)");
         }
-        if (nuevasPosiciones == null || nuevasPosiciones.isEmpty()) {
-            throw new DomainException("La sincronización de posiciones no puede estar vacía");
+        temporadaVigente().actualizarPosiciones(nuevasPosiciones);
+    }
+
+    public void addTemporada(Temporada temporada) {
+        if (temporada == null) {
+            throw new DomainException("Temporada no puede ser nula");
         }
-        this.posiciones.clear();
-        this.posiciones.addAll(nuevasPosiciones);
+        if (!temporada.ligaId().equals(this.id)) {
+            throw new DomainException("La temporada no pertenece a esta liga");
+        }
+        this.temporadas.add(temporada);
+    }
+
+    public void removeTemporada(Temporada temporada) {
+        this.temporadas.remove(temporada);
+    }
+
+    public Set<Temporada> getTemporadas() {
+        return Set.copyOf(temporadas);
+    }
+
+    public Optional<Temporada> getTemporadaActual() {
+        return temporadas.stream()
+                .filter(t -> t.estado() == EstadoTemporada.ACTIVA)
+                .findFirst();
+    }
+
+    public Optional<Temporada> getTemporadaPorNombre(String nombre) {
+        if (nombre == null || nombre.isBlank()) {
+            return Optional.empty();
+        }
+        return temporadas.stream()
+                .filter(t -> nombre.equalsIgnoreCase(t.nombre()))
+                .findFirst();
+    }
+
+    // [QUÉ]: Temporada sobre la que operan equipos/posiciones: la ACTIVA o, en su
+    //        defecto, la primera registrada (catálogo recién poblado está PLANIFICADA).
+    // [POR QUÉ]: Mientras exista una sola temporada por liga (realidad del catálogo),
+    //            la delegación es transparente para los casos de uso.
+    private Temporada temporadaVigente() {
+        return getTemporadaActual()
+                .or(() -> temporadas.stream().findFirst())
+                .orElseThrow(() -> new DomainException(
+                        "La liga no tiene temporadas registradas: " + id));
     }
 
     public UUID id() {
@@ -147,16 +176,22 @@ public final class Liga {
         return pais;
     }
 
-    public Temporada temporada() {
-        return temporada;
+    public UUID paisId() {
+        return paisId;
     }
 
-    // [QUÉ]: Devuelve la URL de Soccerway de la liga (path_to_scrape del calendario #4), si existe.
+    @Deprecated
+    public Temporada temporada() {
+        if (temporadas.size() != 1) {
+            throw new IllegalStateException("La liga no tiene exactamente una temporada; use getTemporadaActual() o getTemporadas()");
+        }
+        return temporadas.iterator().next();
+    }
+
     public String urlSoccerway() {
         return urlSoccerway;
     }
 
-    // [QUÉ]: Devuelve el id de la liga en API-Football si la fuente #5 lo entrega.
     public String apiId() {
         return apiId;
     }
@@ -165,18 +200,16 @@ public final class Liga {
         return estado;
     }
 
-    // [QUÉ]: Devuelve copia inmutable de los equipos.
+    // [QUÉ]: Vista de solo lectura de los equipos de la temporada vigente.
     public List<Equipo> equipos() {
-        return Collections.unmodifiableList(equipos);
+        return List.copyOf(temporadaVigente().equipos());
     }
 
-    // [QUÉ]: Devuelve copia inmutable de las posiciones.
+    // [QUÉ]: Vista de solo lectura de la tabla de posiciones de la temporada vigente.
     public List<PosicionTabla> posiciones() {
-        return Collections.unmodifiableList(posiciones);
+        return List.copyOf(temporadaVigente().posiciones());
     }
 
-    // [QUÉ]: Entrega y limpia los eventos de dominio recolectados.
-    // [POR QUÉ]: El caso de uso decide cuándo publicarlos (FASE 13 RabbitMQ).
     public List<DomainEvent> pullEventos() {
         List<DomainEvent> copia = new ArrayList<>(eventos);
         eventos.clear();

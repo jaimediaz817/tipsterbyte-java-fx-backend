@@ -5,6 +5,8 @@
 //            prioridad (CU-10 los procesa primero; el resto del mundo no se omite).
 //            La prioridad se deriva aquí (siguiente libre al registrar, posición en
 //            la lista al reemplazar) para que la UI no calcule orden.
+//            El campo maxLigasPorPais permite limitar cuántas ligas se extraen por
+//            país en la sincronización (CU-10).
 // [ALTERNATIVAS]: Flag en Pais; se descarta porque es una lista con orden propia.
 // [RELACIONES]: HU-10 → CU-14 → PaisInteresRepository + ProveedorPaises (validación
 //               de que el país existe en la fuente #1); CU-10 consume PaisInteresRepository.
@@ -22,6 +24,7 @@ import com.tipsterbyte.tipsterbytefxv2.domain.model.PaisInteres;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 public final class GestionarPaisesInteresUseCase {
 
@@ -39,16 +42,17 @@ public final class GestionarPaisesInteresUseCase {
     //        devuelve la entidad guardada (el controller la mapea a PaisInteresResponse).
     // [POR QUÉ]: Solo se aceptan países que existan en la fuente #1 (regla de negocio:
     //            la preferencia se elige sobre los países disponibles). Si ya existe
-    //            la preferencia se actualiza (nombre) manteniendo su prioridad. El
+    //            la preferencia se actualiza (nombre, maxLigasPorPais) manteniendo su prioridad. El
     //            retorno expone la prioridad asignada al POST (el frontend la usa para
     //            el UI sin recalcularla).
     public PaisInteres registrar(RegistrarPaisInteresComando comando) {
         String isoAlpha2 = comando.isoAlpha2().trim().toUpperCase();
         validarDisponibleEnFuente(isoAlpha2);
+        Integer maxLigas = comando.maxLigasPorPais();
         PaisInteres pais = paisInteresRepository.buscarPorIsoAlpha2(isoAlpha2)
                 .map(existente -> new PaisInteres(
-                        existente.id(), isoAlpha2, comando.nombre(), existente.prioridad()))
-                .orElseGet(() -> new PaisInteres(isoAlpha2, comando.nombre(), siguientePrioridad()));
+                        existente.id(), isoAlpha2, comando.nombre(), existente.prioridad(), maxLigas))
+                .orElseGet(() -> new PaisInteres(UUID.randomUUID(), isoAlpha2, comando.nombre(), siguientePrioridad(), maxLigas));
         paisInteresRepository.guardar(pais);
         return pais;
     }
@@ -96,16 +100,17 @@ public final class GestionarPaisesInteresUseCase {
     }
 
     // [QUÉ]: Guarda una preferencia reutilizando el id existente si ya está registrada
-    //        (upsert), para no violar la unicidad de iso_alpha2.
+    //        (upsert), para no violar la unicidad de iso_alpha2. Conserva maxLigasPorPais.
     private void guardarConPrioridad(RegistrarPaisInteresComando comando, int prioridad) {
         String iso = comando.isoAlpha2().trim().toUpperCase();
+        Integer maxLigas = comando.maxLigasPorPais();
         paisInteresRepository.buscarPorIsoAlpha2(iso)
                 .map(existente -> new PaisInteres(
-                        existente.id(), iso, comando.nombre(), prioridad))
+                        existente.id(), iso, comando.nombre(), prioridad, maxLigas))
                 .ifPresentOrElse(
                         paisInteresRepository::guardar,
                         () -> paisInteresRepository.guardar(new PaisInteres(
-                                iso, comando.nombre(), prioridad)));
+                                UUID.randomUUID(), iso, comando.nombre(), prioridad, maxLigas)));
     }
 
     // [QUÉ]: Calcula la prioridad siguiente (máxima + 1) para registrar al final.

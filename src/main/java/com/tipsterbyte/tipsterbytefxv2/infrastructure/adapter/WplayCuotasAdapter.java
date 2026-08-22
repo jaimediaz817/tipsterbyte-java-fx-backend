@@ -63,7 +63,7 @@ public class WplayCuotasAdapter implements ProveedorCuotas {
     public List<CuotaFuente> obtenerCuotas(UUID partidoId) {
         Partido partido = partidoRepository.buscarPorId(partidoId)
                 .orElseThrow(() -> new DomainException("Partido no encontrado: " + partidoId));
-        String url = resolverUrl(partido.ligaId());
+        String url = resolverUrl(partido.temporadaId());
 
         try {
             RespuestaCuotas respuesta = restClient.get()
@@ -90,13 +90,15 @@ public class WplayCuotasAdapter implements ProveedorCuotas {
         }
     }
 
-    // [QUÉ]: Resuelve la URL (path_to_scrape) de la fuente de cuotas Wplay de la liga.
-    private String resolverUrl(UUID ligaId) {
-        return detalleRepository.buscarPorLigaYTipo(ligaId, TipoFuenteExtraccion.ODDS_WPLAY)
+    // [QUÉ]: Resuelve la URL (path_to_scrape) de la fuente de cuotas Wplay de la
+    //        temporada del partido (Bridge Fix Torneos/Temporadas: las cuotas son
+    //        específicas de una temporada, no de la liga genérica).
+    private String resolverUrl(UUID temporadaId) {
+        return detalleRepository.buscarPorTemporadaYTipo(temporadaId, TipoFuenteExtraccion.ODDS_WPLAY)
                 .filter(d -> d.activa())
                 .map(d -> d.url())
                 .orElseThrow(() -> new DomainException(
-                        "Liga sin URL de cuotas (ODDS_WPLAY) asociada y activa: " + ligaId));
+                        "Temporada sin URL de cuotas (ODDS_WPLAY) asociada y activa: " + temporadaId));
     }
 
     // [QUÉ]: Compara un partido de Wplay con el del dominio por nombre de equipos y fecha.

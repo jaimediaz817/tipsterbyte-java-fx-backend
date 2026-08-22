@@ -1,11 +1,14 @@
 // ─────────────────────────────────────────────
-// [QUÉ]: Entidad JPA del Equipo (tabla equipos), miembro del aggregate Liga.
+// [QUÉ]: Entidad JPA del Equipo (tabla equipos), miembro de una TEMPORADA.
 // [POR QUÉ]: Equipo tiene identidad propia en el dominio; se persiste como fila con
-//            FK a la liga. No se expone JPA al dominio (los mappers convierten).
-// [ALTERNATIVAS]: Embeddable dentro de LigaEntity; se descarta porque Equipo es una
-//                 Entity con identidad y es referenciada por Partido y PosicionTabla.
-// [RELACIONES]: Mapea domain.model.Equipo. Compuesta por LigaEntity y referenciada
-//               por PartidoEntity y PosicionTablaEntity.
+//            FK a su temporada (equipos.temporada_id → temporadas.id): la plantilla es
+//            de una temporada concreta — un equipo que desciende no está en la siguiente,
+//            y cada temporada conserva su historial (fase dedicada de temporadas).
+//            No se expone JPA al dominio (los mappers convierten).
+// [ALTERNATIVAS]: FK a ligas (modelo anterior); se descarta porque con múltiples
+//                 temporadas por liga la pertenencia queda ambigua.
+// [RELACIONES]: Mapea domain.model.Equipo (colección de Temporada). Referenciado por
+//               PosicionTablaEntity. Propietario de la FK: TemporadaEntity.
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.infrastructure.persistence.entity;
 
@@ -30,20 +33,31 @@ public class EquipoEntity {
     @Column(name = "nombre", nullable = false, length = 100)
     private String nombre;
 
+    // Escudo del equipo (URL de imagen) desde la fuente #6; nullable: los equipos
+    // registrados por fuentes operativas (#3/#4) pueden no tenerlo.
+    @Column(name = "logo_url", length = 300)
+    private String logoUrl;
+
+    // Temporada a la que pertenece la plantilla del equipo.
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "liga_id", nullable = false)
-    private LigaEntity liga;
+    @JoinColumn(name = "temporada_id", nullable = false)
+    private TemporadaEntity temporada;
 
     protected EquipoEntity() {
     }
 
     public EquipoEntity(UUID id, String nombre) {
-        this.id = id;
-        this.nombre = nombre;
+        this(id, nombre, null);
     }
 
-    public void setLiga(LigaEntity liga) {
-        this.liga = liga;
+    public EquipoEntity(UUID id, String nombre, String logoUrl) {
+        this.id = id;
+        this.nombre = nombre;
+        this.logoUrl = logoUrl;
+    }
+
+    public void setTemporada(TemporadaEntity temporada) {
+        this.temporada = temporada;
     }
 
     public UUID getId() {
@@ -54,8 +68,12 @@ public class EquipoEntity {
         return nombre;
     }
 
-    public LigaEntity getLiga() {
-        return liga;
+    public String getLogoUrl() {
+        return logoUrl;
+    }
+
+    public TemporadaEntity getTemporada() {
+        return temporada;
     }
 
     public void setNombre(String nombre) {

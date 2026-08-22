@@ -20,5 +20,6 @@ public record LigaDetalleResponse(
         String pais,
         EstadoLiga estado,
         String temporada,
+        int totalEquipos,
         List<PosicionTablaResponse> posiciones) {
 }

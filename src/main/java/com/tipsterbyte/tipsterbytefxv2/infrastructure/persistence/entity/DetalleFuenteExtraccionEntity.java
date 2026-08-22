@@ -1,14 +1,21 @@
 // ─────────────────────────────────────────────
 // [QUÉ]: Entidad JPA del detalle de fuente de extracción (tabla detalle_fuentes_extraccion):
-//        asocia una liga con una fuente y su URL (path_to_scrape).
+//        asocia una TEMPORADA con una fuente y su URL (path_to_scrape).
 // [POR QUÉ]: Es la representación persistente del entity DetalleFuenteExtraccion del
-//            dominio. La unicidad por (liga_id, tipo) garantiza que cada liga tenga a
-//            lo sumo una URL por fuente. Usa tabla propia para no colisionar con el
-//            esquema Python (detalle_fuente_extraccion) en la misma BD compartida.
-// [ALTERNATIVAS]: Guardar la URL en LigaEntity; se descarta porque una liga tiene 3 URLs
-//                 (una por fuente) y el catálogo de fuentes es gestionable (CU-11).
+//            dominio. La unicidad por (temporada_id, tipo) garantiza que cada temporada
+//            tenga a lo sumo una URL por fuente. Usa tabla propia para no colisionar con
+//            el esquema Python (detalle_fuente_extraccion) en la misma BD compartida.
+//            El vínculo con la liga se resuelve vía JOIN a través de la temporada
+//            (temporadas.liga_id): las URLs son de una temporada concreta, no de la liga
+//            genérica (Bridge Fix Torneos/Temporadas).
+// [ALTERNATIVAS]: Guardar la URL en TemporadaEntity; se descarta porque una temporada
+//                 tiene 3 URLs (una por fuente) y el catálogo de fuentes es gestionable
+//                 (CU-11). Mantener columna liga_id propia; se descarta porque duplicaba
+//                 el dato de temporadas.liga_id y permitía inconsistencias.
 // [RELACIONES]: Mapea el entity DetalleFuenteExtraccion (CU-04/CU-11). Convertida por
-//               DetalleFuenteExtraccionRepositoryJpaAdapter. Refiere FuenteExtraccionEntity.
+//               DetalleFuenteExtraccionRepositoryJpaAdapter. Refiere TemporadaEntity y
+//               FuenteExtraccionEntity. Consultada por los adapters de fuentes vía
+//               buscarPorLigaYTipo (JOIN interno) o buscarPorTemporadaYTipo.
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.infrastructure.persistence.entity;
 
@@ -27,34 +34,25 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "detalle_fuentes_extraccion",
-        uniqueConstraints = @UniqueConstraint(name = "uk_detalle_fuente_liga_tipo", columnNames = {"liga_id", "tipo"}))
+        uniqueConstraints = @UniqueConstraint(name = "uk_detalle_fuente_temporada_tipo", columnNames = {"temporada_id", "tipo"}))
 public class DetalleFuenteExtraccionEntity {
 
     @Id
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
 
-    @Column(name = "liga_id", nullable = false)
-    private UUID ligaId;
-
-    // [POR QUÉ]: Relación de solo lectura (insertable/updatable = false) a LigaEntity:
-    //            el dominio referencia a la liga por identidad (UUID), así que las
-    //            escrituras guardan solo el ligaId. Declarar el @ManyToOne permite que
-    //            ddl-auto=update genere la FK detalle_fuentes_extraccion.liga_id →
-    //            ligas.id (integridad referencial real en BD) sin acoplar los agregados.
-    // [ALTERNATIVAS]: Dejar liga_id como columna plana sin FK; se descarta porque perdía
-    //                 la integridad referencial (el resto del esquema sí tiene FKs, ej.
-    //                 equipos.liga_id → ligas.id).
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "liga_id", insertable = false, updatable = false)
-    private LigaEntity liga;
+    // Temporada a la que aplica la URL (FK detalle_fuentes_extraccion.temporada_id →
+    // temporadas.id). La liga se deriva vía temporada.liga en las consultas por liga.
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "temporada_id", nullable = false)
+    private TemporadaEntity temporada;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "fuente_id", nullable = false)
     private FuenteExtraccionEntity fuente;
 
     // Columna duplicada del tipo de la fuente: evita una consulta extra y permite el
-    // índice único (liga_id, tipo) sin dependencia de la FK a la fuente.
+    // índice único (temporada_id, tipo) sin dependencia de la FK a la fuente.
     @Enumerated(EnumType.STRING)
     @Column(name = "tipo", nullable = false, length = 20)
     private com.tipsterbyte.tipsterbytefxv2.domain.model.TipoFuenteExtraccion tipo;
@@ -68,11 +66,11 @@ public class DetalleFuenteExtraccionEntity {
     protected DetalleFuenteExtraccionEntity() {
     }
 
-    public DetalleFuenteExtraccionEntity(UUID id, UUID ligaId, FuenteExtraccionEntity fuente,
+    public DetalleFuenteExtraccionEntity(UUID id, TemporadaEntity temporada, FuenteExtraccionEntity fuente,
                                          com.tipsterbyte.tipsterbytefxv2.domain.model.TipoFuenteExtraccion tipo,
                                          String url, boolean activa) {
         this.id = id;
-        this.ligaId = ligaId;
+        this.temporada = temporada;
         this.fuente = fuente;
         this.tipo = tipo;
         this.url = url;
@@ -83,8 +81,13 @@ public class DetalleFuenteExtraccionEntity {
         return id;
     }
 
-    public UUID getLigaId() {
-        return ligaId;
+    public TemporadaEntity getTemporada() {
+        return temporada;
+    }
+
+    // [QUÉ]: Conveniencia de lectura del id de la temporada (evita inicializar el proxy).
+    public UUID getTemporadaId() {
+        return temporada != null ? temporada.getId() : null;
     }
 
     public FuenteExtraccionEntity getFuente() {

@@ -7,6 +7,8 @@
 //            la vista de lectura de los comandos de escritura (CQS en la capa de
 //            interfaces). urlSoccerway/apiId son null si la liga no se creó desde la
 //            fuente #5 (nunca se omiten campos: "no" claro antes que null silencioso).
+//            totalEquipos alimenta los badges de plantilla de "Países de interés"
+//            (ej: "28/30", FASE T2/HU-11).
 // [ALTERNATIVAS]: Un segundo DTO LigaCatalogoResponse; se descarta: el endpoint único
 //                 GET /api/v1/ligas?estado=... devuelve el MISMO shape para ambos casos
 //                 (activas y catálogo), un solo modelo en el frontend.
@@ -25,6 +27,7 @@ public record LigaResponse(
         String pais,
         EstadoLiga estado,
         String temporada,
+        int totalEquipos,
         String urlSoccerway,
         String apiId) {
 }

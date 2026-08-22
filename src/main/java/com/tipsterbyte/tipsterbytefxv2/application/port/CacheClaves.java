@@ -33,4 +33,13 @@ public final class CacheClaves {
     public static String paises() {
         return "paises";
     }
+
+    // [QUÉ]: Clave del cache de equipos por liga (fuente #6, HU-11).
+    // [POR QUÉ]: Normalizada (sin tildes + minúsculas) para que la invalidación del caso
+    //            de uso y el decorador usen EXACTAMENTE la misma clave sin importar cómo
+    //            vengan escritos los nombres.
+    public static String equipos(String countryName, String leagueName) {
+        return "equipos:" + com.tipsterbyte.tipsterbytefxv2.domain.service.NormalizadorNombresEquipos.normalizar(countryName)
+                + ":" + com.tipsterbyte.tipsterbytefxv2.domain.service.NormalizadorNombresEquipos.normalizar(leagueName);
+    }
 }

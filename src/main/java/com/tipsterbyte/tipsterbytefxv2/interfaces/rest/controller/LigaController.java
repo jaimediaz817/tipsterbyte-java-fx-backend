@@ -21,12 +21,14 @@ import com.tipsterbyte.tipsterbytefxv2.application.usecase.ActivarLigaUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.ObtenerJornadaActualUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCalendarioUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCuotasUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarEquiposLigaUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarPosicionesUseCase;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.EstadoLiga;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Liga;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.PosicionTabla;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.request.ActivarLigaRequest;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.JornadaActualResponse;
+import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.EquiposSincronizadosResponse;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.LigaDetalleResponse;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.LigaResponse;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.PosicionTablaResponse;
@@ -56,6 +58,7 @@ public class LigaController {
     private final SincronizarCuotasUseCase sincronizarCuotasUseCase;
     private final LigaRepository ligaRepository;
     private final ObtenerJornadaActualUseCase obtenerJornadaActualUseCase;
+    private final SincronizarEquiposLigaUseCase sincronizarEquiposLigaUseCase;
 
     // [QUÉ]: Construye el controller con sus casos de uso y repositorio de consulta
     //        (inyección por constructor).
@@ -64,13 +67,15 @@ public class LigaController {
                           SincronizarCalendarioUseCase sincronizarCalendarioUseCase,
                           SincronizarCuotasUseCase sincronizarCuotasUseCase,
                           LigaRepository ligaRepository,
-                          ObtenerJornadaActualUseCase obtenerJornadaActualUseCase) {
+                          ObtenerJornadaActualUseCase obtenerJornadaActualUseCase,
+                          SincronizarEquiposLigaUseCase sincronizarEquiposLigaUseCase) {
         this.activarLigaUseCase = activarLigaUseCase;
         this.sincronizarPosicionesUseCase = sincronizarPosicionesUseCase;
         this.sincronizarCalendarioUseCase = sincronizarCalendarioUseCase;
         this.sincronizarCuotasUseCase = sincronizarCuotasUseCase;
         this.ligaRepository = ligaRepository;
         this.obtenerJornadaActualUseCase = obtenerJornadaActualUseCase;
+        this.sincronizarEquiposLigaUseCase = sincronizarEquiposLigaUseCase;
     }
 
     // [QUÉ]: Endpoint POST /api/v1/ligas/{ligaId}/activacion — activa una liga (CU-04)
@@ -146,7 +151,8 @@ public class LigaController {
                 .toList();
         LigaDetalleResponse response = new LigaDetalleResponse(
                 liga.id(), liga.nombre(), liga.pais(), liga.estado(),
-                liga.temporada().anioInicio() + "/" + liga.temporada().anioFin(),
+                etiquetaTemporada(liga),
+                totalEquipos(liga),
                 posiciones);
         return ResponseEntity.ok(response);
     }
@@ -162,6 +168,19 @@ public class LigaController {
                 .map(this::toPosicionResponse)
                 .toList();
         return ResponseEntity.ok(posiciones);
+    }
+
+    // [QUÉ]: Endpoint POST /api/v1/ligas/{ligaId}/equipos/sincronizar — (re)puebla la
+    //        plantilla de equipos de la liga desde la fuente #6 (CU-16).
+    // [POR QUÉ]: Botón "Poblar equipos" de la pantalla "Países de interés → Ligas de mis
+    //            países": repara plantillas vacías/incompletas (ej: scraper caído durante
+    //            el poblamiento) sin re-ejecutar el catálogo mundial. Idempotente.
+    // [RELACIONES]: CU-16 → ProveedorEquiposPorLiga (#6, cache Redis). Roles SUPERADMIN/TIPSTER.
+    @PostMapping("/{ligaId}/equipos/sincronizar")
+    public ResponseEntity<EquiposSincronizadosResponse> sincronizarEquipos(@PathVariable UUID ligaId) {
+        var resultado = sincronizarEquiposLigaUseCase.ejecutar(ligaId);
+        return ResponseEntity.ok(new EquiposSincronizadosResponse(
+                resultado.creados(), resultado.actualizados(), resultado.totalPlantilla()));
     }
 
     // [QUÉ]: Endpoint GET /api/v1/ligas/{ligaId}/jornada-actual — jornada actual de la
@@ -182,9 +201,29 @@ public class LigaController {
                 liga.nombre(),
                 liga.pais(),
                 liga.estado(),
-                liga.temporada().anioInicio() + "/" + liga.temporada().anioFin(),
+                etiquetaTemporada(liga),
+                totalEquipos(liga),
                 liga.urlSoccerway(),
                 liga.apiId());
+    }
+
+    // [QUÉ]: Etiqueta "AAAA/AAAA" de la temporada vigente de la liga (activa o primera
+    //        registrada); null si la liga aún no tiene temporadas.
+    // [POR QUÉ]: Con múltiples temporadas por liga (Bridge Fix Torneos/Temporadas) el
+    //            contrato del frontend sigue exponiendo una etiqueta simple: se prefiere
+    //            la temporada activa y, en su defecto, la primera (catálogo PLANIFICADA).
+    // [ALTERNATIVAS]: Exponer el arreglo completo de temporadas; se pospone a la fase
+    //                 dedicada de CUs de temporadas para no romper el contrato actual.
+    // [QUÉ]: Total de equipos de la temporada vigente (badge "28/30" del frontend).
+    private int totalEquipos(Liga liga) {
+        return liga.equipos().size();
+    }
+
+    private String etiquetaTemporada(Liga liga) {
+        return liga.getTemporadaActual()
+                .or(() -> liga.getTemporadas().stream().findFirst())
+                .map(t -> t.anioInicio() + "/" + t.anioFin())
+                .orElse(null);
     }
 
     private PosicionTablaResponse toPosicionResponse(PosicionTabla posicion) {

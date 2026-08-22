@@ -4,9 +4,12 @@
 // [POR QUÉ]: El usuario administra el catálogo de fuentes (posiciones, cuotas Wplay,
 //            calendario) y asocia cada una a una liga con su URL real. Sin esta
 //            gestión los adapters de sincronización no tendrían URL que consultar.
+//            La asociación se aplica a la temporada vigente de la liga (activa o
+//            primera registrada, Bridge Fix Torneos/Temporadas).
 // [ALTERNATIVAS]: Fuentes fijas como enum; se descarta porque el usuario pidió un
 //                 catálogo gestionable que permita ampliar sin código.
-// [RELACIONES]: HU-11 → CU-11 → FuenteExtraccionRepository + DetalleFuenteExtraccionRepository.
+// [RELACIONES]: HU-11 → CU-11 → FuenteExtraccionRepository + DetalleFuenteExtraccionRepository
+//               + TemporadaRepository.
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.application.usecase;
 
@@ -14,6 +17,7 @@ import com.tipsterbyte.tipsterbytefxv2.application.dto.AsociarUrlFuenteComando;
 import com.tipsterbyte.tipsterbytefxv2.application.dto.RegistrarFuenteComando;
 import com.tipsterbyte.tipsterbytefxv2.application.port.DetalleFuenteExtraccionRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.FuenteExtraccionRepository;
+import com.tipsterbyte.tipsterbytefxv2.application.port.TemporadaRepository;
 import com.tipsterbyte.tipsterbytefxv2.domain.DomainException;
 import com.tipsterbyte.tipsterbytefxv2.domain.event.DomainEvent;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.DetalleFuenteExtraccion;
@@ -25,12 +29,15 @@ public final class GestionarFuenteExtraccionUseCase {
 
     private final FuenteExtraccionRepository fuenteRepository;
     private final DetalleFuenteExtraccionRepository detalleRepository;
+    private final TemporadaRepository temporadaRepository;
 
     // [QUÉ]: Construye el caso de uso con sus puertos (inyección por constructor).
     public GestionarFuenteExtraccionUseCase(FuenteExtraccionRepository fuenteRepository,
-                                            DetalleFuenteExtraccionRepository detalleRepository) {
+                                            DetalleFuenteExtraccionRepository detalleRepository,
+                                            TemporadaRepository temporadaRepository) {
         this.fuenteRepository = fuenteRepository;
         this.detalleRepository = detalleRepository;
+        this.temporadaRepository = temporadaRepository;
     }
 
     // [QUÉ]: Ejecuta CU-11 alta: registra una fuente en el catálogo si no existe
@@ -52,22 +59,23 @@ public final class GestionarFuenteExtraccionUseCase {
         return fuenteRepository.buscarTodas();
     }
 
-    // [QUÉ]: Ejecuta CU-11 asociación: asocia una URL de fuente a una liga,
-    //        actualizando la URL existente para ese (ligaId, tipo) si ya existe,
-    //        o creando el detalle nuevo si no existe.
+    // [QUÉ]: Ejecuta CU-11 asociación: asocia una URL de fuente a la temporada vigente
+    //        de la liga, actualizando la URL existente para ese (temporadaId, tipo) si
+    //        ya existe, o creando el detalle nuevo si no existe.
     // [POR QUÉ]: CU-04 también delega aquí la creación de los detalles, garantizando
-    //            la unicidad por (ligaId, tipo) al hacer update en lugar de duplicar.
+    //            la unicidad por (temporadaId, tipo) al hacer update en lugar de duplicar.
     public List<DomainEvent> asociarUrlFuente(AsociarUrlFuenteComando comando) {
         FuenteExtraccion fuente = fuenteRepository.buscarPorTipo(comando.tipo())
                 .orElseThrow(() -> new DomainException("No existe fuente registrada para el tipo: " + comando.tipo()));
-        detalleRepository.buscarPorLigaYTipo(comando.ligaId(), comando.tipo())
+        java.util.UUID temporadaId = resolverTemporadaVigente(comando.ligaId()).id();
+        detalleRepository.buscarPorTemporadaYTipo(temporadaId, comando.tipo())
                 .ifPresentOrElse(
                         detalle -> detalleRepository.guardar(
                                 new DetalleFuenteExtraccion(
-                                        detalle.id(), detalle.ligaId(), detalle.fuente(),
+                                        detalle.id(), temporadaId, detalle.fuente(),
                                         comando.url(), comando.activa())),
                         () -> detalleRepository.guardar(new DetalleFuenteExtraccion(
-                                comando.ligaId(), fuente, comando.url(), comando.activa())));
+                                temporadaId, fuente, comando.url(), comando.activa())));
         return List.of();
     }
 
@@ -75,5 +83,14 @@ public final class GestionarFuenteExtraccionUseCase {
     // [POR QUÉ]: Expone a las interfaces qué URL tiene cada fuente de una liga.
     public List<DetalleFuenteExtraccion> listarDetallesDeLiga(java.util.UUID ligaId) {
         return detalleRepository.buscarPorLiga(ligaId);
+    }
+
+    // [QUÉ]: Resuelve la temporada vigente de la liga: la ACTIVA o, en su defecto, la
+    //        primera registrada (liga recién poblada por CU-10 está PLANIFICADA).
+    private com.tipsterbyte.tipsterbytefxv2.domain.model.Temporada resolverTemporadaVigente(java.util.UUID ligaId) {
+        return temporadaRepository.buscarActivaPorLigaId(ligaId)
+                .or(() -> temporadaRepository.buscarPorLigaId(ligaId).stream().findFirst())
+                .orElseThrow(() -> new DomainException(
+                        "La liga no tiene temporadas registradas: " + ligaId));
     }
 }

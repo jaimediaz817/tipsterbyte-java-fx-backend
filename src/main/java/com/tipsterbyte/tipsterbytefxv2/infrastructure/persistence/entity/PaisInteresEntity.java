@@ -35,14 +35,19 @@ public class PaisInteresEntity {
     @Column(name = "prioridad", nullable = false)
     private int prioridad;
 
+    // Límite opcional de ligas a sincronizar por país (null = sin límite). CU-10 lo consume.
+    @Column(name = "max_ligas_por_pais")
+    private Integer maxLigasPorPais;
+
     protected PaisInteresEntity() {
     }
 
-    public PaisInteresEntity(UUID id, String isoAlpha2, String nombre, int prioridad) {
+    public PaisInteresEntity(UUID id, String isoAlpha2, String nombre, int prioridad, Integer maxLigasPorPais) {
         this.id = id;
         this.isoAlpha2 = isoAlpha2;
         this.nombre = nombre;
         this.prioridad = prioridad;
+        this.maxLigasPorPais = maxLigasPorPais;
     }
 
     public UUID getId() {
@@ -59,5 +64,9 @@ public class PaisInteresEntity {
 
     public int getPrioridad() {
         return prioridad;
+    }
+
+    public Integer getMaxLigasPorPais() {
+        return maxLigasPorPais;
     }
 }

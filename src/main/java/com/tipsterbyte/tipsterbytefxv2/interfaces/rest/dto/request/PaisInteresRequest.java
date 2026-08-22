@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────
-// [QUÉ]: Request DTO de CU-14 (país de interés): iso_alpha2 y nombre del país.
+// [QUÉ]: Request DTO de CU-14 (país de interés): iso_alpha2, nombre y maxLigasPorPais opcional.
 // [POR QUÉ]: Traduce la request HTTP en el comando RegistrarPaisInteresComando que
 //            CU-14 necesita. La validación estructural (Bean Validation) ocurre en
 //            esta capa; la prioridad la deriva el caso de uso.
@@ -9,6 +9,7 @@
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.request;
 
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 
 public record PaisInteresRequest(
@@ -17,5 +18,8 @@ public record PaisInteresRequest(
         String isoAlpha2,
 
         @NotBlank(message = "nombre es obligatorio")
-        String nombre) {
+        String nombre,
+
+        @Min(value = 1, message = "maxLigasPorPais debe ser >= 1")
+        Integer maxLigasPorPais) {
 }

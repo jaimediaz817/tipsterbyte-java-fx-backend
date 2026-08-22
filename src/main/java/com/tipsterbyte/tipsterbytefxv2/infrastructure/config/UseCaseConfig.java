@@ -24,12 +24,14 @@ import com.tipsterbyte.tipsterbytefxv2.application.port.PasswordHasher;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PronosticoRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorCalendario;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorCuotas;
+import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorEquiposPorLiga;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorLigasPorPais;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorPaises;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorPosiciones;
 import com.tipsterbyte.tipsterbytefxv2.application.port.SuscripcionRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.TareaLogRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.TareaProgramadaRepository;
+import com.tipsterbyte.tipsterbytefxv2.application.port.TemporadaRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.TokenEmisor;
 import com.tipsterbyte.tipsterbytefxv2.application.port.UsuarioRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.ActivarLigaUseCase;
@@ -46,6 +48,7 @@ import com.tipsterbyte.tipsterbytefxv2.application.usecase.RegistrarResultadoUse
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.RegistrarUsuarioUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCalendarioUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCatalogoUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarEquiposLigaUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCuotasUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarPosicionesUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.port.TareaProgramadaRepository;
@@ -56,12 +59,13 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class UseCaseConfig {
 
-    // [QUÉ]: Bean de CU-04 (activar liga con URLs de fuentes).
+    // [QUÉ]: Bean de CU-04 (activar liga con URLs de fuentes, asociadas a su temporada).
     @Bean
     public ActivarLigaUseCase activarLigaUseCase(LigaRepository ligaRepository,
                                                  FuenteExtraccionRepository fuenteRepository,
-                                                 DetalleFuenteExtraccionRepository detalleRepository) {
-        return new ActivarLigaUseCase(ligaRepository, fuenteRepository, detalleRepository);
+                                                 DetalleFuenteExtraccionRepository detalleRepository,
+                                                 TemporadaRepository temporadaRepository) {
+        return new ActivarLigaUseCase(ligaRepository, fuenteRepository, detalleRepository, temporadaRepository);
     }
 
     // [QUÉ]: Bean de CU-01 (sincronizar posiciones, con invalidación de cache FASE 12).
@@ -124,16 +128,29 @@ public class UseCaseConfig {
     }
 
     // [QUÉ]: Bean de CU-10 (sincronizar catálogo de países y ligas, con prioridad de
-    //        poblamiento por países de interés e invalidación del cache de países).
+    //        poblamiento por países de interés, límite maxLigasPorPais, invalidación del
+    //        cache de países y plantilla de equipos desde la fuente #6 para países de
+    //        interés — HU-11).
+    // [QUÉ]: Bean de CU-16 (poblar plantilla de equipos de una liga desde la fuente #6).
+    @Bean
+    public SincronizarEquiposLigaUseCase sincronizarEquiposLigaUseCase(
+            ProveedorEquiposPorLiga proveedorEquiposPorLiga,
+            CacheLecturas cacheLecturas,
+            LigaRepository ligaRepository) {
+        return new SincronizarEquiposLigaUseCase(proveedorEquiposPorLiga, cacheLecturas, ligaRepository);
+    }
+
     @Bean
     public SincronizarCatalogoUseCase sincronizarCatalogoUseCase(ProveedorPaises proveedorPaises,
                                                                  ProveedorLigasPorPais proveedorLigasPorPais,
+                                                                 SincronizarEquiposLigaUseCase sincronizarEquiposLigaUseCase,
                                                                  PaisRepository paisRepository,
                                                                  LigaRepository ligaRepository,
                                                                  PaisInteresRepository paisInteresRepository,
                                                                  CacheLecturas cacheLecturas) {
         return new SincronizarCatalogoUseCase(proveedorPaises, proveedorLigasPorPais,
-                paisRepository, ligaRepository, paisInteresRepository, cacheLecturas);
+                sincronizarEquiposLigaUseCase, paisRepository, ligaRepository,
+                paisInteresRepository, cacheLecturas);
     }
 
     // [QUÉ]: Bean de consulta del estado del catálogo (CU-10): deriva VACIO/POBLADO
@@ -151,12 +168,14 @@ public class UseCaseConfig {
         return new ObtenerJornadaActualUseCase(partidoRepository);
     }
 
-    // [QUÉ]: Bean de CU-11 (gestionar catálogo de fuentes de extracción).
+    // [QUÉ]: Bean de CU-11 (gestionar catálogo de fuentes de extracción, asociación
+    //        de URLs a la temporada vigente de la liga).
     @Bean
     public GestionarFuenteExtraccionUseCase gestionarFuenteExtraccionUseCase(
             FuenteExtraccionRepository fuenteRepository,
-            DetalleFuenteExtraccionRepository detalleRepository) {
-        return new GestionarFuenteExtraccionUseCase(fuenteRepository, detalleRepository);
+            DetalleFuenteExtraccionRepository detalleRepository,
+            TemporadaRepository temporadaRepository) {
+        return new GestionarFuenteExtraccionUseCase(fuenteRepository, detalleRepository, temporadaRepository);
     }
 
     // [QUÉ]: Bean de CU-14 (gestionar países de interés, prioridad de poblamiento).

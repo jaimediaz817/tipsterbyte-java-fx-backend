@@ -22,6 +22,7 @@ import com.tipsterbyte.tipsterbytefxv2.domain.event.DomainEvent;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Equipo;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Liga;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.PosicionTabla;
+import com.tipsterbyte.tipsterbytefxv2.domain.service.NormalizadorNombresEquipos;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -68,8 +69,12 @@ public final class SincronizarPosicionesUseCase {
     // [POR QUÉ]: Las posiciones vienen de la fuente con el nombre del equipo; el caso de
     //            uso lo reconecta con la entidad Equipo que el aggregate ya conoce.
     private Equipo resolverEquipo(Liga liga, String nombre) {
+        // [POR QUÉ]: Matching por nombre NORMALIZADO (sin tildes/case/espacios): las
+        //            fuentes escriben distinto ("Atlético" vs "Atletico") y el exacto
+        //            creaba duplicados. Regla centralizada en el dominio.
+        String buscado = NormalizadorNombresEquipos.normalizar(nombre);
         return liga.equipos().stream()
-                .filter(e -> e.nombre().equals(nombre))
+                .filter(e -> NormalizadorNombresEquipos.normalizar(e.nombre()).equals(buscado))
                 .findFirst()
                 .orElseGet(() -> {
                     Equipo nuevo = new Equipo(nombre);
