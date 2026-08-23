@@ -163,6 +163,30 @@ La plantilla completa de la temporada vigente, con escudos:
 - `422` si la liga no existe o no tiene temporadas.
 - Ideal para: expandir la fila de la tabla ("ver plantilla"), modal con grid de escudos, o pantalla de detalle.
 
+### `GET /api/v1/ligas/{ligaId}/equipos/discrepancias` ⭐ nuevo (H-04)
+
+Diagnóstico de duplicados: pares de equipos de la plantilla que probablemente son el mismo club escrito distinto.
+
+```json
+→ 200 OK
+{
+  "ligaId": "uuid",
+  "temporadaNombre": "2026/2027",
+  "totalPares": 1,
+  "pares": [
+    {
+      "equipoA": { "id": "uuid", "nombre": "Gimnasia Mendoza", "logoUrl": null },
+      "equipoB": { "id": "uuid", "nombre": "Gimnasia y Esgrima Mendoza", "logoUrl": null },
+      "razon": "CONTENCION_PALABRAS"
+    }
+  ]
+}
+```
+
+- Reglas conservadoras (`CONTENCION_PALABRAS`, `FORMA_JURIDICA`) — jamás marca clubes reales distintos ("Boca Unidos" ≠ "Boca Juniors").
+- **Solo informativo**: no fusiona ni elimina nada. UI sugerida: banner ámbar "Revisa estos pares" sobre la plantilla cuando `totalPares > 0`.
+- `422` si la liga no existe o no tiene temporadas.
+
 ### `POST /api/v1/ligas/{ligaId}/equipos/sincronizar`
 
 Botón ⟳ **"Poblar equipos"** por liga. Reintenta la fuente #6 para esa liga sin re-ejecutar el poblamiento mundial (repara plantillas vacías, ej: scraper caído). Idempotente; roles SUPERADMIN/TIPSTER.

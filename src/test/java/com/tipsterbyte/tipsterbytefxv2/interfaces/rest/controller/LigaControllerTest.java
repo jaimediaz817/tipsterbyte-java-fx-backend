@@ -67,6 +67,9 @@ class LigaControllerTest {
     @Mock
     private com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarEquiposLigaUseCase sincronizarEquiposLigaUseCase;
 
+    @Mock
+    private com.tipsterbyte.tipsterbytefxv2.application.usecase.DetectarDiscrepanciasEquiposUseCase detectarDiscrepanciasEquiposUseCase;
+
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -74,7 +77,8 @@ class LigaControllerTest {
         mockMvc = MockMvcBuilders.standaloneSetup(
                         new LigaController(activarLigaUseCase, sincronizarPosicionesUseCase,
                                 sincronizarCalendarioUseCase, sincronizarCuotasUseCase, ligaRepository,
-                                obtenerJornadaActualUseCase, sincronizarEquiposLigaUseCase))
+                                obtenerJornadaActualUseCase, sincronizarEquiposLigaUseCase,
+                                detectarDiscrepanciasEquiposUseCase))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -283,6 +287,27 @@ class LigaControllerTest {
         mockMvc.perform(get("/api/v1/ligas/{ligaId}/equipos", ligaId))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.status").value(422));
+    }
+
+    @Test
+    void debe_reportar_discrepancias_de_duplicados_en_plantilla() throws Exception {
+        UUID ligaId = UUID.randomUUID();
+        var equipoA = new com.tipsterbyte.tipsterbytefxv2.domain.model.Equipo(
+                java.util.UUID.randomUUID(), "Gimnasia Mendoza", null);
+        var equipoB = new com.tipsterbyte.tipsterbytefxv2.domain.model.Equipo(
+                java.util.UUID.randomUUID(), "Gimnasia y Esgrima Mendoza", null);
+        var par = new com.tipsterbyte.tipsterbytefxv2.domain.service.DetectorDuplicadosEquipos.ParSospechoso(
+                equipoA, equipoB, "CONTENCION_PALABRAS");
+        when(detectarDiscrepanciasEquiposUseCase.ejecutar(ligaId))
+                .thenReturn(new com.tipsterbyte.tipsterbytefxv2.application.usecase.DetectarDiscrepanciasEquiposUseCase.DiscrepanciasLiga(
+                        ligaId, java.util.UUID.randomUUID(), "2026/2027", 1, List.of(par)));
+
+        mockMvc.perform(get("/api/v1/ligas/{ligaId}/equipos/discrepancias", ligaId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalPares").value(1))
+                .andExpect(jsonPath("$.pares[0].razon").value("CONTENCION_PALABRAS"))
+                .andExpect(jsonPath("$.pares[0].equipoA.nombre").value("Gimnasia Mendoza"))
+                .andExpect(jsonPath("$.pares[0].equipoB.nombre").value("Gimnasia y Esgrima Mendoza"));
     }
 
     @Test

@@ -21,6 +21,7 @@ import com.tipsterbyte.tipsterbytefxv2.application.usecase.ActivarLigaUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.ObtenerJornadaActualUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCalendarioUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCuotasUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.DetectarDiscrepanciasEquiposUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarEquiposLigaUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarPosicionesUseCase;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.EstadoLiga;
@@ -31,6 +32,8 @@ import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.JornadaActua
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.EquiposSincronizadosResponse;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.EquipoResponse;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.EquiposLigaResponse;
+import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.DiscrepanciasResponse;
+import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.EquipoResponse;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.LigaDetalleResponse;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.LigaResponse;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.PosicionTablaResponse;
@@ -61,6 +64,7 @@ public class LigaController {
     private final LigaRepository ligaRepository;
     private final ObtenerJornadaActualUseCase obtenerJornadaActualUseCase;
     private final SincronizarEquiposLigaUseCase sincronizarEquiposLigaUseCase;
+    private final DetectarDiscrepanciasEquiposUseCase detectarDiscrepanciasEquiposUseCase;
 
     // [QUÉ]: Construye el controller con sus casos de uso y repositorio de consulta
     //        (inyección por constructor).
@@ -70,7 +74,8 @@ public class LigaController {
                           SincronizarCuotasUseCase sincronizarCuotasUseCase,
                           LigaRepository ligaRepository,
                           ObtenerJornadaActualUseCase obtenerJornadaActualUseCase,
-                          SincronizarEquiposLigaUseCase sincronizarEquiposLigaUseCase) {
+                          SincronizarEquiposLigaUseCase sincronizarEquiposLigaUseCase,
+                          DetectarDiscrepanciasEquiposUseCase detectarDiscrepanciasEquiposUseCase) {
         this.activarLigaUseCase = activarLigaUseCase;
         this.sincronizarPosicionesUseCase = sincronizarPosicionesUseCase;
         this.sincronizarCalendarioUseCase = sincronizarCalendarioUseCase;
@@ -78,6 +83,7 @@ public class LigaController {
         this.ligaRepository = ligaRepository;
         this.obtenerJornadaActualUseCase = obtenerJornadaActualUseCase;
         this.sincronizarEquiposLigaUseCase = sincronizarEquiposLigaUseCase;
+        this.detectarDiscrepanciasEquiposUseCase = detectarDiscrepanciasEquiposUseCase;
     }
 
     // [QUÉ]: Endpoint POST /api/v1/ligas/{ligaId}/activacion — activa una liga (CU-04)
@@ -190,6 +196,25 @@ public class LigaController {
         return ResponseEntity.ok(new EquiposLigaResponse(
                 liga.id(), temporada.id(), temporada.nombre(), temporada.estado(),
                 equipos.size(), equipos));
+    }
+
+    // [QUÉ]: Endpoint GET /api/v1/ligas/{ligaId}/equipos/discrepancias — pares de
+    //        equipos sospechosos de duplicado en la temporada vigente (H-04).
+    // [POR QUÉ]: Puente de diagnóstico hasta el fuzzy matching (FASE 17): el admin
+    //            revisa los pares marcados por las reglas conservadoras del dominio.
+    //            SOLO detección: nunca fusiona ni elimina automáticamente.
+    @GetMapping("/{ligaId}/equipos/discrepancias")
+    public ResponseEntity<DiscrepanciasResponse> discrepanciasEquipos(@PathVariable UUID ligaId) {
+        var resultado = detectarDiscrepanciasEquiposUseCase.ejecutar(ligaId);
+        List<DiscrepanciasResponse.ParResponse> pares = resultado.pares().stream()
+                .map(par -> new DiscrepanciasResponse.ParResponse(
+                        new EquipoResponse(par.equipoA().id(), par.equipoA().nombre(), par.equipoA().logoUrl()),
+                        new EquipoResponse(par.equipoB().id(), par.equipoB().nombre(), par.equipoB().logoUrl()),
+                        par.razon()))
+                .toList();
+        return ResponseEntity.ok(new DiscrepanciasResponse(
+                resultado.ligaId(), resultado.temporadaId(), resultado.temporadaNombre(),
+                resultado.totalPares(), pares));
     }
 
     // [QUÉ]: Endpoint POST /api/v1/ligas/{ligaId}/equipos/sincronizar — (re)puebla la

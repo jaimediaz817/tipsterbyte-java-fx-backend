@@ -3,7 +3,7 @@
 > [QUÉ]: Registro de hallazgos estructurales detectados tras el poblamiento geográfico con fuente #6 (equipos por liga, 426 tests en verde). Priorizados por criticidad con impacto, causa y recomendación. Base para planificar las próximas FASEs.
 > [POR QUÉ]: Tras convertir `Temporada` en el centro del modelo y encadenar #6 en CU-10, el flujo de poblamiento escala a cientos de ligas; varios supuestos del diseño inicial (activación manual por URL, poblamiento síncrono, ddl-auto) dejan de ser sostenibles y deben abordarse antes de FASE 17/19.
 > [RELACIONES]: Afecta CU-04, CU-10, CU-15, `Liga`/`Temporada`/`Equipo`, `LigaRepositoryJpaAdapter`, `CatalogoScheduler`, `SecurityConfig`, `docs/PROYECTO-PLAN.md` (FASE 15/17/19).
-> Estado: 📝 DIAGNÓSTICO — pendiente priorización y aprobación de próximas FASEs.
+> Estado: 🔄 EN EJECUCIÓN — H-01 ✅ parcial · H-02 ✅ · H-03 ✅ · H-04 ✅ (detección) · H-07 ✅ · Pendientes: H-05, H-06. Marcador al día con 443 tests en verde.
 
 ---
 
@@ -50,7 +50,8 @@ Al cierre de FASE T2 el sistema dispone de:
 
 ---
 
-## 🟠 ALTA — H-04: Discrepancia de nombres entre fuentes (hasta FASE 17)
+## 🟠 ALTA — H-04: Discrepancia de nombres entre fuentes ✅ (RESUELTO — solo detección)
+> **Cierre**: `DetectorDuplicadosEquipos` en `domain.service` (reglas conservadoras: contención de palabras ≥2 tokens y forma jurídica; **similitud de edición descartada** por falsos positivos tipo "Boca Unidos"≠"Boca Juniors") + `GET /ligas/{id}/equipos/discrepancias`. SOLO detección para revisión humana; la fusión queda para FASE 17.
 
 - [QUÉ]: `#3` Flashscore y `#6` Soccerway escriben el mismo club distinto ("Gimnasia Mendoza" vs "Gimnasia y Esgrima Mendoza"). El normalizador centralizado resuelve tildes/case/espacios, pero no abreviaturas. La regla actual es exacta-normalizada; #6 nunca elimina, así que no se pierde dato, pero no hay señal de discrepancia.
 - [POR QUÉ]: Plantillas incompletas o posiciones huérfanas pasan inadvertidas hasta que un usuario las reporta.
@@ -87,12 +88,14 @@ Al cierre de FASE T2 el sistema dispone de:
 
 ---
 
-## Orden de ataque recomendado
+## Orden de ataque recomendado (actualizado)
 
-1. **H-01 + H-02 juntos** — hacen operable el volumen ya habilitado.
-2. **H-03** — cierra el ciclo visible de HU-11 (trivial, alto valor UX).
-3. **H-05** — antes de escalar equipo/nodos.
-4. **H-04 / H-06 / H-07** — como refuerzos antes de FASE 17.
+1. ~~H-01 + H-02~~ ✅ resueltos.
+2. ~~H-03~~ ✅ resuelto.
+3. ~~H-07~~ ✅ resuelto.
+4. ~~H-04~~ ✅ resuelto (detección; fusión → FASE 17).
+5. **Siguiente: H-06** (cortesía scraper — protege la primera corrida masiva real).
+6. Luego **H-05** (Flyway — antes de prod/equipo).
 
 ---
 

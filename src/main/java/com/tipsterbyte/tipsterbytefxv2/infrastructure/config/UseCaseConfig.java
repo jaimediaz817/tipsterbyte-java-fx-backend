@@ -27,6 +27,7 @@ import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorCuotas;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorEquiposPorLiga;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProgresoPoblamiento;
 import com.tipsterbyte.tipsterbytefxv2.application.port.TareaLogRepository;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.DetectarDiscrepanciasEquiposUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCatalogoAsyncUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorLigasPorPais;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorPaises;
@@ -157,6 +158,13 @@ public class UseCaseConfig {
         return new SincronizarCatalogoUseCase(proveedorPaises, proveedorLigasPorPais,
                 sincronizarEquiposLigaUseCase, paisRepository, ligaRepository,
                 paisInteresRepository, cacheLecturas, progresoPoblamiento);
+    }
+
+    // [QUÉ]: Bean H-04 (diagnóstico de duplicados de equipos por temporada).
+    @Bean
+    public DetectarDiscrepanciasEquiposUseCase detectarDiscrepanciasEquiposUseCase(
+            LigaRepository ligaRepository) {
+        return new DetectarDiscrepanciasEquiposUseCase(ligaRepository);
     }
 
     // [QUÉ]: Bean del wrapper asíncrono de CU-10 (FASE T3 / H-02): 202 + polling.
