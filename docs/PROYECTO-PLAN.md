@@ -391,6 +391,6 @@ Automatización
 
 > **Nunca** se pide "construye el proyecto completo".
 
-> **H-03 cerrado** (post-T3): `GET /api/v1/ligas/{id}/equipos` expone la plantilla con escudos. Backlog restante: H-04..H-07 + notificaciones hexagonales (diagnóstico en `docs/architecture/`).
+> **Hallazgos cerrados post-T2/T3**: H-02 (poblamiento async FASE T3), H-03 (`GET /ligas/{id}/equipos`), H-04 (detección de duplicados), H-06 (cortesía scraper) y **H-05 (Flyway)**: esquema versionado con `V1__baseline.sql`, `ddl-auto=validate`, tests validando migraciones reales. Diagnóstico completo en `docs/architecture/hallazgos-arquitectura.md`; notificaciones hexagonales como excusa de aprendizaje pendiente de aprobación.
 
 > **FASE T1** es transversal: puede ejecutarse en paralelo a las fases backend. La creación del repo Angular y sus skills viven en el proyecto hermano; aquí solo se mantiene el contexto de consumo de API. **FASE T1-b** (GETs de consulta + CORS) es la habilitadora para que el frontend tenga datos que mostrar.

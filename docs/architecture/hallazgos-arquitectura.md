@@ -60,7 +60,8 @@ Al cierre de FASE T2 el sistema dispone de:
 
 ---
 
-## 🟡 MEDIA — H-05: `ddl-auto=update` en lugar de Flyway
+## 🟡 MEDIA — H-05: `ddl-auto=update` en lugar de Flyway ✅ (RESUELTO)
+> **Cierre**: Flyway completo con `V1__baseline.sql` (esquema generado desde entidades, 15 tablas + FKs con nombres legibles + CHECKs de enums). `ddl-auto=validate` — Hibernate solo verifica. Testcontainers construye el esquema ejecutando las migraciones REALES (los tests validan las migraciones). Dev BD usa baseline-on-migrate (cero impacto en datos). Flujo futuro: entidad nueva → V(n+1)__*.sql → bootRun aplica → validate confirma.
 
 - [QUÉ]: Ya van 4 migraciones manuales (`V3` bridge fix, `V4` equipos/posiciones→temporada, `V4` equipos #6) aplicadas a mano en dev. Una instancia nueva que arranque sin esos `.sql` queda con columnas legadas `liga_id` NOT NULL y falla silenciosamente.
 - [POR QUÉ]: No auditable ni reproducible; riesgo de drift entre dev/Testcontainers/prod.
@@ -95,7 +96,9 @@ Al cierre de FASE T2 el sistema dispone de:
 3. ~~H-07~~ ✅ resuelto.
 4. ~~H-04~~ ✅ resuelto (detección; fusión → FASE 17).
 5. ~~H-06~~ ✅ resuelto (pausa+backoff; breaker → FASE 16).
-6. **Siguiente: H-05** (Flyway — antes de prod/equipo).
+6. ~~H-05~~ ✅ resuelto (Flyway completo con baseline).
+
+**Todos los hallazgos CRÍTICOS/ALTOS/MEDIOS están resueltos.** Backlog restante: circuit breaker (FASE 16), fuzzy matching (FASE 17), endpoints /temporadas/** y fusión de duplicados (FASE 17).
 
 ---
 

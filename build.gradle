@@ -55,6 +55,18 @@ dependencies {
 	// ─────────────────────────────────────────────
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	runtimeOnly 'org.postgresql:postgresql'
+	// ─────────────────────────────────────────────
+	// [QUÉ]: Flyway — migraciones versionadas del esquema (H-05).
+	// [POR QUÉ]: ddl-auto=update no borra ni transforma y las migraciones manuales V3/V4/V5
+	//            no dejaban rastro. Con Flyway el esquema es reproducible/auditable y los
+	//            tests (Testcontainers) validan los mismos .sql que producción.
+	//            flyway-database-postgresql es requerido por Flyway 10+ por motor.
+	// [ALTERNATIVAS]: Liquibase; se descarta porque Flyway es el estándar simple SQL-first.
+	// [RELACIONES]: db/migration/V1__baseline.sql; ddl-auto=validate en properties.
+	// ─────────────────────────────────────────────
+	implementation 'org.flywaydb:flyway-core'
+	implementation 'org.springframework.boot:spring-boot-flyway'
+	runtimeOnly 'org.flywaydb:flyway-database-postgresql'
 	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
 	// ─────────────────────────────────────────────
 	// [QUÉ]: Cliente Redis para el cache-aside de lecturas de fuentes externas.
