@@ -13,7 +13,7 @@
 | Concepto | Identificación | Qué ejecuta cuando dispara |
 |---|---|---|
 | **Tarea global** ⭐ | SIN `ligaId` y SIN `tipoFuente` | **Poblamiento geográfico COMPLETO**: países (#1, cache) → ligas por país (#5, respetando `maxLigasPorPais`) → temporada de catálogo por liga → **equipos con escudos (#6, solo países de interés, cache)**. Es exactamente el mismo flujo del botón manual "Poblar catálogo". Solo puede existir UNA |
-| **Tarea por fuente de liga** | `ligaId` + `tipoFuente` ∈ {STANDINGS, CALENDAR, ODDS_WPLAY} | Sincronización operativa de ESA liga: posiciones / calendario / cuotas Wplay. Requiere liga ACTIVA con su URL asociada. Una sola tarea por combinación |
+| **Tarea por fuente de liga** | `ligaId` + `tipoFuente` ∈ {STANDINGS, CALENDAR, ODDS_WPLAY, EQUIPOS} | STANDINGS/CALENDAR/ODDS_WPLAY: sincronización operativa (requiere liga ACTIVA con URL asociada). **EQUIPOS** (nuevo): refresca la plantilla con escudos desde la fuente #6 — NO requiere URL asociada. Una sola tarea por combinación |
 
 **Otros ajustes relevantes**:
 - Cada tarea tiene `prioridad` (String libre, ej: `"ALTA"`, `"NORMAL"`) que define el orden de evaluación del dispatcher.
@@ -22,7 +22,7 @@
 - Anti-solapamiento: si una corrida sigue activa en la siguiente cita, esa cita se omite.
 - Cada ejecución queda registrada en `tarea_log` (estado SUCCESS/ERROR, duración, executionId).
 
-> ⚠️ Nota de alcance actual: **la fuente #6 (equipos) NO es programable por liga individualmente todavía** — entra automáticamente dentro de la tarea global. Si quieres una tarea tipo EQUIPOS por liga, es un cambio pequeño de backend (pedirlo).
+> ✅ **Actualizado**: la fuente #6 (equipos) YA es programable por liga — tipo `EQUIPOS` disponible en `POST` y en `GET /disponibles` (sin requerir URL).
 
 ## 2. Estructura de navegación recomendada (sidebar)
 

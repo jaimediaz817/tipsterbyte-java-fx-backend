@@ -132,6 +132,13 @@ public class GestionarTareasProgramasUseCase {
                 tareaProgramadaRepository.buscarGlobal().isPresent()));
 
         for (Liga liga : ligaRepository.buscarActivas()) {
+            // [POR QUÉ]: EQUIPOS no requiere DetalleFuenteExtraccion (la #6 no usa
+            //            path_to_scrape): se ofrece siempre para ligas activas (H-07).
+            boolean equiposYaProgramada = tareaProgramadaRepository
+                    .buscarPorLigaIdYTipoFuente(liga.id(), TipoFuenteExtraccion.EQUIPOS).isPresent();
+            resultado.add(new FuenteDisponible(liga.id(), liga.nombre(),
+                    TipoFuenteExtraccion.EQUIPOS, equiposYaProgramada));
+
             for (DetalleFuenteExtraccion detalle : detalleRepository.buscarPorLiga(liga.id())) {
                 if (!detalle.activa()) {
                     continue;

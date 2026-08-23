@@ -19,5 +19,9 @@ public enum TipoFuenteExtraccion {
     // [QUÉ]: Cuotas de apuestas Wplay (endpoint #2).
     ODDS_WPLAY,
     // [QUÉ]: Calendario de partidos (endpoint #4, Soccerway).
-    CALENDAR;
+    CALENDAR,
+    // [QUÉ]: Plantilla de equipos con escudos (endpoint #6, H-07). A diferencia de las
+    //        operativas NO usa path_to_scrape ni DetalleFuenteExtraccion: se consume con
+    //        country_name + league_name del aggregate. Solo aplica a tareas por liga.
+    EQUIPOS;
 }

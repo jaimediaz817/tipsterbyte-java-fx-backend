@@ -15,6 +15,7 @@ import com.tipsterbyte.tipsterbytefxv2.application.port.TareaProgramadaRepositor
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCalendarioUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCatalogoUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCuotasUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarEquiposLigaUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarPosicionesUseCase;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.TareaLog;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.TareaProgramada;
@@ -53,6 +54,8 @@ class CatalogoSchedulerTest {
     @Mock
     private SincronizarCuotasUseCase sincronizarCuotasUseCase;
     @Mock
+    private SincronizarEquiposLigaUseCase sincronizarEquiposLigaUseCase;
+    @Mock
     private SincronizarCatalogoUseCase sincronizarCatalogoUseCase;
 
     private CatalogoScheduler scheduler;
@@ -61,7 +64,8 @@ class CatalogoSchedulerTest {
     void setUp() {
         scheduler = new CatalogoScheduler(tareaProgramadaRepository, tareaLogRepository,
                 sincronizarPosicionesUseCase, sincronizarCalendarioUseCase,
-                sincronizarCuotasUseCase, sincronizarCatalogoUseCase);
+                sincronizarCuotasUseCase, sincronizarEquiposLigaUseCase,
+                sincronizarCatalogoUseCase);
     }
 
     @Test
@@ -101,6 +105,17 @@ class CatalogoSchedulerTest {
 
         verify(sincronizarCalendarioUseCase, timeout(5000).times(1)).ejecutar(ligaCalendario);
         verify(sincronizarCuotasUseCase, timeout(5000).times(1)).ejecutar(ligaCuotas);
+    }
+
+    @Test
+    void debe_despachar_equipos_al_caso_de_uso_con_liga() {
+        UUID ligaId = UUID.randomUUID();
+        TareaProgramada tarea = unaTarea(ligaId, TipoFuenteExtraccion.EQUIPOS, true, "* * * * * *");
+        when(tareaProgramadaRepository.listarPorPrioridadAsc()).thenReturn(List.of(tarea));
+
+        scheduler.ejecutarTareasProgramadas();
+
+        verify(sincronizarEquiposLigaUseCase, timeout(5000).times(1)).ejecutar(ligaId);
     }
 
     @Test

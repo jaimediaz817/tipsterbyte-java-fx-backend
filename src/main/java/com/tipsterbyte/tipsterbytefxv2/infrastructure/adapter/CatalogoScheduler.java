@@ -23,6 +23,7 @@ import com.tipsterbyte.tipsterbytefxv2.application.port.TareaProgramadaRepositor
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCalendarioUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCatalogoUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCuotasUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarEquiposLigaUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarPosicionesUseCase;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.TareaLog;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.TareaProgramada;
@@ -62,6 +63,7 @@ public class CatalogoScheduler implements EstadoEjecucionTareas {
     private final SincronizarPosicionesUseCase sincronizarPosicionesUseCase;
     private final SincronizarCalendarioUseCase sincronizarCalendarioUseCase;
     private final SincronizarCuotasUseCase sincronizarCuotasUseCase;
+    private final SincronizarEquiposLigaUseCase sincronizarEquiposLigaUseCase;
     private final SincronizarCatalogoUseCase sincronizarCatalogoUseCase;
 
     // Anti-solapamiento por tarea: evita que una misma tarea se ejecute dos veces en paralelo.
@@ -76,12 +78,14 @@ public class CatalogoScheduler implements EstadoEjecucionTareas {
                              SincronizarPosicionesUseCase sincronizarPosicionesUseCase,
                              SincronizarCalendarioUseCase sincronizarCalendarioUseCase,
                              SincronizarCuotasUseCase sincronizarCuotasUseCase,
+                             SincronizarEquiposLigaUseCase sincronizarEquiposLigaUseCase,
                              SincronizarCatalogoUseCase sincronizarCatalogoUseCase) {
         this.tareaProgramadaRepository = tareaProgramadaRepository;
         this.tareaLogRepository = tareaLogRepository;
         this.sincronizarPosicionesUseCase = sincronizarPosicionesUseCase;
         this.sincronizarCalendarioUseCase = sincronizarCalendarioUseCase;
         this.sincronizarCuotasUseCase = sincronizarCuotasUseCase;
+        this.sincronizarEquiposLigaUseCase = sincronizarEquiposLigaUseCase;
         this.sincronizarCatalogoUseCase = sincronizarCatalogoUseCase;
     }
 
@@ -198,6 +202,9 @@ public class CatalogoScheduler implements EstadoEjecucionTareas {
             case STANDINGS -> sincronizarPosicionesUseCase.ejecutar(tarea.ligaId());
             case CALENDAR -> sincronizarCalendarioUseCase.ejecutar(tarea.ligaId());
             case ODDS_WPLAY -> sincronizarCuotasUseCase.ejecutar(tarea.ligaId());
+            // [POR QUÉ]: EQUIPOS no usa path_to_scrape ni DetalleFuenteExtraccion (H-07):
+            //            la #6 se consume con country_name+league_name del aggregate.
+            case EQUIPOS -> sincronizarEquiposLigaUseCase.ejecutar(tarea.ligaId());
             default -> throw new IllegalArgumentException(
                     "Tipo de fuente no soportado: " + tarea.tipoFuente());
         }

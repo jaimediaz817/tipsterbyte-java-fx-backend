@@ -258,26 +258,34 @@ class GestionarTareasProgramasUseCaseTest {
     }
 
     @Test
-    void debe_listar_fuentes_disponibles_con_catalogo_global_y_marcar_ya_programadas() {
+    void debe_listar_fuentes_disponibles_con_catalogo_global_equipos_y_fuentes_operativas() {
         UUID ligaId = UUID.randomUUID();
         when(tareaProgramadaRepository.buscarGlobal()).thenReturn(Optional.empty());
         when(ligaRepository.buscarActivas()).thenReturn(List.of(
                 Liga.reconstruir(ligaId, "Premier League", "Inglaterra", null, EstadoLiga.ACTIVA,
                         java.util.Set.of())));
+        // EQUIPOS ya programada para esta liga (H-07): se ofrece marcada.
+        when(tareaProgramadaRepository.buscarPorLigaIdYTipoFuente(ligaId, TipoFuenteExtraccion.EQUIPOS))
+                .thenReturn(Optional.of(unaTarea(ligaId, TipoFuenteExtraccion.EQUIPOS)));
         when(detalleRepository.buscarPorLiga(ligaId)).thenReturn(List.of(
-                new DetalleFuenteExtraccion(ligaId, new FuenteExtraccion("Standings", TipoFuenteExtraccion.STANDINGS, true),
+                new DetalleFuenteExtraccion(java.util.UUID.randomUUID(),
+                        new FuenteExtraccion("Standings", TipoFuenteExtraccion.STANDINGS, true),
                         "/posiciones/", true)));
         when(tareaProgramadaRepository.buscarPorLigaIdYTipoFuente(ligaId, TipoFuenteExtraccion.STANDINGS))
                 .thenReturn(Optional.empty());
 
         List<FuenteDisponible> disponibles = casoDeUso.listarFuentesDisponibles();
 
-        assertEquals(2, disponibles.size());
+        assertEquals(3, disponibles.size(), "global + EQUIPOS + STANDINGS");
         assertEquals("Catálogo global", disponibles.get(0).ligaNombre());
         assertFalse(disponibles.get(0).yaProgramada());
         assertEquals("Premier League", disponibles.get(1).ligaNombre());
-        assertEquals(TipoFuenteExtraccion.STANDINGS, disponibles.get(1).tipoFuente());
+        assertEquals(TipoFuenteExtraccion.EQUIPOS, disponibles.get(1).tipoFuente(),
+                "EQUIPOS se ofrece sin requerir DetalleFuenteExtraccion");
+        assertTrue(disponibles.get(1).yaProgramada(), "marca la tarea EQUIPOS existente");
+        assertEquals(TipoFuenteExtraccion.STANDINGS, disponibles.get(2).tipoFuente());
     }
+
 
     @Test
     void debe_obtener_nombre_de_liga_para_la_vista() {

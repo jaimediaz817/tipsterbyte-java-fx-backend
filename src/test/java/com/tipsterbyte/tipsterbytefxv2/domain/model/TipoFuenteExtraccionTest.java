@@ -16,13 +16,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class TipoFuenteExtraccionTest {
 
     @Test
-    void debe_contener_los_tres_tipos_de_fuente() {
-        assertEquals(3, TipoFuenteExtraccion.values().length);
+    void debe_contener_los_cuatro_tipos_de_fuente() {
+        // EQUIPOS (H-07): fuente de poblamiento #6 programable por liga.
+        assertEquals(4, TipoFuenteExtraccion.values().length);
         assertTrue(java.util.Arrays.asList(TipoFuenteExtraccion.values())
                 .containsAll(java.util.List.of(
                         TipoFuenteExtraccion.STANDINGS,
                         TipoFuenteExtraccion.ODDS_WPLAY,
-                        TipoFuenteExtraccion.CALENDAR)));
+                        TipoFuenteExtraccion.CALENDAR,
+                        TipoFuenteExtraccion.EQUIPOS)));
     }
 
     @Test

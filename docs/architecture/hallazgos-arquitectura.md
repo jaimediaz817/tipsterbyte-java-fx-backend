@@ -77,7 +77,8 @@ Al cierre de FASE T2 el sistema dispone de:
 
 ---
 
-## 🟡 MEDIA — H-07: Cache de equipos y su refresco programado
+## 🟡 MEDIA — H-07: Cache de equipos y su refresco programado ✅ (RESUELTO)
+> **Cierre**: `TipoFuenteExtraccion.EQUIPOS` + dispatch en scheduler + opción en `/disponibles`. Las plantillas ahora se refrescan automáticamente por tarea programada por liga.
 
 - [QUÉ]: `equipos` tiene TTL largo (30 días) e invalidación al inicio de cada poblamiento de esa liga. No existe tarea programable tipo EQUIPOS por liga (hoy solo entra vía tarea global o botón manual `POST /ligas/{id}/equipos/sincronizar`).
 - [POR QUÉ]: Si el roster cambia a mitad de temporada, solo se refresca al re-poblar todo el mundo o al pulsar el botón manual por liga — no hay automatización por liga como sí existe para posiciones/calendario/cuotas.
