@@ -22,6 +22,19 @@ Arranque de la app (bootRun o tests)
 
 ---
 
+## 0b. Comandos disponibles (Gradle)
+
+| Comando | Qué hace |
+|---|---|
+| `./gradlew nuevaMigracion -Pdescripcion=mi_cambio` | Crea el siguiente `V(n+1)__mi_cambio.sql` con numeración correlativa + header |
+| `./gradlew migrar` | Aplica en la BD dev las migraciones pendientes (sin arrancar la app) |
+| `./gradlew infoMigraciones` | Estado de cada migración en dev (aplicada/pendiente/baseline) |
+| `./gradlew validarMigraciones` | Valida checksums de los archivos contra lo aplicado en dev |
+
+Además, **cualquier arranque de la app (`bootRun`) o ejecución de tests aplica automáticamente** lo pendiente — los comandos anteriores sirven para hacerlo/consultarlo sin levantar nada.
+
+---
+
 ## 1. Flujo estándar: entidad o campo nuevo
 
 Ejemplo real hipotético: agregar `estadio` a los equipos.

@@ -1,3 +1,16 @@
+buildscript {
+	repositories { mavenCentral() }
+	dependencies {
+		// [QUÉ]: API de Flyway en el classpath de Gradle para los comandos de migración
+		//        (migrar/infoMigraciones/validarMigraciones) contra la BD dev sin arrancar
+		//        la app. Resuelto desde Maven Central (el plugin oficial de Gradle de
+		//        Flyway no publica markers en el portal de plugins).
+		classpath 'org.flywaydb:flyway-core:12.4.0'
+		classpath 'org.flywaydb:flyway-database-postgresql:12.4.0'
+		classpath 'org.postgresql:postgresql:42.7.7'
+	}
+}
+
 plugins {
 	id 'java'
 	id 'org.springframework.boot' version '4.1.0'
@@ -15,6 +28,88 @@ java {
 
 repositories {
 	mavenCentral()
+}
+
+// ─────────────────────────────────────────────
+// Comandos de migración sobre la BD dev (:5434) usando la API de Flyway directamente.
+//   ./gradlew migrar              → aplica migraciones pendientes en dev
+//   ./gradlew infoMigraciones     → estado (aplicadas/pendientes)
+//   ./gradlew validarMigraciones  → valida checksums contra dev
+// La app también aplica migraciones automáticamente al arrancar (bootRun); estos
+// comandos sirven para ejecutar/consultar SIN levantar la aplicación.
+// ─────────────────────────────────────────────
+def dbUrl = 'jdbc:postgresql://localhost:5434/tipsterbytefxv2_dev'
+def dbUser = 'postgres'
+def dbPass = 'postgres'
+def flywayCfg = {
+    org.flywaydb.core.Flyway.configure()
+        .dataSource(dbUrl, dbUser, dbPass)
+        .locations('filesystem:src/main/resources/db/migration')
+        .baselineOnMigrate(true)   // dev ya tiene esquema sin historial: marca V1 sin ejecutarla
+}
+
+tasks.register('migrar') {
+    group = 'flyway'
+    description = 'Aplica en dev las migraciones pendientes (equivalente a lo que hace bootRun).'
+    doLast {
+        def resultado = flywayCfg().load().migrate()
+        println "✔ Migraciones aplicadas: ${resultado.migrationsExecuted}"
+    }
+}
+
+tasks.register('infoMigraciones') {
+    group = 'flyway'
+    description = 'Estado de las migraciones en dev: aplicadas, pendientes y futuras.'
+    doLast {
+        def info = flywayCfg().load().info()
+        println String.format('%-8s %-40s %-14s %s', 'Version', 'Descripcion', 'Estado', 'InstaladaEn')
+        info.all().each { mi ->
+            def instalada = (mi.state?.displayName == 'Baseline') ? '(esquema preexistente)' : ''
+            println String.format('%-8s %-40s %-14s %s',
+                    mi.version ?: '-',
+                    mi.description ?: '-',
+                    mi.state?.displayName ?: '-',
+                    instalada)
+        }
+    }
+}
+
+tasks.register('validarMigraciones') {
+    group = 'flyway'
+    description = 'Valida checksums y consistencia de las migraciones aplicadas en dev.'
+    doLast {
+        flywayCfg().load().validate()
+        println '✔ Migraciones válidas (checksums consistentes con los archivos locales).'
+    }
+}
+
+// [QUÉ]: Crea el siguiente archivo de migración con numeración correlativa automática.
+// [POR QUÉ]: Evita errores de numeración manual y el doble guion bajo obligatorio.
+// USO: ./gradlew nuevaMigracion -Pdescripcion=agregar_estadio_a_equipos
+tasks.register('nuevaMigracion') {
+	group = 'flyway'
+	description = 'Crea V(n+1)__descripcion.sql en db/migration. Uso: -Pdescripcion=mi_cambio'
+	doLast {
+		def descripcion = project.findProperty('descripcion')
+		if (!descripcion || descripcion.isBlank())
+			throw new GradleException('Falta la descripción. Uso: ./gradlew nuevaMigracion -Pdescripcion=mi_cambio_en_snake_case')
+		def dir = file('src/main/resources/db/migration')
+		def ultimo = dir.listFiles()
+				.findAll { it.name =~ /^V\d+__.*\.sql$/ }
+				.collect { (it.name.replace('V', '') =~ /^\d+/)[0] }
+				.collect { it.toInteger() }
+				.max() ?: 0
+		def archivo = new File(dir, "V${ultimo + 1}__${descripcion}.sql")
+		if (archivo.exists()) throw new GradleException("Ya existe: ${archivo.name}")
+		archivo.text = """-- ─────────────────────────────────────────────
+-- [QUÉ]: ${descripcion.replace('_', ' ')}.
+-- [POR QUÉ]: 
+-- [RELACIONES]: 
+
+"""
+		println "✔ Creada: ${archivo}"
+		println "  Recuerda: header completo, probar con ./gradlew test, NO editar si ya se aplicó."
+	}
 }
 
 dependencies {
