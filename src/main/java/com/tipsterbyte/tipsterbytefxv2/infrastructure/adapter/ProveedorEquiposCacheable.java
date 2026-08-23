@@ -43,6 +43,8 @@ public class ProveedorEquiposCacheable implements ProveedorEquiposPorLiga {
 
     // [QUÉ]: Construye el decorador con el adapter real (#6), el cache, el serializador
     //        JSON (Jackson 3, bean de Spring) y el TTL configurable (app.cache.ttl-equipos-seg).
+    // [POR QUÉ]: El delegado es el decorador de cortesia (H-06): cadena
+    //            consumidor -> cache -> cortesia -> scraper.
     public ProveedorEquiposCacheable(@Qualifier("soccerwayEquiposAdapter") ProveedorEquiposPorLiga delegado,
                                      CacheLecturas cache,
                                      ObjectMapper objectMapper,

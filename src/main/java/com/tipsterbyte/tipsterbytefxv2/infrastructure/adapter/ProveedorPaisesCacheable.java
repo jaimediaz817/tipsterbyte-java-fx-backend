@@ -48,6 +48,8 @@ public class ProveedorPaisesCacheable implements ProveedorPaises {
 
     // [QUÉ]: Construye el decorador con el adapter real (#1), el cache, el serializador
     //        JSON (Jackson 3, bean de Spring) y el TTL configurable (app.cache.ttl-paises-seg).
+    // [POR QUÉ]: El delegado es el decorador de cortesia (H-06): cadena
+    //            consumidor -> cache -> cortesia -> scraper. Los aciertos de cache no pagan pausa.
     public ProveedorPaisesCacheable(@Qualifier("soccerwayPaisesAdapter") ProveedorPaises delegado,
                                     CacheLecturas cache,
                                     ObjectMapper objectMapper,

@@ -26,17 +26,28 @@ public class SoccerwayPaisesAdapter implements ProveedorPaises {
 
     private final RestClient restClient;
 
+    private final ServicioCortesia cortesia;
+
     public SoccerwayPaisesAdapter(RestClient restClientFuentes) {
+        this(restClientFuentes, ServicioCortesia.passthrough());
+    }
+
+    // [POR QUÉ]: Cortesía H-06 aplicada DENTRO del adapter (infraestructura): pausa +
+    //            reintento/backoff alrededor de cada llamada real al scraper. El test
+    //            unitario usa el constructor corto con cortesia passthrough.
+    @org.springframework.beans.factory.annotation.Autowired
+    public SoccerwayPaisesAdapter(RestClient restClientFuentes, ServicioCortesia cortesia) {
         this.restClient = restClientFuentes;
+        this.cortesia = cortesia;
     }
 
     @Override
     public List<PaisFuente> obtenerPaises() {
         try {
-            RespuestaPaises respuesta = restClient.get()
+            RespuestaPaises respuesta = cortesia.ejecutar(() -> restClient.get()
                     .uri("/ext-soccerway-countries")
                     .retrieve()
-                    .body(RespuestaPaises.class);
+                    .body(RespuestaPaises.class));
             if (respuesta == null || respuesta.data() == null) {
                 return List.of();
             }

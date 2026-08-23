@@ -94,8 +94,8 @@ Al cierre de FASE T2 el sistema dispone de:
 2. ~~H-03~~ ✅ resuelto.
 3. ~~H-07~~ ✅ resuelto.
 4. ~~H-04~~ ✅ resuelto (detección; fusión → FASE 17).
-5. **Siguiente: H-06** (cortesía scraper — protege la primera corrida masiva real).
-6. Luego **H-05** (Flyway — antes de prod/equipo).
+5. ~~H-06~~ ✅ resuelto (pausa+backoff; breaker → FASE 16).
+6. **Siguiente: H-05** (Flyway — antes de prod/equipo).
 
 ---
 

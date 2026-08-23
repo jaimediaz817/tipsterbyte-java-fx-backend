@@ -30,21 +30,32 @@ public class SoccerwayEquiposAdapter implements ProveedorEquiposPorLiga {
 
     private final RestClient restClient;
 
+    private final ServicioCortesia cortesia;
+
     public SoccerwayEquiposAdapter(RestClient restClientFuentes) {
+        this(restClientFuentes, ServicioCortesia.passthrough());
+    }
+
+    // [POR QUÉ]: Cortesía H-06 aplicada DENTRO del adapter (infraestructura): pausa +
+    //            reintento/backoff alrededor de cada llamada real al scraper. El test
+    //            unitario usa el constructor corto con cortesia passthrough.
+    @org.springframework.beans.factory.annotation.Autowired
+    public SoccerwayEquiposAdapter(RestClient restClientFuentes, ServicioCortesia cortesia) {
         this.restClient = restClientFuentes;
+        this.cortesia = cortesia;
     }
 
     @Override
     public List<EquipoFuente> obtenerEquipos(String countryName, String leagueName) {
         try {
-            RespuestaEquipos respuesta = restClient.get()
+            RespuestaEquipos respuesta = cortesia.ejecutar(() -> restClient.get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/ext-soccerway-teams-by-league")
                             .queryParam("country_name", countryName)
                             .queryParam("league_name", leagueName)
                             .build())
                     .retrieve()
-                    .body(RespuestaEquipos.class);
+                    .body(RespuestaEquipos.class));
             if (respuesta == null || respuesta.data() == null || respuesta.data().leagues() == null) {
                 return List.of();
             }
