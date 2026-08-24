@@ -72,6 +72,7 @@ public class EquipoEntity {
         return logoUrl;
     }
 
+
     public TemporadaEntity getTemporada() {
         return temporada;
     }

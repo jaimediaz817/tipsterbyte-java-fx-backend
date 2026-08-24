@@ -62,6 +62,7 @@ public final class Equipo {
         return logoUrl;
     }
 
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
