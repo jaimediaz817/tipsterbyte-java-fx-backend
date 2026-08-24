@@ -167,4 +167,150 @@ Notas importantes:
 
 ---
 
+
+---
+
+## 7. 🎓 Tutorial guiado — practica el flujo completo
+
+Mini-tutorial de 5 ejercicios para afianzar los conceptos clave. El campo de práctica es
+`fundacion` (año de fundación del club) sobre la tabla `equipos`. Hazlos en orden: cada uno
+construye sobre el anterior.
+
+> 💡 Con el skill `migrations-ddl-flyway-auto` cargado (se activa al reiniciar OpenCode),
+> el paso "escribir el DDL" lo hace la IA por ti: tocas el modelo, ella propone el SQL.
+> Este tutorial te enseña a hacer ambas partes manualmente para entender QUÉ hace la IA.
+
+### Ejercicio 1 — Campo nuevo (flujo feliz completo)
+
+**1.1 Modifica el dominio** (`domain/model/Equipo.java`):
+
+```java
+// junto a los otros campos finales:
+private final Integer fundacion;
+
+// convierte el ctor de 3 args en delegador y agrega el de 4:
+public Equipo(UUID id, String nombre, String logoUrl) {
+    this(id, nombre, logoUrl, null);
+}
+
+public Equipo(UUID id, String nombre, String logoUrl, Integer fundacion) {
+    if (id == null) throw new DomainException("Equipo requiere id");
+    if (nombre == null || nombre.isBlank()) throw new DomainException("Equipo requiere nombre");
+    this.id = id;
+    this.nombre = nombre;
+    this.logoUrl = logoUrl;
+    this.fundacion = fundacion;
+}
+
+// getter junto a logoUrl():
+public Integer fundacion() { return fundacion; }
+```
+
+**1.2 Modifica la Entity JPA** (`EquipoEntity.java`) — mismo patrón:
+
+```java
+@Column(name = "fundacion")
+private Integer fundacion;
+
+public EquipoEntity(UUID id, String nombre, String logoUrl) {
+    this(id, nombre, logoUrl, null);
+}
+public EquipoEntity(UUID id, String nombre, String logoUrl, Integer fundacion) { ... }
+public Integer getFundacion() { return fundacion; }
+```
+
+*(El mapper del adapter puede quedarse como está: validate no exige que el dominio exponga el campo todavía.)*
+
+**1.3 Crea el archivo de migración:**
+
+```bash
+./gradlew nuevaMigracion -Pdescripcion=agregar_fundacion_a_equipos
+```
+
+**1.4 Escribe el DDL** dentro del archivo generado:
+
+```sql
+ALTER TABLE equipos ADD COLUMN fundacion INTEGER;
+```
+
+*(Regla expandir-contrato: columna nullable primero — la tabla ya tiene registros.)*
+
+**1.5 Valida y aplica:**
+
+```bash
+./gradlew test          # Testcontainers ejecuta TU migración desde cero + validate confirma Entity↔BD
+./gradlew migrar        # la aplicas en dev sin arrancar la app
+./gradlew infoMigraciones   # V4 debe aparecer como aplicada
+```
+
+**¿Qué pasó por dentro?** Flyway comparó `flyway_schema_history` con los archivos: encontró
+V4 pendiente, la ejecutó en su propia transacción y registró versión + checksum.
+
+### Ejercicio 2 — Backfill + NOT NULL (expandir-contrato en acción)
+
+Haz que `fundacion` sea obligatoria SIN perder registros:
+
+```sql
+-- V5__backfill_fundacion.sql
+UPDATE equipos SET fundacion = 1900 WHERE fundacion IS NULL;
+
+-- V6__fundacion_obligatoria.sql
+ALTER TABLE equipos ALTER COLUMN fundacion SET NOT NULL;
+```
+
+Aplica cada una (`migrar`) y observa cómo se acumulan en `infoMigraciones`.
+**Lección**: nunca `SET NOT NULL` en la misma migración que crea la columna si hay filas.
+
+⚠️ Completa también el código Java que garantice no escribir NULL (constructor).
+
+### Ejercicio 3 — El famoso checksum mismatch (a propósito)
+
+Edita `V5__backfill_fundacion.sql` (YA aplicada): cambia `1900` por `1850`.
+
+```bash
+./gradlew bootRun   # o cualquier arranque/test
+```
+
+Verás `Migration checksum mismatch for migration version 5` → **la app no arranca**.
+
+**Por qué**: Flyway guarda un checksum por archivo; si cambia, no puede confiar en que el
+contenido aplicado sea el mismo. Es tu red anti-manipulación silenciosa.
+
+**Salida correcta**: restaura el archivo a su contenido original. La corrección NUNCA va en
+una migración aplicada sino en una nueva V(n+1). *(En dev desechable existe `flyway repair`,
+pero entiende primero POR QUÉ falló.)*
+
+### Ejercicio 4 — Quitar el campo (dirección inversa)
+
+```bash
+./gradlew nuevaMigracion -Pdescripcion=eliminar_fundacion_de_equipos
+```
+
+DDL + reversión completa del código Java (dominio, entity, mapper) **en el mismo commit**:
+
+```sql
+ALTER TABLE equipos DROP COLUMN fundacion;
+```
+
+**Lección**: quitar es tan responsable como agregar — drop column + revertir mapeos +
+ajustar tests, todo junto, y la suite verde.
+
+### Ejercicio 5 — Mira las entrañas: flyway_schema_history
+
+```bash
+docker exec tipsterbytefxv2-postgres psql -U postgres -d tipsterbytefxv2_dev -c   "SELECT installed_rank, version, description, type, success FROM flyway_schema_history;"
+```
+
+Una fila por cada migración + la fila del baseline. Columnas clave: `checksum` (huella del
+archivo), `success` (t/f). **Lección**: este historial ES el mecanismo; validate/migrate
+derivan de él.
+
+---
+
+## 8. Soluciones de referencia
+
+El par `V2__agregar_estadio_a_equipos.sql` / `V3__eliminar_estadio_de_equipos.sql` queda como
+ejemplo vivo verificado bidireccionalmente. Para reiniciar la práctica desde cero: crea una BD
+nueva, apunta temporalmente `flyway.url` y repite los ejercicios — Flyway reconstruye todo.
+
 *Fuente de verdad backend: `src/main/resources/db/migration/` · Configuración: `spring.flyway.*` en `application.properties` · Diagnóstico original: H-05 en `docs/architecture/hallazgos-arquitectura.md`.*
