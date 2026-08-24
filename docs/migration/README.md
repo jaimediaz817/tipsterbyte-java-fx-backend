@@ -24,12 +24,12 @@ Arranque de la app (bootRun o tests)
 
 ## 0b. Comandos disponibles (Gradle)
 
-| Comando | Qué hace |
-|---|---|
+| Comando                                            | Qué hace                                                                      |
+| -------------------------------------------------- | ----------------------------------------------------------------------------- |
 | `./gradlew nuevaMigracion -Pdescripcion=mi_cambio` | Crea el siguiente `V(n+1)__mi_cambio.sql` con numeración correlativa + header |
-| `./gradlew migrar` | Aplica en la BD dev las migraciones pendientes (sin arrancar la app) |
-| `./gradlew infoMigraciones` | Estado de cada migración en dev (aplicada/pendiente/baseline) |
-| `./gradlew validarMigraciones` | Valida checksums de los archivos contra lo aplicado en dev |
+| `./gradlew migrar`                                 | Aplica en la BD dev las migraciones pendientes (sin arrancar la app)          |
+| `./gradlew infoMigraciones`                        | Estado de cada migración en dev (aplicada/pendiente/baseline)                 |
+| `./gradlew validarMigraciones`                     | Valida checksums de los archivos contra lo aplicado en dev                    |
 
 Además, **cualquier arranque de la app (`bootRun`) o ejecución de tests aplica automáticamente** lo pendiente — los comandos anteriores sirven para hacerlo/consultarlo sin levantar nada.
 
@@ -51,13 +51,13 @@ public Equipo(UUID id, String nombre, String logoUrl, String estadio) { ... }
 
 Pasos, en orden:
 
-| # | Acción | Verificación |
-|---|---|---|
-| 1 | Escribe la Entity Java con el campo nuevo | Compila |
-| 2 | Crea `V(n+1)__descripcion.sql` con el `ALTER TABLE` | El número `n+1` = último existente + 1 |
-| 3 | Actualiza el adapter/entity JPA que mapea el campo | Compila |
-| 4 | `./gradlew test` | Testcontainers aplica tu migración REAL + validate confirma Entity↔BD |
-| 5 | `./gradlew bootRun` contra dev | Flyway aplica la migración en tu BD dev |
+| #   | Acción                                              | Verificación                                                          |
+| --- | --------------------------------------------------- | --------------------------------------------------------------------- |
+| 1   | Escribe la Entity Java con el campo nuevo           | Compila                                                               |
+| 2   | Crea `V(n+1)__descripcion.sql` con el `ALTER TABLE` | El número `n+1` = último existente + 1                                |
+| 3   | Actualiza el adapter/entity JPA que mapea el campo  | Compila                                                               |
+| 4   | `./gradlew test`                                    | Testcontainers aplica tu migración REAL + validate confirma Entity↔BD |
+| 5   | `./gradlew bootRun` contra dev                      | Flyway aplica la migración en tu BD dev                               |
 
 **Convención de nombres**: `V{n}__{verbo_objeto}.sql` en snake_case español — ej: `V3__agregar_estadio_a_equipos.sql`. Doble guion bajo (`__`) entre versión y descripción: obligatorio.
 
@@ -98,12 +98,12 @@ Cada fase puede ir en su propio deploy/release — así nunca tienes código Jav
 
 **Nada los toca.** Reglas que gobiernan tu BD dev desde H-05:
 
-| Situación | Comportamiento |
-|---|---|
-| Arrancas la app en dev | Flyway marca/aplica solo migraciones pendientes; tus filas quedan intactas |
-| Agregas una columna nullable | Los registros viejos quedan con `NULL` en ella (por eso la fase de backfill) |
-| Agregas una TABLA nueva | Se crea vacía; se llena por uso (o poblamiento CU-10) |
-| Re-ejecutas el poblamiento geográfico | Idempotente: no duplica países/ligas/equipos |
+| Situación                             | Comportamiento                                                               |
+| ------------------------------------- | ---------------------------------------------------------------------------- |
+| Arrancas la app en dev                | Flyway marca/aplica solo migraciones pendientes; tus filas quedan intactas   |
+| Agregas una columna nullable          | Los registros viejos quedan con `NULL` en ella (por eso la fase de backfill) |
+| Agregas una TABLA nueva               | Se crea vacía; se llena por uso (o poblamiento CU-10)                        |
+| Re-ejecutas el poblamiento geográfico | Idempotente: no duplica países/ligas/equipos                                 |
 
 Los registros que hoy tienes en dev (países de interés, ligas, plantillas con escudos, tareas programadas, usuarios) **siguen siendo válidos y operativos** después de cada migración bien escrita.
 
@@ -113,14 +113,14 @@ Los registros que hoy tienes en dev (países de interés, ligas, plantillas con 
 
 Concepto clave: **las migraciones transportan ESQUEMA, no datos de negocio.** El catálogo deportivo (países/ligas/equipos) se auto-pobla en producción con CU-10 desde las fuentes — no necesitas copiar esas filas. Lo que SÍ querrás preservar de dev son tus **configuraciones curadas**:
 
-| Tabla | ¿Llevarla a prod? | Por qué |
-|---|---|---|
-| `usuarios` | ✅ Sí (al menos el SUPERADMIN) | Sin él no entras al panel |
-| `paises_interes` | ✅ Sí — tus preferencias curadas | Evita reconfigurar "Mis preferidos" |
-| `fuentes_extraccion` | ✅ Sí — catálogo de fuentes registrado | CU-04/CU-11 lo necesitan |
-| `ligas` ACTIVAS + sus `detalle_fuentes_extraccion` (URLs pegadas a mano) | ✅ Sí — **horas de trabajo manual** | Cada URL la pegaste tú |
-| `equipos`/`posiciones`/`partidos`/`cuotas` | ❌ No — se regeneran sincronizando | Dato operativo, no configuración |
-| `tarea_log` | ❌ No | Histórico efímero |
+| Tabla                                                                    | ¿Llevarla a prod?                     | Por qué                             |
+| ------------------------------------------------------------------------ | ------------------------------------- | ----------------------------------- |
+| `usuarios`                                                               | ✅ Sí (al menos el SUPERADMIN)         | Sin él no entras al panel           |
+| `paises_interes`                                                         | ✅ Sí — tus preferencias curadas       | Evita reconfigurar "Mis preferidos" |
+| `fuentes_extraccion`                                                     | ✅ Sí — catálogo de fuentes registrado | CU-04/CU-11 lo necesitan            |
+| `ligas` ACTIVAS + sus `detalle_fuentes_extraccion` (URLs pegadas a mano) | ✅ Sí — **horas de trabajo manual**    | Cada URL la pegaste tú              |
+| `equipos`/`posiciones`/`partidos`/`cuotas`                               | ❌ No — se regeneran sincronizando     | Dato operativo, no configuración    |
+| `tarea_log`                                                              | ❌ No                                  | Histórico efímero                   |
 
 ### Procedimiento recomendado para producción
 
@@ -147,12 +147,12 @@ Notas importantes:
 
 ## 5. Errores comunes y cómo salir de ellos
 
-| Síntoma | Causa | Solución |
-|---|---|---|
-| Arranque falla: `Migration checksum mismatch for migration version X` | Editaste un `.sql` YA aplicado | Restaura el archivo a su contenido original y crea un `V(n+1)` con la corrección. (En dev desechable: `DELETE FROM flyway_schema_history WHERE version='X';` + `DROP` los objetos de esa migración y reaplica — solo si sabes lo que haces) |
-| Arranque falla: `Schema-validation: missing column [x]` | Tu Entity tiene un campo que ninguna migración crea | Crea la migración pendiente con el `ALTER TABLE ... ADD COLUMN` |
-| `Found non-empty schema without schema history table` | BD existente sin baseline | Ya cubierto con `baseline-on-migrate=true`; si creas una BD heredada nueva, aplica los mismos flags |
-| Mi test unitario de adapter duerme 250ms por llamada | Cortesía H-06 activa | En tests está deshabilitada (`app.fuentes.cortesia.enabled=false`); si construyes un adapter a mano en un test, usa `ServicioCortesia.passthrough()` |
+| Síntoma                                                               | Causa                                               | Solución                                                                                                                                                                                                                                    |
+| --------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Arranque falla: `Migration checksum mismatch for migration version X` | Editaste un `.sql` YA aplicado                      | Restaura el archivo a su contenido original y crea un `V(n+1)` con la corrección. (En dev desechable: `DELETE FROM flyway_schema_history WHERE version='X';` + `DROP` los objetos de esa migración y reaplica — solo si sabes lo que haces) |
+| Arranque falla: `Schema-validation: missing column [x]`               | Tu Entity tiene un campo que ninguna migración crea | Crea la migración pendiente con el `ALTER TABLE ... ADD COLUMN`                                                                                                                                                                             |
+| `Found non-empty schema without schema history table`                 | BD existente sin baseline                           | Ya cubierto con `baseline-on-migrate=true`; si creas una BD heredada nueva, aplica los mismos flags                                                                                                                                         |
+| Mi test unitario de adapter duerme 250ms por llamada                  | Cortesía H-06 activa                                | En tests está deshabilitada (`app.fuentes.cortesia.enabled=false`); si construyes un adapter a mano en un test, usa `ServicioCortesia.passthrough()`                                                                                        |
 
 ---
 
@@ -169,6 +169,20 @@ Notas importantes:
 
 
 ---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ## 7. 🎓 Tutorial guiado — practica el flujo completo
 

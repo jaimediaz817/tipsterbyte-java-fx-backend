@@ -173,6 +173,21 @@ para [beneficio/valor].
 
 ---
 
+## HU-12 — Poblamiento granular del catálogo (países y ligas por país)
+
+**Como** SUPERADMIN, **quiero** poblar el catálogo por pasos (primero países, luego ligas de un país concreto vía `isoAlpha2`), **para** entender y controlar cada etapa del flujo sin ejecutar el recorrido completo mundial.
+
+**Criterios de aceptación**:
+- AC1: `POST /api/v1/catalogo/poblar-paises` pobla **solo países** desde la fuente #1 (`ProveedorPaises`): persiste los nuevos por `isoAlpha2`, es idempotente, responde `200 OK` síncrono con `{totalPaises, nuevos}` y actualiza `GET /catalogo/estado`.
+- AC2: `POST /api/v1/catalogo/poblar-ligas/{isoAlpha2}` pobla **solo ligas de ese país** desde la fuente #5 (`ProveedorLigasPorPais` con `country_name` + `limit` derivado de `maxLigasPorPais`), crea `Liga` en `BORRADOR` + `Temporada` PLANIFICADA (`anio`) + `pais_id` FK; si el país es de interés, además puebla equipos vía `#6`.
+- AC3: `POST /poblar-ligas/{isoAlpha2}` es **async 202** (`executionId` + `urlEstado` `/api/v1/catalogo/activar/{executionId}` reutilizando el polling de FASE T3 - `TareaLog` RUNNING/SUCCESS/ERROR), con anti-solapamiento por país (dos corridas del mismo `isoAlpha2` → `409`).
+- AC4: Validación: `isoAlpha2` requerido (2 letras, case-insensitive, normalizado a upper); `404/422` si el país no existe en `paises` tras `poblar-paises`, o si la fuente #5 no devuelve ligas (no es error, `totalLigas=0`).
+- AC5: Requiere rol `SUPERADMIN` (403 resto), y `GET /catalogo/estado` refleja los conteos tras cada paso.
+
+**Trazabilidad**: → CU-17 `SincronizarPaisesUseCase` (sync) + CU-18 `SincronizarLigasPorPaisUseCase`/`SincronizarLigasPorPaisAsyncUseCase` (async) → `ProveedorPaises`/`ProveedorLigasPorPais`/`ProveedorEquiposPorLiga` + `PaisRepository` + `LigaRepository` + `PaisInteresRepository` + `CacheLecturas` + `TareaLogRepository`/`ProgresoPoblamiento`
+
+---
+
 ## Matriz de trazabilidad HU → CU → Puertos
 
 | HU | Caso de uso | Puertos |
@@ -188,3 +203,4 @@ para [beneficio/valor].
 | HU-09 | CU-09 | `SuscripcionRepository` |
 | HU-10 | CU-14 | `PaisInteresRepository`, `ProveedorPaises`, `CacheLecturas` |
 | HU-11 | CU-10 (encadenado) | `ProveedorEquiposPorLiga`, `LigaRepository`, `CacheLecturas` |
+| HU-12 | CU-17 (países sync) + CU-18 (ligas por país async) | `ProveedorPaises`, `ProveedorLigasPorPais`, `ProveedorEquiposPorLiga`, `PaisRepository`, `LigaRepository`, `PaisInteresRepository`, `CacheLecturas`, `TareaLogRepository` |

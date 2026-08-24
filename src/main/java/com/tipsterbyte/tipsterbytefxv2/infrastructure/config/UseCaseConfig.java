@@ -234,4 +234,36 @@ public class UseCaseConfig {
                                                              TokenEmisor tokenEmisor) {
         return new AutenticarUsuarioUseCase(usuarioRepository, passwordHasher, tokenEmisor);
     }
+
+    // [QUÉ]: Bean de CU-17 (HU-12 paso 1): poblar solo países, síncrono.
+    @Bean
+    public com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarPaisesUseCase sincronizarPaisesUseCase(
+            ProveedorPaises proveedorPaises,
+            PaisRepository paisRepository,
+            CacheLecturas cacheLecturas) {
+        return new com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarPaisesUseCase(
+                proveedorPaises, paisRepository, cacheLecturas);
+    }
+
+    // [QUÉ]: Bean de CU-18 sync (HU-12 paso 2): poblar ligas por país.
+    @Bean
+    public com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarLigasPorPaisUseCase sincronizarLigasPorPaisUseCase(
+            ProveedorLigasPorPais proveedorLigasPorPais,
+            com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarEquiposLigaUseCase sincronizarEquiposLigaUseCase,
+            PaisRepository paisRepository,
+            LigaRepository ligaRepository,
+            PaisInteresRepository paisInteresRepository) {
+        return new com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarLigasPorPaisUseCase(
+                proveedorLigasPorPais, sincronizarEquiposLigaUseCase,
+                paisRepository, ligaRepository, paisInteresRepository);
+    }
+
+    // [QUÉ]: Bean de CU-18 async (HU-12 paso 2 async): wrapper 202 + polling.
+    @Bean
+    public com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarLigasPorPaisAsyncUseCase sincronizarLigasPorPaisAsyncUseCase(
+            com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarLigasPorPaisUseCase delegado,
+            TareaLogRepository tareaLogRepository) {
+        return new com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarLigasPorPaisAsyncUseCase(
+                delegado, tareaLogRepository);
+    }
 }

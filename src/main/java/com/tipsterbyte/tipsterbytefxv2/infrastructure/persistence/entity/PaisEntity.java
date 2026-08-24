@@ -28,7 +28,8 @@ public class PaisEntity {
     private String nombre;
 
     // Clave natural de la fuente #1 (iso_alpha2) con unicidad para evitar duplicados.
-    @Column(name = "iso_alpha2", nullable = false, unique = true, length = 2)
+    // H-06 iso: GB-ENG/GB-SCT/GB-WLS/GB-NIR (6 chars) requieren >2.
+    @Column(name = "iso_alpha2", nullable = false, unique = true, length = 10)
     private String isoAlpha2;
 
     @Column(name = "continente", nullable = false, length = 40)

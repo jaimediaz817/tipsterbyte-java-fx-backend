@@ -61,14 +61,26 @@ class ConsultarEstadoCatalogoUseCaseTest {
     }
 
     @Test
-    void debe_devolver_vacio_si_faltan_paises_o_ligas() {
+    void debe_devolver_parcial_si_hay_paises_pero_no_ligas() {
         when(paisRepository.contar()).thenReturn(176L);
         when(ligaRepository.contar()).thenReturn(0L);
 
         CatalogoEstadoDto dto = casoDeUso.ejecutar();
 
-        assertEquals(EstadoCatalogo.VACIO, dto.estado());
+        assertEquals(EstadoCatalogo.PARCIAL, dto.estado());
         assertEquals(176, dto.totalPaises());
+        assertEquals(0, dto.totalLigas());
+    }
+
+    @Test
+    void debe_devolver_vacio_si_faltan_paises_o_ligas() {
+        when(paisRepository.contar()).thenReturn(0L);
+        when(ligaRepository.contar()).thenReturn(0L);
+
+        CatalogoEstadoDto dto = casoDeUso.ejecutar();
+
+        assertEquals(EstadoCatalogo.VACIO, dto.estado());
+        assertEquals(0, dto.totalPaises());
         assertEquals(0, dto.totalLigas());
     }
 }

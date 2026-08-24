@@ -377,6 +377,30 @@ Automatización
 - **Estado**: ✅ COMPLETADA — implementada con suite en verde (433 tests). Implementado tal al diseño: `SincronizarCatalogoAsyncUseCase` (hilos virtuales + RUNNING/SUCCESS/ERROR en `tarea_log` + anti-solapamiento), `POST /catalogo/activar` → `202` (`409` si en curso vía `PoblamientoEnCursoException`), `GET /catalogo/activar/{executionId}` con progreso por país (`ProgresoPoblamientoEnMemoria`). Nota infra: `tarea_log.tarea_programada_id` ahora nullable (ejecuciones manuales sin tarea asociada); parche aplicado a dev BD.
 > Nota de cierre: ver comunicado actualizado en `docs/frontend/comunicado-poblamiento-geografico.md` (secciones 3/4).
 
+### FASE HU-12 — Poblamiento granular (hibrido) ✅ (COMPLETADA)
+
+> **Contexto / [POR QUÉ]**: desglose del recorrido completo para el panel Geografía — el frontend tenía 2 botones (`geografia-panel.component.html:58` Poblar países, `:122` ⟳ por país) que fallaban con `No static resource api/v1/catalogo/poblar-paises` porque `CatalogoController` solo exponía `POST /activar`. HU-12 expone el flujo por pasos para conocimiento total del poblamiento sin ejecutar 176 países.
+
+**Domain**: sin cambios (reusa `Pais`/`Liga`/`Temporada`).
+
+**Application**:
+- CU-17 `SincronizarPaisesUseCase` (sync): `CacheClaves.paises()` invalidado + `ProveedorPaises` (#1) → `Pais` por `isoAlpha2` idempotente.
+- CU-18 `SincronizarLigasPorPaisUseCase` (sync por `isoAlpha2`): valida `isoAlpha2` (2 letras), exige `pais` existente (`422` si no), `ProveedorLigasPorPais` (#5 con `limit=maxLigasPorPais` si país de interés) + `.limit()` red de seguridad; crea `Liga` BORRADOR + `Temporada` PLANIFICADA + `pais_id` FK; si país de interés, `SincronizarEquiposLigaUseCase` (#6) tolerante por liga; `LigaRepository.buscarPorPais`.
+- Wrapper async `SincronizarLigasPorPaisAsyncUseCase`: hilos virtuales + `TareaLog` RUNNING/SUCCESS/ERROR + anti-solapamiento **por `isoAlpha2`** (`ConcurrentHashMap<String,AtomicBoolean>` → `409` solo mismo país, permite CO+AR en paralelo).
+
+**Infrastructure**: `LigaJpaRepository.findByPaisNombreIgnoreCase` + `LigaRepositoryJpaAdapter.buscarPorPais`.
+
+**Interfaces**: `CatalogoController` (`/api/v1/catalogo`):
+- `POST /poblar-paises` → `200 void` sync (176 filas, <2s, no polling)
+- `POST /poblar-ligas/{isoAlpha2}` → `202 {executionId,RUNNING,urlEstado}` async + polling `GET /activar/{executionId}` (reusa `TareaLog` de FASE T3)
+Roles `SUPERADMIN` (igual que `/activar`); `GlobalExceptionHandler` (`DomainException`→422, `PoblamientoEnCursoException`→409).
+
+**Configuración**: `UseCaseConfig` beans CU-17 + CU-18 sync/async.
+
+**Comunicado frontend**: `docs/frontend/comunicado-poblamiento-granular.md` (hibrido 200/202, tabla + guía UI por país, status codes).
+
+- **Estado**: ✅ COMPLETADA — `./gradlew test` en verde, `CatalogoControllerTest` actualizado.
+
 ---
 
 ## Orden de trabajo (regla de oro)

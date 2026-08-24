@@ -15,6 +15,8 @@ import com.tipsterbyte.tipsterbytefxv2.application.port.ProgresoPoblamiento;
 import com.tipsterbyte.tipsterbytefxv2.application.port.TareaLogRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.ConsultarEstadoCatalogoUseCase;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCatalogoAsyncUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarLigasPorPaisAsyncUseCase;
+import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarPaisesUseCase;
 import com.tipsterbyte.tipsterbytefxv2.domain.PoblamientoEnCursoException;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.EstadoCatalogo;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.TareaLog;
@@ -55,13 +57,20 @@ class CatalogoControllerTest {
     @Mock
     private ProgresoPoblamiento progresoPoblamiento;
 
+    @Mock
+    private SincronizarPaisesUseCase sincronizarPaisesUseCase;
+
+    @Mock
+    private SincronizarLigasPorPaisAsyncUseCase sincronizarLigasPorPaisAsyncUseCase;
+
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(new CatalogoController(
                         sincronizarCatalogoAsyncUseCase, consultarEstadoCatalogoUseCase,
-                        tareaLogRepository, progresoPoblamiento))
+                        tareaLogRepository, progresoPoblamiento,
+                        sincronizarPaisesUseCase, sincronizarLigasPorPaisAsyncUseCase))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -134,5 +143,32 @@ class CatalogoControllerTest {
                 .andExpect(jsonPath("$.estado").value("VACIO"))
                 .andExpect(jsonPath("$.totalPaises").value(0))
                 .andExpect(jsonPath("$.totalLigas").value(0));
+    }
+
+    // HU-12 granular: poblar-paises (200 sync)
+    @Test
+    void debe_poblar_paises_con_200() throws Exception {
+        mockMvc.perform(post("/api/v1/catalogo/poblar-paises"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void debe_poblar_ligas_por_pais_con_202() throws Exception {
+        when(sincronizarLigasPorPaisAsyncUseCase.ejecutarAsync("CO")).thenReturn(EXECUTION_ID);
+
+        mockMvc.perform(post("/api/v1/catalogo/poblar-ligas/{isoAlpha2}", "CO"))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.executionId").value(EXECUTION_ID))
+                .andExpect(jsonPath("$.estado").value("RUNNING"));
+    }
+
+    @Test
+    void debe_devolver_409_si_poblar_ligas_ya_en_curso_para_ese_iso() throws Exception {
+        when(sincronizarLigasPorPaisAsyncUseCase.ejecutarAsync("CO"))
+                .thenThrow(new PoblamientoEnCursoException("Ya hay un poblamiento en curso para el país CO"));
+
+        mockMvc.perform(post("/api/v1/catalogo/poblar-ligas/{isoAlpha2}", "CO"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409));
     }
 }

@@ -46,6 +46,10 @@ public interface LigaRepository {
     //            (VACIO/POBLADO) a partir de los conteos reales de datos.
     long contar();
 
+    // [QUÉ]: Recupera todas las ligas de un país (cualquier estado). Granular HU-12.
+    // [POR QUÉ]: CU-18 necesita el total por país para el resultado del poblamiento por iso.
+    List<Liga> buscarPorPais(String pais);
+
     // [QUÉ]: Persiste una liga (crea o actualiza según exista el id).
     void guardar(Liga liga);
 

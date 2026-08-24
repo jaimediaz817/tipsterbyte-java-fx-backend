@@ -157,6 +157,35 @@
 
 ---
 
+### CU-17 — Sincronizar países (granular, síncrono)
+
+**Actor**: SUPERADMIN.
+**Propósito**: paso 1 del poblamiento granular HU-12 — poblar solo el catálogo de países desde #1.
+**Flujo**:
+1. `cacheLecturas.eliminar(CacheClaves.paises())` (fuerza frescos para `/paises/disponibles`).
+2. `proveedorPaises.obtenerPaises()` → `PaisFuente`.
+3. Por cada fuente, `paisRepository.buscarPorIsoAlpha2` → si no existe, `new Pais(UUID, nombre, isoAlpha2, continente, code, href, mapeado)` + `guardar`.
+4. Idempotente, `200 OK` con `{totalPaises, nuevos}`.
+
+**Puertos**: `ProveedorPaises`, `PaisRepository`, `CacheLecturas`.
+
+### CU-18 — Sincronizar ligas por país (granular, async)
+
+**Actor**: SUPERADMIN.
+**Propósito**: paso 2 de HU-12 — poblar solo ligas (y equipos si país de interés) de un `isoAlpha2`.
+**Flujo sync** (`SincronizarLigasPorPaisUseCase.ejecutar(isoAlpha2)`):
+1. Normalizar `isoAlpha2` a upper, validar 2 letras; `paisRepository.buscarPorIsoAlpha2` → `422` si no existe (requiere `poblar-paises` previo).
+2. Resolver `maxLigasPorPais` desde `PaisInteresRepository` → `limiteFuente` (0 = sin tope).
+3. `proveedorLigasPorPais.obtenerLigasPorPais(pais.nombre(), limiteFuente)` → `LigaFuente`; aplicar `.limit(limiteFuente)` local como red de seguridad.
+4. Por cada `LigaFuente`: si `ligaRepository.buscarPorUrlSoccerway` vacío, crear `Liga(nombre, paisNombre, pais.id, urlSoccerway, apiId)` + `addTemporada(parsearTemporada(anio))`; si país es de interés, `sincronizarEquiposLigaUseCase.ejecutar(liga)` (tolerante a fallo por liga).
+5. `DomainException` por `anio` inválido → log WARN + continuar.
+
+**Wrapper async** (`SincronizarLigasPorPaisAsyncUseCase.ejecutarAsync(isoAlpha2)`): genera `executionId`, `TareaLog RUNNING`, lanza CU-18 en `ExecutorService` hilos virtuales, al terminar `SUCCESS/ERROR` con `duracionMs`; anti-solapamiento por `isoAlpha2` (`ConcurrentHashMap<String, AtomicBoolean>` → `409` si ya hay una de ese país).
+
+**Puertos**: `ProveedorLigasPorPais`, `ProveedorEquiposPorLiga`, `PaisRepository`, `LigaRepository`, `PaisInteresRepository`, `CacheLecturas`, `TareaLogRepository`, `ProgresoPoblamiento`.
+
+---
+
 ## Trazabilidad de puertos (ports) usados
 
 | Puerto | Dirección | Implementado por (FASE 8+) |

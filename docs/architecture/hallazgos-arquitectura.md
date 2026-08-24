@@ -3,7 +3,7 @@
 > [QUÉ]: Registro de hallazgos estructurales detectados tras el poblamiento geográfico con fuente #6 (equipos por liga, 426 tests en verde). Priorizados por criticidad con impacto, causa y recomendación. Base para planificar las próximas FASEs.
 > [POR QUÉ]: Tras convertir `Temporada` en el centro del modelo y encadenar #6 en CU-10, el flujo de poblamiento escala a cientos de ligas; varios supuestos del diseño inicial (activación manual por URL, poblamiento síncrono, ddl-auto) dejan de ser sostenibles y deben abordarse antes de FASE 17/19.
 > [RELACIONES]: Afecta CU-04, CU-10, CU-15, `Liga`/`Temporada`/`Equipo`, `LigaRepositoryJpaAdapter`, `CatalogoScheduler`, `SecurityConfig`, `docs/PROYECTO-PLAN.md` (FASE 15/17/19).
-> Estado: 🔄 EN EJECUCIÓN — H-01 ✅ parcial · H-02 ✅ · H-03 ✅ · H-04 ✅ (detección) · H-07 ✅ · Pendientes: H-05, H-06. Marcador al día con 443 tests en verde.
+> Estado: 🔄 EN EJECUCIÓN — H-01 ✅ parcial · H-02 ✅ · H-03 ✅ · H-04 ✅ (detección) · H-07 ✅ ✅ · Pendientes: H-05, H-06. Marcador al día con 443 tests en verde.
 
 ---
 
@@ -79,7 +79,7 @@ Al cierre de FASE T2 el sistema dispone de:
 
 ---
 
-## 🟡 MEDIA — H-07: Cache de equipos y su refresco programado ✅ (RESUELTO)
+## 🟡 MEDIA — H-07 ✅: Cache de equipos y su refresco programado ✅ (RESUELTO)
 > **Cierre**: `TipoFuenteExtraccion.EQUIPOS` + dispatch en scheduler + opción en `/disponibles`. Las plantillas ahora se refrescan automáticamente por tarea programada por liga.
 
 - [QUÉ]: `equipos` tiene TTL largo (30 días) e invalidación al inicio de cada poblamiento de esa liga. No existe tarea programable tipo EQUIPOS por liga (hoy solo entra vía tarea global o botón manual `POST /ligas/{id}/equipos/sincronizar`).
@@ -93,7 +93,7 @@ Al cierre de FASE T2 el sistema dispone de:
 
 1. ~~H-01 + H-02~~ ✅ resueltos.
 2. ~~H-03~~ ✅ resuelto.
-3. ~~H-07~~ ✅ resuelto.
+3. ~~H-07 ✅~~ ✅ resuelto.
 4. ~~H-04~~ ✅ resuelto (detección; fusión → FASE 17).
 5. ~~H-06~~ ✅ resuelto (pausa+backoff; breaker → FASE 16).
 6. ~~H-05~~ ✅ resuelto (Flyway completo con baseline).

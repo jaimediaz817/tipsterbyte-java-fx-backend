@@ -22,6 +22,7 @@ public final class Equipo {
     private final UUID id;
     private final String nombre;
     private final String logoUrl;
+    private final Integer fundacion;
 
     // [QUÉ]: Construye un equipo generando su identidad (sin escudo conocido).
     public Equipo(String nombre) {
@@ -33,12 +34,17 @@ public final class Equipo {
         this(UUID.randomUUID(), nombre, logoUrl);
     }
 
-    // [QUÉ]: Construye un equipo con identidad provista (reconstrucción desde persistencia).
+    // [QUÉ]: Construye un equipo con identidad provista (reconstrucción desde
+    // persistencia). Cadena de delegación: 2 args → 3 args → 4 args (el completo).
     public Equipo(UUID id, String nombre) {
         this(id, nombre, null);
     }
 
     public Equipo(UUID id, String nombre, String logoUrl) {
+        this(id, nombre, logoUrl, null);
+    }
+
+    public Equipo(UUID id, String nombre, String logoUrl, Integer fundacion) {
         if (id == null) {
             throw new DomainException("Equipo requiere id");
         }
@@ -48,6 +54,7 @@ public final class Equipo {
         this.id = id;
         this.nombre = nombre;
         this.logoUrl = logoUrl;
+        this.fundacion = fundacion;
     }
 
     public UUID id() {
@@ -62,11 +69,17 @@ public final class Equipo {
         return logoUrl;
     }
 
+    // [QUÉ]: Año de fundación del club (opcional; ejercicio tutorial H-05).
+    public Integer fundacion() {
+        return fundacion;
+    }
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof Equipo equipo)) return false;
+        if (this == o)
+            return true;
+        if (!(o instanceof Equipo equipo))
+            return false;
         return id.equals(equipo.id);
     }
 

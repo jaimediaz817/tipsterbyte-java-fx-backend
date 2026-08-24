@@ -26,7 +26,8 @@ public class PaisInteresEntity {
     private UUID id;
 
     // Clave natural de la fuente #1 con unicidad (una preferencia por país).
-    @Column(name = "iso_alpha2", nullable = false, unique = true, length = 2)
+    // GB-ENG etc: 6 chars, ampliar a 10 para no romper con dev/Testcontainers.
+    @Column(name = "iso_alpha2", nullable = false, unique = true, length = 10)
     private String isoAlpha2;
 
     @Column(name = "nombre", nullable = false, length = 100)

@@ -28,4 +28,7 @@ public interface LigaJpaRepository extends JpaRepository<LigaEntity, UUID> {
     List<LigaEntity> findByEstadoAndPaisNombreIgnoreCase(EstadoLiga estado, String pais);
 
     Optional<LigaEntity> findByUrlSoccerway(String urlSoccerway);
+
+    // [QUÉ]: Todas las ligas de un país (cualquier estado) — granular HU-12.
+    List<LigaEntity> findByPaisNombreIgnoreCase(String pais);
 }

@@ -30,14 +30,18 @@ public final class ConsultarEstadoCatalogoUseCase {
     }
 
     // [QUÉ]: Devuelve el estado del catálogo derivado de los conteos reales.
-    // [POR QUÉ]: POBLADO solo cuando hay países Y ligas; cualquier otro caso es VACIO
-    //            (aún no activado o población parcial de la fuente).
+    // [POR QUÉ]: Tres estados posibles: VACIO (sin países), PARCIAL (países sin ligas), POBLADO (países y ligas).
     public CatalogoEstadoDto ejecutar() {
         long totalPaises = paisRepository.contar();
         long totalLigas = ligaRepository.contar();
-        EstadoCatalogo estado = (totalPaises > 0 && totalLigas > 0)
-                ? EstadoCatalogo.POBLADO
-                : EstadoCatalogo.VACIO;
+        EstadoCatalogo estado;
+        if (totalPaises == 0) {
+            estado = EstadoCatalogo.VACIO;
+        } else if (totalLigas == 0) {
+            estado = EstadoCatalogo.PARCIAL;
+        } else {
+            estado = EstadoCatalogo.POBLADO;
+        }
         return new CatalogoEstadoDto(estado, (int) totalPaises, (int) totalLigas);
     }
 }

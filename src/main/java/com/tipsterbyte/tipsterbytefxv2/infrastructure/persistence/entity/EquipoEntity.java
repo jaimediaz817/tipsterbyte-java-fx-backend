@@ -38,6 +38,9 @@ public class EquipoEntity {
     @Column(name = "logo_url", length = 300)
     private String logoUrl;
 
+    @Column(name = "fundacion")
+    private Integer fundacion;
+
     // Temporada a la que pertenece la plantilla del equipo.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "temporada_id", nullable = false)
@@ -51,9 +54,18 @@ public class EquipoEntity {
     }
 
     public EquipoEntity(UUID id, String nombre, String logoUrl) {
+        this(id, nombre, logoUrl, null);
+    }
+
+    public EquipoEntity(UUID id, String nombre, String logoUrl, Integer fundacion) {
         this.id = id;
         this.nombre = nombre;
         this.logoUrl = logoUrl;
+        this.fundacion = fundacion;
+    }
+
+    public Integer getFundacion() {
+        return fundacion;
     }
 
     public void setTemporada(TemporadaEntity temporada) {
@@ -72,7 +84,6 @@ public class EquipoEntity {
         return logoUrl;
     }
 
-
     public TemporadaEntity getTemporada() {
         return temporada;
     }
@@ -80,4 +91,5 @@ public class EquipoEntity {
     public void setNombre(String nombre) {
         this.nombre = nombre;
     }
+
 }

@@ -92,6 +92,14 @@ public class LigaRepositoryJpaAdapter implements LigaRepository {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<Liga> buscarPorPais(String pais) {
+        return jpaRepository.findByPaisNombreIgnoreCase(pais).stream()
+                .map(this::toDominio)
+                .toList();
+    }
+
+    @Override
     @Transactional
     public void guardar(Liga liga) {
         LigaEntity entidad = toEntity(liga);
