@@ -17,6 +17,7 @@ package com.tipsterbyte.tipsterbytefxv2.interfaces.rest.controller;
 import com.tipsterbyte.tipsterbytefxv2.application.dto.ActualizarTareaProgramadaComando;
 import com.tipsterbyte.tipsterbytefxv2.application.dto.FuenteDisponible;
 import com.tipsterbyte.tipsterbytefxv2.application.dto.RegistrarTareaProgramadaComando;
+import com.tipsterbyte.tipsterbytefxv2.application.port.DetalleFuenteExtraccionRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.EstadoEjecucionTareas;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.GestionarTareasProgramasUseCase;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Frecuencia;
@@ -43,11 +44,14 @@ public class TareaProgramadaController {
 
     private final GestionarTareasProgramasUseCase gestionarTareasProgramasUseCase;
     private final ObjectProvider<EstadoEjecucionTareas> estadoEjecucionTareas;
+    private final DetalleFuenteExtraccionRepository detalleFuenteRepository;
 
     public TareaProgramadaController(GestionarTareasProgramasUseCase gestionarTareasProgramasUseCase,
-                                     ObjectProvider<EstadoEjecucionTareas> estadoEjecucionTareas) {
+                                     ObjectProvider<EstadoEjecucionTareas> estadoEjecucionTareas,
+                                     DetalleFuenteExtraccionRepository detalleFuenteRepository) {
         this.gestionarTareasProgramasUseCase = gestionarTareasProgramasUseCase;
         this.estadoEjecucionTareas = estadoEjecucionTareas;
+        this.detalleFuenteRepository = detalleFuenteRepository;
     }
 
     // DTOs de request (se parsean a comandos del caso de uso)
@@ -185,15 +189,33 @@ public class TareaProgramadaController {
     }
 
     // [QUÉ]: Respuesta enriquecida: primerDisparo (HU-14) + nextExecution respeta
-    //        primerDisparo si es futuro (no muestra antes del delay).
+    //        primerDisparo si es futuro (no muestra antes del delay) + fuenteActiva.
     private TareaProgramadaResponse aResponse(TareaProgramada tarea) {
         return new TareaProgramadaResponse(
                 tarea.id(), tarea.ligaId(),
                 gestionarTareasProgramasUseCase.obtenerNombreLiga(tarea.ligaId()),
                 tarea.tipoFuente(), tarea.prioridad(),
-                tarea.cronExpression(), tarea.activa(), tarea.createdAt(),
+                tarea.cronExpression(), tarea.activa(),
+                calcularFuenteActiva(tarea),
+                tarea.createdAt(),
                 tarea.primerDisparo() == null ? null : tarea.primerDisparo().toString(),
                 calcularProximaEjecucion(tarea.cronExpression(), tarea.primerDisparo()));
+    }
+
+    // [QUÉ]: Calcula si la fuente de la tarea tiene un detalle activo configurado.
+    // [POR QUÉ]: HU-14 — el frontend necesita pintar "fuente inactiva" cuando la tarea
+    //            no tiene un DetalleFuenteExtraccion activo asociado (ej: liga sin URL).
+    //            EQUIPOS no usa detalle (siempre true); tareas globales (tipoFuente=null) → true.
+    private boolean calcularFuenteActiva(TareaProgramada tarea) {
+        if (tarea.tipoFuente() == null || tarea.ligaId() == null) {
+            return true;
+        }
+        if (tarea.tipoFuente() == com.tipsterbyte.tipsterbytefxv2.domain.model.TipoFuenteExtraccion.EQUIPOS) {
+            return true;
+        }
+        return detalleFuenteRepository.buscarPorLigaYTipo(tarea.ligaId(), tarea.tipoFuente())
+                .filter(d -> d.activa())
+                .isPresent();
     }
 
     // [QUÉ]: Deriva la próxima ejecución del cron respetando primerDisparo.

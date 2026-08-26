@@ -11,6 +11,7 @@
 package com.tipsterbyte.tipsterbytefxv2.interfaces.rest.controller;
 
 import com.tipsterbyte.tipsterbytefxv2.application.dto.FuenteDisponible;
+import com.tipsterbyte.tipsterbytefxv2.application.port.DetalleFuenteExtraccionRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.EstadoEjecucionTareas;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.GestionarTareasProgramasUseCase;
 import com.tipsterbyte.tipsterbytefxv2.domain.DomainException;
@@ -55,6 +56,8 @@ class TareaProgramadaControllerTest {
     @Mock
     private ObjectProvider<EstadoEjecucionTareas> estadoEjecucionTareas;
     @Mock
+    private DetalleFuenteExtraccionRepository detalleFuenteRepository;
+    @Mock
     private EstadoEjecucionTareas estadoEjecucion;
 
     private MockMvc mockMvc;
@@ -62,7 +65,8 @@ class TareaProgramadaControllerTest {
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(
-                        new TareaProgramadaController(gestionarTareasProgramasUseCase, estadoEjecucionTareas))
+                        new TareaProgramadaController(gestionarTareasProgramasUseCase,
+                                estadoEjecucionTareas, detalleFuenteRepository))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }

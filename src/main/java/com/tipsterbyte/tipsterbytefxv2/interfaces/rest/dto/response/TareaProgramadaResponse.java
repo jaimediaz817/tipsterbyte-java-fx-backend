@@ -26,6 +26,7 @@ public record TareaProgramadaResponse(
         String prioridad,
         String cronExpression,
         boolean activa,
+        boolean fuenteActiva,
         String createdAt,
         String primerDisparo,
         String nextExecution) {
