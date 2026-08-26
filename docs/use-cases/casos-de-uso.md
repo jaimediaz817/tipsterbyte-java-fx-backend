@@ -19,6 +19,9 @@
 | CU-09 | Crear suscripción | Cliente | Suscripcion |
 | CU-10 | Sincronizar catálogo de países y ligas | Sistema (fuente) | Pais / Liga |
 | CU-11 | Gestionar fuentes de extracción | Administrador | FuenteExtraccion / DetalleFuenteExtraccion |
+| CU-23 | Gestionar estrategias de pronóstico | Tipster / Administrador | Estrategia |
+| CU-24 | Evaluar estrategia contra partidos | Sistema (post-sync) | PronosticoSugerido |
+| CU-25 | Consultar sugerencias de estrategia | Tipster / Administrador | PronosticoSugerido |
 
 ---
 
@@ -186,6 +189,57 @@
 
 ---
 
+### CU-23 — Gestionar estrategias de pronóstico
+
+**Actor**: Tipster (crea sus estrategias) / Administrador (gestiona todas).
+**Flujo**:
+1. Tipster crea una estrategia con nombre, mercado, método, maxPartidos, confianzaMinima, ligaIds y lista de criterios.
+2. Cada criterio se auto-describe: fuente, campo, operador, valor, referencia, peso, orden.
+3. Backend valida que cada criterio tenga combinación válida (fuente×campo×operador).
+4. Si el tipster ya tiene 10 estrategias activas, rechaza (409).
+5. CRUD completo: crear, listar, obtener, actualizar, eliminar.
+
+**Puertos**: `EstrategiaRepository` (nuevo), `LigaRepository` (reutiliza).
+
+---
+
+### CU-24 — Evaluar estrategia contra partidos
+
+**Actor**: Sistema (post-sync de cuotas/posiciones) o Tipaster (on-demand).
+**Flujo**:
+1. Recibe una estrategia y una liga (o todas las ligas configuradas).
+2. Para cada partido PROGRAMADO de la liga:
+   a. Para cada criterio (ordenado por `orden`): resuelve la fuente (cuotas, posiciones, forma), evalúa la condición, retorna `SenalCriterio(pass, valorObservado, peso)`.
+   b. Calcula `score = Σ(peso * valor) / Σ(pesos)` (0..1).
+   c. Si `score >= confianzaMinima`, crea `PronosticoSugerido(estrategiaId, partidoId, score, confianza, criteriosCumplidos, criteriosFallidos)`.
+3. Devuelve los pronósticos sugeridos ordenados por score descendente.
+
+**Evaluadores de criterio** (por tipo):
+- `CUOTAComparativa`: lee cuota más reciente del partido, compara contra umbral.
+- `CUOTACruzada`: compara cuotas LOCAL vs VISITANTE.
+- `POSICION_DIFERENCIA`: calcula diferencia de posiciones en la tabla.
+- `REGULARIDAD`: analiza `PosicionTabla.ultimosResultados` (G/E/P).
+- `HERIDO`: detecta 2+ derrotas/empates consecutivos.
+- `ZONA_DESCENSO`: verifica `posicion >= zonaDescenso.posicionDescenso`.
+- `LOCALIA`: combina localía + condición.
+- `REACCION_DESCENSO`: compuesto: `en_zona_descenso AND racha_perdidas >= 2`.
+
+**Puertos**: `EstrategiaRepository`, `PartidoRepository`, `CuotaHistorialRepository`, `LigaRepository`, `ZonaDescensoRepository` (nuevos).
+
+---
+
+### CU-25 — Consultar sugerencias de estrategia
+
+**Actor**: Tipster / Administrador.
+**Flujo**:
+1. `GET /api/v1/estrategias/{id}/sugerencias` → lista de `PronosticoSugerido` con: partido (equipos, fecha), score, confianza, criterios que pasaron/fallaron.
+2. Filtros: `?ligaId=`, `?confianzaMinima=`.
+3. Solo estrategias del tipster autenticado (o todas si SUPERADMIN).
+
+**Puertos**: `EstrategiaRepository`, `PronosticoSugeridoRepository` (nuevo).
+
+---
+
 ## Trazabilidad de puertos (ports) usados
 
 | Puerto | Dirección | Implementado por (FASE 8+) |
@@ -200,3 +254,8 @@
 | `ProveedorPosiciones` | Salida externa | FlashscorePosicionesAdapter (fuente `#3`) |
 | `ProveedorCalendario` | Salida externa | SoccerwayCalendarioAdapter (fuente `#4`) |
 | `ProveedorCuotas` | Salida externa | WplayCuotasAdapter (fuente `#2`) |
+| `ProveedorPartidosProximosWplay` | Salida externa | WplayCuotasAdapter (fuente `#2`) |
+| `EstrategiaRepository` | Persistencia | Adapter JPA (HU-16) |
+| `ZonaDescensoRepository` | Persistencia | Adapter JPA (HU-16) |
+| `SenalPartidoRepository` | Persistencia | Adapter JPA (HU-16, fase 2) |
+| `PronosticoSugeridoRepository` | Persistencia | Adapter JPA (HU-16) |

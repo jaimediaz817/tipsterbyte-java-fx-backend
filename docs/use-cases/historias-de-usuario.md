@@ -22,7 +22,7 @@ para [beneficio/valor].
 | --- | --- |
 | Ingesta de datos deportivos | HU-01 a HU-04 |
 | Gestión de partidos | HU-05 |
-| Pronósticos | HU-06 a HU-08 |
+| Pronósticos | HU-06 a HU-08, HU-16 |
 | Suscripciones | HU-09 |
 | Orquestación de extracción (Robots) | HU-13 |
 | Programación de extracciones | HU-14, HU-15 |
@@ -309,3 +309,75 @@ para [beneficio/valor].
 | HU-13 | CU-19 (orquestador robots) + CU-20 (estado para panel) | `SemafaroExtraccion` + `RegistroEstadoRobots` (nuevos, adapters en memoria), reutiliza `TareaProgramadaRepository`, `CatalogoScheduler`, `ProveedorCuotas`, `ProveedorPosiciones`, `ProveedorCalendario`, `TareaLogRepository` |
 | HU-14 | CU-15 extendido (primerDisparo, filtro liga) + CU-03 extendido (ingestión Wplay, resolutor multi-fuente, historial) + CatalogoScheduler (elegibilidad por detalle activo) | `ProveedorCuotas`, `PartidoRepository`, `DetalleFuenteExtraccionRepository`, `TareaProgramadaRepository`, `TareaLogRepository`, `CuotaHistorialRepository` (nuevo) |
 | HU-15 | CU-21 (snapshot cuotas + volatilidad) + CU-22 (historial por hora) | `CuotaHistorialRepository` (creado en HU-14), `LigaRepository` |
+| HU-16 | CU-23 (gestionar estrategias) + CU-24 (evaluar estrategia) + CU-25 (consultar sugerencias) | `EstrategiaRepository`, `SenalPartidoRepository`, `ZonaDescensoRepository` (nuevos), reutiliza `PartidoRepository`, `CuotaHistorialRepository`, `LigaRepository` |
+
+---
+
+## HU-16 — Estrategias de pronóstico con criterios dinámicos y zona de descenso
+
+> **Contexto**: hoy el pronóstico es manual: el tipster revisa cuotas, posiciones y forma, y decide. HU-16 automatiza ese proceso con un motor de criterios configurable. Cada **estrategia** define una receta de criterios que se evalúan contra cada partido programado; los que pasan generan **pronósticos sugeridos** con un score de confianza. Se complementa con la configuración de **zona de descenso por liga** (posición que determina descenso, varía por torneo) y el patrón de **reacción del equipo herido** (equipos en zona de descenso con mala racha suelen ganar el siguiente partido).
+
+**Como** TIPSTER, **quiero** definir estrategias con criterios dinámicos (cuotas, posiciones, forma, zona de descenso) para que el sistema filtre y puntué automáticamente los mejores partidos para mis pronósticos, **para** ahorrar tiempo de análisis y mejorar la calidad de mis predicciones.
+
+**Criterios de aceptación**:
+
+### Dominio — Estrategia y Criterios
+
+- AC1 — **Estrategia aggregate**: `Estrategia` es una entity (id UUID, nombre, tipsterId, `Mercado`, método, maxPartidos, activa, createdAt). Compone una lista de `Criterio` (embeddable, no entity independiente). Un tipster puede tener múltiples estrategias; solo las activas se evalúan.
+- AC2 — **Criterio modelado**: cada `Criterio` se auto-describe con 7 campos:
+  - `fuente`: de dónde viene el dato (`CUOTAS`, `POSICIONES`, `FORMA`, `ZONA_DESCENSO`).
+  - `campo`: qué campo se evalúa (ej: `cuota_1x`, `cuota_local`, `diferencia_posiciones`, `ultimos_5`, `en_zona_descenso`, `racha_perdidas`).
+  - `operador`: comparación (`>=`, `<=`, `==`, `>`, `<`, `CONTIENE`, `NO_CONTIENE`).
+  - `valor`: umbral (String genérico; el evaluador parsea según el campo: `"1.40"` para cuotas, `"3"` para posiciones, `"G,E,G"` para forma).
+  - `referencia`: sobre qué equipo aplica (`LOCAL`, `VISITANTE`, `AMBOS`).
+  - `peso`: importancia del criterio en el score final (BigDecimal 0..1, default 0.25).
+  - `orden`: evaluación secuencial (Integer, para criterios con dependencia).
+- AC3 — **Tipos de criterio soportados** (cada uno tiene su evaluador):
+  - `CUOTAComparativa`: compara una cuota contra un umbral (ej: `cuota_1x >= 1.40` para LOCAL). Fuentes: cuotas más recientes del partido.
+  - `CUOTACruzada`: compara cuotas entre equipos (ej: `cuota_1x_LOCAL < cuota_1x_VISITANTE`). El LOCAL es más favorito.
+  - `POSICION_DIFERENCIA`: diferencia de posiciones en la tabla (ej: `LOCAL.pos - VISITANTE.pos >= 3`). Fuente: posiciones de la temporada vigente.
+  - `REGULARIDAD`: analiza patrón de últimos 5 resultados (ej: `LOCAL: max 1 P en últimos 5`). Calculado desde `PosicionTabla.ultimosResultados`.
+  - `HERIDO`: detecta racha negativa (ej: `VISITANTE: sin 2+ P seguidas`). Un equipo "herido" está en zona de descenso O con 2+ derrotas/empates consecutivos.
+  - `ZONA_DESCENSO`: verifica si un equipo está en la zona de descenso configurada para esa liga (ej: `VISITANTE.en_zona_descenso == true`). Requiere `ZonaDescenso` configurado.
+  - `LOCALIA`: combina localía con condición (ej: `LOCAL.es_local AND LOCAL.posicion <= 5`).
+  - `REACCION_DESCENSO`: detecta el patrón "equipo herido reacciona" — equipo en zona de descenso con mala racha que tiende a ganar el siguiente (señal compuesta: `en_zona_descenso AND racha_perdidas >= 2`). Peso alto por ser señal de alta confianza.
+
+### Zona de descenso por liga
+
+- AC4 — **Configuración por temporada**: `ZonaDescenso` es una entity (id UUID, temporadaId, posicionDescenso Integer, descripcion String nullable). La posición varía por liga: en algunas ligas desciende el último, en otras los 2 últimos, en otras los 3 últimos. Se configura por temporada (no por liga genérica) porque puede cambiar entre ediciones.
+- AC5 — **CRUD de zona de descenso**: `POST/GET/PUT /api/v1/temporadas/{temporadaId}/zona-descenso`. GET devuelve `{posicionDescenso, descripcion}`. PUT actualiza la posición. Solo SUPERADMIN puede configurar. Si no hay zona configurada para una liga, los criterios `ZONA_DESCENSO` y `REACCION_DESCENSO` retornan `SIN_DATOS` (no fallan, solo no contribuyen al score).
+- AC6 — **Cálculo de `en_zona_descenso`**: un equipo está "en zona de descenso" si su `PosicionTabla.posicion >= zonaDescenso.posicionDescenso` (ej: si `posicionDescenso=17`, los equipos en posición 17, 18, 19, 20 están en zona). Se calcula en tiempo de evaluación de la estrategia, no pre-computado.
+
+### Motor de evaluación
+
+- AC7 — **Evaluación por partido**: `EvaluarEstrategiaUseCase` recibe una estrategia y un partido programado. Para cada criterio (ordenado por `orden`): resuelve la fuente de datos, evalúa la condición, retorna `SenalCriterio(criterio, pass, valorObservado, peso)`. Si todos los criterios pasan, calcula el score.
+- AC8 — **Cálculo de score**: `score = Σ(senal.peso * senal.valor) / Σ(pesos)`. Donde `valor = 1.0 si pass, 0.0 si fail`. El score queda entre 0 y 1. La estrategia tiene un `confianzaMinima` (BigDecimal 0..1); solo los partidos con `score >= confianzaMinima` se consideran.
+- AC9 — **Señales pre-computadas (opcional, fase 2)**: para no evaluar criterios en tiempo real contra cada partido, se puede crear una tabla `senal_partido` (partidoId, fuente, campo, valor, calculadaEn) que se llena después de cada sincronización (CU-01 posiciones, CU-03 cuotas). La evaluación de la estrategia lee señales ya computadas. Implementación: migración V12, puerto `SenalPartidoRepository`, servicio `CalculadoraSeñales` que se ejecuta post-sync.
+- AC10 — **Evaluación automática post-sync**: el `CatalogoScheduler`, después de ejecutar CU-01 (posiciones) o CU-03 (cuotas) para una liga, evalúa todas las estrategias activas contra los partidos programados de esa liga. Los partidos que pasan el umbral se guardan como `PronosticoSugerido` (entity nueva: estrategiaId, partidoId, score, confianza, criteriosCumplidos, criteriosFallidos, createdAt).
+- AC11 — **Filtro de ligas**: cada estrategia tiene una lista de `ligaIds` (nullable; null = todas las ligas activas). Solo se evalúa contra partidos de las ligas configuradas.
+
+### REST API
+
+- AC12 — **CRUD de estrategias** (roles TIPSTER/SUPERADMIN):
+  - `POST /api/v1/estrategias` → 201, crea estrategia con criterios.
+  - `GET /api/v1/estrategias` → lista estrategias del tipster autenticado (o todas si SUPERADMIN).
+  - `GET /api/v1/estrategias/{id}` → detalle con criterios.
+  - `PUT /api/v1/estrategias/{id}` → actualiza criterios/config.
+  - `DELETE /api/v1/estrategias/{id}` → elimina.
+  - `POST /api/v1/estrategias/{id}/evaluar` → evaluación on-demand de todos los partidos programados de las ligas configuradas.
+- AC13 — **Pronósticos sugeridos**: `GET /api/v1/estrategias/{id}/sugerencias` → partidos sugeridos con score, confianza, criterios que pasaron/fallaron. Filtros: `?ligaId=`, `?confianzaMinima=`.
+- AC14 — **Tipos de criterio disponibles**: `GET /api/v1/estrategias/criterios/tipos` → catálogo de tipos de criterio soportados (fuente, campo, operador, valorEjemplo) para que el frontend construya el formulario dinámico.
+
+### Particularidades del mercado doble oportunidad
+
+- AC15 — **Criterios específicos DOBLE_OPORTUNIDAD**: la estrategia puede filtrar por tipo de doble oportunidad (1X, 12, 2X). Ejemplo: "solo partidos donde la cuota 1X >= 1.40 Y la cuota local >= 1.50". El mercado `DOBLE_OPORTUNIDAD` tiene 3 selecciones (1X, 12, 2X); el criterio `CUOTAComparativa` acepta un parámetro `seleccion` para indicar cuál evaluar.
+- AC16 — **Scoring DOBLE_OPORTUNIDAD**: cuando la estrategia es de mercado DOBLE_OPORTUNIDAD, el score se calcula igual (criterios ponderados), pero se agrega un bonus factor si el criterio `REACCION_DESCENSO` passa (el patrón "herido reacciona" es más fuerte en doble oportunidad porque el empate también cubre).
+
+### Validaciones
+
+- AC17 — **Validación de criterios**: al crear/actualizar una estrategia, el backend valida que cada criterio tenga una combinación válida de (fuente, campo, operador). Ej: `CUOTAS` no puede usar campo `diferencia_posiciones`; `POSICIONES` no puede usar campo `cuota_1x`. Error 400 con detalle del criterio inválido.
+- AC18 — **Un tipster no puede tener >10 estrategias activas** (límite razonable para no saturar el scheduler). Error 409 si se excede.
+
+**Fuera de alcance (fases futuras)**: backtesting contra históricos, ML/predicción con modelos, criterios anidados (criterio dentro de criterio), alertas/push de pronósticos, parlay automático con stake, integración con casas de apuestas para ejecución.
+
+**Trazabilidad**: → CU-23 `GestionarEstrategiasUseCase` (CRUD) + CU-24 `EvaluarEstrategiaUseCase` (evaluación) + CU-25 `ConsultarSugerenciasUseCase` (lectura) → puertos: `EstrategiaRepository`, `SenalPartidoRepository` (nuevos), reutiliza `PartidoRepository`, `CuotaHistorialRepository`, `PosicionTablaRepository` (vía LigaRepository) + `ZonaDescensoRepository` (nuevo) → migraciones V12 (estrategias, criterios, zona_descenso, senal_partido, pronostico_sugerido).
