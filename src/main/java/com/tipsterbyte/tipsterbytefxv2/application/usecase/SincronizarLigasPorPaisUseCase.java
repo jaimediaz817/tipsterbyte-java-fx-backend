@@ -70,7 +70,10 @@ public final class SincronizarLigasPorPaisUseCase {
                 : null;
         int limiteFuente = (maxLigas != null && maxLigas > 0) ? maxLigas : 0;
 
+        System.out.println("[CU-18] >>> ANTES de llamar fuente #5: pais='" + pais.nombre() + "' limite=" + limiteFuente + " esDeInteres=" + esDeInteres + " (thread=" + Thread.currentThread() + ")");
+        long t0 = System.currentTimeMillis();
         List<LigaFuente> ligasFuente = proveedorLigasPorPais.obtenerLigasPorPais(pais.nombre(), limiteFuente);
+        System.out.println("[CU-18] <<< DESPUES de fuente #5: recibidas=" + ligasFuente.size() + " ligas en " + (System.currentTimeMillis() - t0) + " ms");
         if (limiteFuente > 0) {
             ligasFuente = ligasFuente.stream().limit(limiteFuente).toList();
         }
@@ -110,16 +113,31 @@ public final class SincronizarLigasPorPaisUseCase {
     }
 
     private Temporada parsearTemporada(String anio, UUID ligaId) {
-        if (anio == null || anio.isBlank() || !anio.contains("/")) {
+        if (anio == null || anio.isBlank()) {
             throw new DomainException("Liga de catálogo sin temporada válida (anio): " + anio);
         }
-        String[] partes = anio.split("/");
-        try {
-            return new Temporada(ligaId, anio.trim(), null,
-                    Integer.parseInt(partes[0].trim()), Integer.parseInt(partes[1].trim()),
-                    EstadoTemporada.PLANIFICADA);
-        } catch (NumberFormatException e) {
-            throw new DomainException("Liga de catálogo con anio inválido: " + anio, e);
+        // Acepta ambos formatos: "YYYY/YYYY" o solo "YYYY"
+        if (anio.contains("/")) {
+            String[] partes = anio.split("/");
+            try {
+                return new Temporada(ligaId, anio.trim(), null,
+                        Integer.parseInt(partes[0].trim()), Integer.parseInt(partes[1].trim()),
+                        EstadoTemporada.PLANIFICADA);
+            } catch (NumberFormatException e) {
+                throw new DomainException("Liga de catálogo con anio inválido: " + anio, e);
+            }
+        } else {
+            // Formato solo año: asumimos que es el año de inicio de la temporada
+            // (ej: "2026" -> temporada 2026/2027)
+            String anioLimpio = anio.trim();
+            try {
+                int anioInicio = Integer.parseInt(anioLimpio);
+                return new Temporada(ligaId, anioLimpio + "/" + (anioInicio + 1), null,
+                        anioInicio, anioInicio + 1,
+                        EstadoTemporada.PLANIFICADA);
+            } catch (NumberFormatException e) {
+                throw new DomainException("Liga de catálogo con anio inválido: " + anio, e);
+            }
         }
     }
 }

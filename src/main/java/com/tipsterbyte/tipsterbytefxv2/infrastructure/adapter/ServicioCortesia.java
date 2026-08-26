@@ -59,9 +59,14 @@ public class ServicioCortesia {
         for (int intento = 0; intento < intentosTotales; intento++) {
             dormir(pausaMs);
             try {
-                return llamada.get();
+                long inicio = System.currentTimeMillis();
+                System.out.println("[CORTESIA] >>> intento " + (intento + 1) + "/" + intentosTotales + " ENVIADO a la fuente (thread=" + Thread.currentThread() + ")");
+                T resultado = llamada.get();
+                System.out.println("[CORTESIA] <<< intento " + (intento + 1) + "/" + intentosTotales + " RESPONDIO OK en " + (System.currentTimeMillis() - inicio) + " ms");
+                return resultado;
             } catch (RuntimeException ex) {
                 ultimoError = ex;
+                System.out.println("[CORTESIA] !!! intento " + (intento + 1) + "/" + intentosTotales + " FALLO: " + ex.getClass().getSimpleName() + ": " + ex.getMessage());
                 if (intento < reintentos) {
                     dormir(backoffMs * (1L << intento)); // backoff exponencial: 1x, 2x, 4x...
                 }

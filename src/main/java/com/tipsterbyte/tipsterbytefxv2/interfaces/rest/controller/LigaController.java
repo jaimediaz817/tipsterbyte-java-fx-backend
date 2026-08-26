@@ -221,13 +221,20 @@ public class LigaController {
     //        plantilla de equipos de la liga desde la fuente #6 (CU-16).
     // [POR QUÉ]: Botón "Poblar equipos" de la pantalla "Países de interés → Ligas de mis
     //            países": repara plantillas vacías/incompletas (ej: scraper caído durante
-    //            el poblamiento) sin re-ejecutar el catálogo mundial. Idempotente.
+    //            el poblamiento) sin re-ejecutar el catálogo mundial. HU-FRONT-05: si la
+    //            plantilla ya tiene equipos y no se envía ?forzar=true, responde en
+    //            milisegundos con los conteos actuales SIN re-scrapear Python (la BD es
+    //            fuente de verdad del catálogo; ?forzar=true fuerza refresh de escudos).
+    //            Anti-solapamiento server-side por liga → 409 (PoblamientoEnCursoException).
     // [RELACIONES]: CU-16 → ProveedorEquiposPorLiga (#6, cache Redis). Roles SUPERADMIN/TIPSTER.
     @PostMapping("/{ligaId}/equipos/sincronizar")
-    public ResponseEntity<EquiposSincronizadosResponse> sincronizarEquipos(@PathVariable UUID ligaId) {
-        var resultado = sincronizarEquiposLigaUseCase.ejecutar(ligaId);
+    public ResponseEntity<EquiposSincronizadosResponse> sincronizarEquipos(
+            @PathVariable UUID ligaId,
+            @org.springframework.web.bind.annotation.RequestParam(name = "forzar", defaultValue = "false") boolean forzar) {
+        var resultado = sincronizarEquiposLigaUseCase.ejecutar(ligaId, forzar);
         return ResponseEntity.ok(new EquiposSincronizadosResponse(
-                resultado.creados(), resultado.actualizados(), resultado.totalPlantilla()));
+                resultado.creados(), resultado.actualizados(), resultado.totalPlantilla(),
+                resultado.desdePlantillaExistente()));
     }
 
     // [QUÉ]: Endpoint GET /api/v1/ligas/{ligaId}/jornada-actual — jornada actual de la
