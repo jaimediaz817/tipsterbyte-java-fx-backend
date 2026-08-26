@@ -40,9 +40,9 @@ class TareaLogRepositoryJpaAdapterTest extends AbstractRepositoryJpaAdapterTest 
     void debe_guardar_y_recuperar_logs_de_una_tarea_ordenados_descendente() {
         UUID tareaId = UUID.randomUUID();
         tareaLogRepository.guardar(new TareaLog(UUID.randomUUID(), tareaId, "exec-1",
-                Instant.parse("2026-01-01T10:00:00Z"), "SUCCESS", 150L, null, "ok"));
+                Instant.parse("2026-01-01T10:00:00Z"), "SUCCESS", 150L, null, "ok", null));
         tareaLogRepository.guardar(new TareaLog(UUID.randomUUID(), tareaId, "exec-2",
-                Instant.parse("2026-01-01T11:00:00Z"), "ERROR", 90L, "RuntimeException", "fallo"));
+                Instant.parse("2026-01-01T11:00:00Z"), "ERROR", 90L, "RuntimeException", "fallo", null));
 
         List<TareaLog> logs = tareaLogRepository.buscarPorTareaProgramadaId(tareaId);
 
@@ -64,11 +64,11 @@ class TareaLogRepositoryJpaAdapterTest extends AbstractRepositoryJpaAdapterTest 
     @Test
     void debe_listar_las_ultimas_ejecuciones_globales_limitadas() {
         tareaLogRepository.guardar(new TareaLog(UUID.randomUUID(), UUID.randomUUID(), "exec-1",
-                Instant.parse("2026-01-01T10:00:00Z"), "SUCCESS", 150L, null, "ok"));
+                Instant.parse("2026-01-01T10:00:00Z"), "SUCCESS", 150L, null, "ok", null));
         tareaLogRepository.guardar(new TareaLog(UUID.randomUUID(), UUID.randomUUID(), "exec-2",
-                Instant.parse("2026-01-01T11:00:00Z"), "ERROR", 90L, "RuntimeException", "fallo"));
+                Instant.parse("2026-01-01T11:00:00Z"), "ERROR", 90L, "RuntimeException", "fallo", null));
         tareaLogRepository.guardar(new TareaLog(UUID.randomUUID(), UUID.randomUUID(), "exec-3",
-                Instant.parse("2026-01-01T12:00:00Z"), "SUCCESS", 200L, null, "ok"));
+                Instant.parse("2026-01-01T12:00:00Z"), "SUCCESS", 200L, null, "ok", null));
 
         List<TareaLog> ultimas = tareaLogRepository.listarUltimas(2);
 

@@ -30,8 +30,10 @@ import org.springframework.scheduling.support.CronExpression;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
+import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -56,6 +58,7 @@ public class TareaProgramadaController {
         public String cron;
         public FrecuenciaRequest frecuencia;
         public Boolean activa;
+        public String primerDisparo;
     }
 
     public static class ActualizarTareaProgramadaRequest {
@@ -63,6 +66,7 @@ public class TareaProgramadaController {
         public FrecuenciaRequest frecuencia;
         public Boolean activa;
         public String prioridad;
+        public String primerDisparo;
     }
 
     public static class FrecuenciaRequest {
@@ -114,6 +118,7 @@ public class TareaProgramadaController {
     }
 
     // [QUÉ]: Crea una tarea con cron crudo o frecuencia amigable (default diario 00:00).
+    //        HU-14 AC1: acepta primerDisparo (ISO-8601) para postergar primera ejecución.
     @PostMapping
     public ResponseEntity<TareaProgramadaResponse> registrar(@RequestBody RegistrarTareaProgramadaRequest request) {
         RegistrarTareaProgramadaComando comando = new RegistrarTareaProgramadaComando(
@@ -122,14 +127,16 @@ public class TareaProgramadaController {
                 request.prioridad,
                 request.cron,
                 aFrecuencia(request.frecuencia),
-                request.activa);
+                request.activa,
+                aInstant(request.primerDisparo));
         TareaProgramada tarea = gestionarTareasProgramasUseCase.registrar(comando);
         return ResponseEntity.created(URI.create("/api/v1/tareas-programadas/" + tarea.id()))
                 .body(aResponse(tarea));
     }
 
-    // [QUÉ]: Actualiza cron/frecuencia, estado (pausar/reanudar) y/o prioridad. Devuelve
-    //        la tarea actualizada para que el frontend refresque sin otro GET.
+    // [QUÉ]: Actualiza cron/frecuencia, estado (pausar/reanudar), prioridad y/o
+    //        primerDisparo. Devuelve la tarea actualizada para que el frontend refresque
+    //        sin otro GET. HU-14 AC3: enviar primerDisparo=null limpia el delay.
     @PutMapping("/{id}")
     public ResponseEntity<TareaProgramadaResponse> actualizar(@PathVariable UUID id,
                                                               @RequestBody ActualizarTareaProgramadaRequest request) {
@@ -137,7 +144,8 @@ public class TareaProgramadaController {
                 request.cron,
                 aFrecuencia(request.frecuencia),
                 request.activa,
-                request.prioridad);
+                request.prioridad,
+                aInstant(request.primerDisparo));
         return ResponseEntity.ok(aResponse(gestionarTareasProgramasUseCase.actualizar(id, comando)));
     }
 
@@ -148,24 +156,60 @@ public class TareaProgramadaController {
         return ResponseEntity.noContent().build();
     }
 
+    // [QUÉ]: HU-14 AC8 — pausa/reanudación MASIVA de todas las tareas de una liga.
+    //        PUT /tareas-programadas/liga/{ligaId}/estado con {"activa": false|true}.
+    //        Respuesta 200 con detalle por fuente; 404 si la liga no tiene tareas.
+    @PutMapping("/liga/{ligaId}/estado")
+    public ResponseEntity<Map<String, Object>> cambiarEstadoLiga(
+            @PathVariable UUID ligaId,
+            @RequestBody CambiarEstadoLigaRequest request) {
+        List<TareaProgramada> modificadas = gestionarTareasProgramasUseCase
+                .cambiarEstadoPorLiga(ligaId, request.activa);
+        java.util.List<Map<String, Object>> tareas = new java.util.ArrayList<>();
+        for (TareaProgramada t : modificadas) {
+            tareas.add(Map.of("tipoFuente", t.tipoFuente().name(), "activa", t.activa()));
+        }
+        return ResponseEntity.ok(Map.of(
+                "ligaId", ligaId.toString(),
+                "activa", request.activa,
+                "tareas", tareas));
+    }
+
+    public static class CambiarEstadoLigaRequest {
+        public Boolean activa;
+    }
+
+    // [QUÉ]: Respuesta enriquecida: primerDisparo (HU-14) + nextExecution respeta
+    //        primerDisparo si es futuro (no muestra antes del delay).
     private TareaProgramadaResponse aResponse(TareaProgramada tarea) {
         return new TareaProgramadaResponse(
                 tarea.id(), tarea.ligaId(),
                 gestionarTareasProgramasUseCase.obtenerNombreLiga(tarea.ligaId()),
                 tarea.tipoFuente(), tarea.prioridad(),
                 tarea.cronExpression(), tarea.activa(), tarea.createdAt(),
-                calcularProximaEjecucion(tarea.cronExpression()));
+                tarea.primerDisparo() == null ? null : tarea.primerDisparo().toString(),
+                calcularProximaEjecucion(tarea.cronExpression(), tarea.primerDisparo()));
     }
 
-    // [QUÉ]: Deriva la próxima ejecución del cron (misma librería del scheduler).
-    // [POR QUÉ]: null si la tarea está pausada, el cron es inválido o no volverá a disparar.
-    private String calcularProximaEjecucion(String cron) {
+    // [QUÉ]: Deriva la próxima ejecución del cron respetando primerDisparo.
+    // [POR QUÉ]: Si primerDisparo es futuro, la primera ejecución es ese instante
+    //            (no la próxima del cron que podría ser antes). Si primerDisparo es
+    //            null o pasado, usa el cron normal.
+    private String calcularProximaEjecucion(String cron, Instant primerDisparo) {
         if (cron == null || cron.isBlank()) {
             return null;
         }
         try {
-            ZonedDateTime proxima = CronExpression.parse(cron).next(ZonedDateTime.now());
-            return proxima == null ? null : proxima.toString();
+            ZonedDateTime proximaCron = CronExpression.parse(cron).next(ZonedDateTime.now());
+            if (proximaCron == null) {
+                return null;
+            }
+            // Si primerDisparo es futuro, la próxima ejecución es max(proximaCron, primerDisparo)
+            if (primerDisparo != null && primerDisparo.isAfter(Instant.now())) {
+                ZonedDateTime primerDisparoZdt = primerDisparo.atZone(proximaCron.getZone());
+                return primerDisparoZdt.isAfter(proximaCron) ? primerDisparoZdt.toString() : proximaCron.toString();
+            }
+            return proximaCron.toString();
         } catch (IllegalArgumentException e) {
             return null;
         }
@@ -181,5 +225,10 @@ public class TareaProgramadaController {
 
     private static Frecuencia aFrecuencia(FrecuenciaRequest frecuencia) {
         return frecuencia == null ? null : Frecuencia.of(frecuencia.valor, frecuencia.unidad);
+    }
+
+    // [QUÉ]: Parsea un string ISO-8601 a Instant; null o vacío → null.
+    private static Instant aInstant(String valor) {
+        return valor == null || valor.isBlank() ? null : Instant.parse(valor);
     }
 }

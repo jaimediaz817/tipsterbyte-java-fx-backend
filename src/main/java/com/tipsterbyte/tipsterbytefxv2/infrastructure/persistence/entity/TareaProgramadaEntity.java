@@ -7,6 +7,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Table;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -35,11 +36,18 @@ public class TareaProgramadaEntity {
     @Column(name = "created_at")
     private String createdAt;
 
+    // [QUÉ]: HU-14 AC3 — primerDisparo: timestampnullable que posterga la primera
+    //        ejecución. Mientras now() < primerDisparo, la tarea no corre aunque su
+    //        cron indique lo contrario. Null = sin postergación.
+    @Column(name = "primer_disparo")
+    private Instant primerDisparo;
+
     // Constructors
     public TareaProgramadaEntity() {
     }
 
-    public TareaProgramadaEntity(UUID id, UUID ligaId, TipoFuenteExtraccion tipoFuente, String prioridad, String cronExpression, boolean activa, String createdAt) {
+    public TareaProgramadaEntity(UUID id, UUID ligaId, TipoFuenteExtraccion tipoFuente, String prioridad,
+                                 String cronExpression, boolean activa, String createdAt, Instant primerDisparo) {
         this.id = id;
         this.ligaId = ligaId;
         this.tipoFuente = tipoFuente;
@@ -47,6 +55,7 @@ public class TareaProgramadaEntity {
         this.cronExpression = cronExpression;
         this.activa = activa;
         this.createdAt = createdAt;
+        this.primerDisparo = primerDisparo;
     }
 
     // Getters and Setters
@@ -104,5 +113,13 @@ public class TareaProgramadaEntity {
 
     public void setCreatedAt(String createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Instant getPrimerDisparo() {
+        return primerDisparo;
+    }
+
+    public void setPrimerDisparo(Instant primerDisparo) {
+        this.primerDisparo = primerDisparo;
     }
 }

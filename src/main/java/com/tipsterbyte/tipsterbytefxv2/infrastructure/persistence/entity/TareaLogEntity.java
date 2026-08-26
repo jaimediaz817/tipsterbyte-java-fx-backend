@@ -48,13 +48,19 @@ public class TareaLogEntity {
     @Column(name = "mensaje")
     private String mensaje;
 
+    // [QUÉ]: HU-14 AC7 — cantidad explícita de elementos procesados en la corrida.
+    //        Permite al frontend mostrar "sin datos aún" (elementosProcesados=0)
+    //        sin parsear el texto del mensaje.
+    @Column(name = "elementos_procesados")
+    private Integer elementosProcesados;
+
     // Constructors
     public TareaLogEntity() {
     }
 
     public TareaLogEntity(UUID id, UUID tareaProgramadaId, String executionId,
                           Instant timestamp, String status, Long durationMs,
-                          String errorCode, String mensaje) {
+                          String errorCode, String mensaje, Integer elementosProcesados) {
         this.id = id;
         this.tareaProgramadaId = tareaProgramadaId;
         this.executionId = executionId;
@@ -63,6 +69,7 @@ public class TareaLogEntity {
         this.durationMs = durationMs;
         this.errorCode = errorCode;
         this.mensaje = mensaje;
+        this.elementosProcesados = elementosProcesados;
     }
 
     // Getters and Setters
@@ -130,6 +137,14 @@ public class TareaLogEntity {
         this.mensaje = mensaje;
     }
 
+    public Integer getElementosProcesados() {
+        return elementosProcesados;
+    }
+
+    public void setElementosProcesados(Integer elementosProcesados) {
+        this.elementosProcesados = elementosProcesados;
+    }
+
     /**
      * Convierte esta entidad a su representación de dominio.
      */
@@ -142,7 +157,8 @@ public class TareaLogEntity {
                 status,
                 durationMs,
                 errorCode,
-                mensaje
+                mensaje,
+                elementosProcesados
         );
     }
 
@@ -158,7 +174,8 @@ public class TareaLogEntity {
                 log.status(),
                 log.durationMs(),
                 log.errorCode(),
-                log.mensaje()
+                log.mensaje(),
+                log.elementosProcesados()
         );
     }
 }

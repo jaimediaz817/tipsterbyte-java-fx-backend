@@ -23,6 +23,7 @@ public record TareaLog(
         String status, // SUCCESS, ERROR
         Long durationMs,
         String errorCode,
-        String mensaje
+        String mensaje,
+        Integer elementosProcesados
 ) {
 }

@@ -58,6 +58,13 @@ public class TareaProgramadaRepositoryJpaAdapter implements TareaProgramadaRepos
                 .map(this::toDomainModel);
     }
 
+    @Override
+    public List<TareaProgramada> buscarPorLigaId(UUID ligaId) {
+        return jpaRepository.findByLigaId(ligaId).stream()
+                .map(this::toDomainModel)
+                .collect(Collectors.toList());
+    }
+
     private TareaProgramada toDomainModel(TareaProgramadaEntity entity) {
         return new TareaProgramada(
                 entity.getId(),
@@ -66,7 +73,8 @@ public class TareaProgramadaRepositoryJpaAdapter implements TareaProgramadaRepos
                 entity.getPrioridad(),
                 entity.getCronExpression(),
                 entity.isActiva(),
-                entity.getCreatedAt()
+                entity.getCreatedAt(),
+                entity.getPrimerDisparo()
         );
     }
 
@@ -78,7 +86,8 @@ public class TareaProgramadaRepositoryJpaAdapter implements TareaProgramadaRepos
                 domain.prioridad(),
                 domain.cronExpression(),
                 domain.activa(),
-                domain.createdAt()
+                domain.createdAt(),
+                domain.primerDisparo()
         );
     }
 }

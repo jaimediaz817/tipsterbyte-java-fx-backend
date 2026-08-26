@@ -15,4 +15,7 @@ public interface TareaProgramadaRepository {
     TareaProgramada guardar(TareaProgramada tarea);
     void eliminarPorId(UUID id);
     Optional<TareaProgramada> encontrarPorId(UUID id);
+
+    // [QUÉ]: HU-14 AC8 — busca todas las tareas de una liga (para pausa/reanudación masiva).
+    List<TareaProgramada> buscarPorLigaId(UUID ligaId);
 }

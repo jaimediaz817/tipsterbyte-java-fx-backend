@@ -1,7 +1,9 @@
 // ─────────────────────────────────────────────
 // [QUÉ]: Dispatcher de tareas programadas: cada intervalo (scheduler.interval) evalúa
-//        las tareas activas, valida su expresión cron y ejecuta el caso de uso
-//        correspondiente en un hilo virtual, con anti-solapamiento por tarea.
+//        las tareas activas, valida su expresión cron, verifica elegibilidad por
+//        DetalleFuenteExtraccion activo (HU-14 AC2) y primerDisparo (HU-14 AC3),
+//        y ejecuta el caso de uso correspondiente en un hilo virtual, con
+//        anti-solapamiento por tarea.
 // [POR QUÉ]: FASE 12.6 requiere ejecución automática de sincronizaciones por fuente
 //            sin bloquear el hilo del scheduler ni solapar la misma tarea. El MDC y la
 //            tabla tarea_log dan trazabilidad (executionId) para correlacionar con los
@@ -13,10 +15,12 @@
 // [RELACIONES]: CU-15 (GestionarTareasProgramasUseCase) → TareaProgramadaRepository;
 //               TareaLogRepository (persistencia de ejecuciones); MDCTaskContext
 //               (enriquecimiento MDC); CU-01/02/03/10 vía los 4 use cases de
-//               sincronización.
+//               sincronización; HU-14 AC2 (elegibilidad por detalle activo) +
+//               AC3 (primerDisparo).
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.infrastructure.adapter;
 
+import com.tipsterbyte.tipsterbytefxv2.application.port.DetalleFuenteExtraccionRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.EstadoEjecucionTareas;
 import com.tipsterbyte.tipsterbytefxv2.application.port.TareaLogRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.TareaProgramadaRepository;
@@ -60,6 +64,7 @@ public class CatalogoScheduler implements EstadoEjecucionTareas {
 
     private final TareaProgramadaRepository tareaProgramadaRepository;
     private final TareaLogRepository tareaLogRepository;
+    private final DetalleFuenteExtraccionRepository detalleRepository;
     private final SincronizarPosicionesUseCase sincronizarPosicionesUseCase;
     private final SincronizarCalendarioUseCase sincronizarCalendarioUseCase;
     private final SincronizarCuotasUseCase sincronizarCuotasUseCase;
@@ -75,6 +80,7 @@ public class CatalogoScheduler implements EstadoEjecucionTareas {
     @Autowired
     public CatalogoScheduler(TareaProgramadaRepository tareaProgramadaRepository,
                              TareaLogRepository tareaLogRepository,
+                             DetalleFuenteExtraccionRepository detalleRepository,
                              SincronizarPosicionesUseCase sincronizarPosicionesUseCase,
                              SincronizarCalendarioUseCase sincronizarCalendarioUseCase,
                              SincronizarCuotasUseCase sincronizarCuotasUseCase,
@@ -82,6 +88,7 @@ public class CatalogoScheduler implements EstadoEjecucionTareas {
                              SincronizarCatalogoUseCase sincronizarCatalogoUseCase) {
         this.tareaProgramadaRepository = tareaProgramadaRepository;
         this.tareaLogRepository = tareaLogRepository;
+        this.detalleRepository = detalleRepository;
         this.sincronizarPosicionesUseCase = sincronizarPosicionesUseCase;
         this.sincronizarCalendarioUseCase = sincronizarCalendarioUseCase;
         this.sincronizarCuotasUseCase = sincronizarCuotasUseCase;
@@ -103,6 +110,10 @@ public class CatalogoScheduler implements EstadoEjecucionTareas {
         for (TareaProgramada tarea : tareasActivas) {
             // Anti-solapamiento: si la tarea ya está en ejecución, se omite en este tick.
             if (Boolean.TRUE.equals(runningTasks.get(tarea.id()))) {
+                continue;
+            }
+            // HU-14 AC3: si primerDisparo es futuro, la tarea no corre aún.
+            if (tarea.primerDisparo() != null && Instant.now().isBefore(tarea.primerDisparo())) {
                 continue;
             }
             if (!cronCoincide(tarea.cronExpression(), ahora)) {
@@ -146,39 +157,45 @@ public class CatalogoScheduler implements EstadoEjecucionTareas {
                 .collect(Collectors.toSet());
     }
 
-    // [QUÉ]: Ejecuta la tarea en su propio hilo: enriquece el MDC, despacha al caso de
-    //        uso según tipoFuente, persiste el TareaLog (éxito o error) y limpia estado.
+    // [QUÉ]: Ejecuta la tarea en su propio hilo: verifica elegibilidad (HU-14 AC2),
+    //        enriquece el MDC, despacha al caso de uso, persiste TareaLog con
+    //        elementosProcesados y limpia estado.
     private void ejecutarTarea(TareaProgramada tarea) {
         String executionId = UUID.randomUUID().toString();
         Instant inicio = Instant.now();
         MDCTaskContext.putTaskContext(tarea, executionId);
         try {
+            // HU-14 AC2: verificar elegibilidad por DetalleFuenteExtraccion activo.
+            // EQUIPOS no requiere detalle (la #6 no usa path_to_scrape — H-07).
+            if (tarea.tipoFuente() != null && tarea.ligaId() != null
+                    && tarea.tipoFuente() != com.tipsterbyte.tipsterbytefxv2.domain.model.TipoFuenteExtraccion.EQUIPOS) {
+                boolean detalleActivo = detalleRepository.buscarPorLigaYTipo(tarea.ligaId(), tarea.tipoFuente())
+                        .isPresent();
+                if (!detalleActivo) {
+                    log.warn("[HU-14 AC2] Tarea {} omitida: sin detalle activo para liga {} tipo {}",
+                            tarea.id(), tarea.ligaId(), tarea.tipoFuente());
+                    tareaLogRepository.guardar(new TareaLog(
+                            UUID.randomUUID(), tarea.id(), executionId, inicio,
+                            "SUCCESS", Duration.between(inicio, Instant.now()).toMillis(),
+                            null, "Tarea omitida: sin detalle fuente activo", 0));
+                    return;
+                }
+            }
+
             despachar(tarea);
             Instant fin = Instant.now();
             long duracionMs = Duration.between(inicio, fin).toMillis();
             tareaLogRepository.guardar(new TareaLog(
-                    UUID.randomUUID(),
-                    tarea.id(),
-                    executionId,
-                    inicio,
-                    "SUCCESS",
-                    duracionMs,
-                    null,
-                    "Ejecución exitosa de tarea programada"
-            ));
+                    UUID.randomUUID(), tarea.id(), executionId, inicio,
+                    "SUCCESS", duracionMs, null,
+                    "Ejecución exitosa de tarea programada", null));
         } catch (Exception e) {
             Instant fin = Instant.now();
             long duracionMs = Duration.between(inicio, fin).toMillis();
             tareaLogRepository.guardar(new TareaLog(
-                    UUID.randomUUID(),
-                    tarea.id(),
-                    executionId,
-                    inicio,
-                    "ERROR",
-                    duracionMs,
-                    e.getClass().getSimpleName(),
-                    e.getMessage()
-            ));
+                    UUID.randomUUID(), tarea.id(), executionId, inicio,
+                    "ERROR", duracionMs, e.getClass().getSimpleName(),
+                    e.getMessage(), null));
             // El MDC ya está enriquecido: este log aparece en los logs JSON correlacionado.
             log.error("Error ejecutando tarea programada {}", tarea.id(), e);
         } finally {

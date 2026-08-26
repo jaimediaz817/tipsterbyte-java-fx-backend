@@ -29,7 +29,7 @@ class MDCTaskContextTest {
     void debe_enriquecer_mdc_con_datos_de_la_tarea() {
         UUID ligaId = UUID.randomUUID();
         TareaProgramada tarea = new TareaProgramada(UUID.randomUUID(), ligaId,
-                TipoFuenteExtraccion.STANDINGS, "1", "* * * * * *", true, "2026-01-01T00:00:00Z");
+                TipoFuenteExtraccion.STANDINGS, "1", "* * * * * *", true, "2026-01-01T00:00:00Z", null);
 
         MDCTaskContext.putTaskContext(tarea, "exec-1");
 
@@ -41,7 +41,7 @@ class MDCTaskContextTest {
     @Test
     void debe_usar_global_cuando_la_tarea_es_de_catalogo() {
         TareaProgramada tarea = new TareaProgramada(UUID.randomUUID(), null, null,
-                "0", "* * * * * *", true, "2026-01-01T00:00:00Z");
+                "0", "* * * * * *", true, "2026-01-01T00:00:00Z", null);
 
         MDCTaskContext.putTaskContext(tarea, "exec-2");
 
@@ -52,7 +52,7 @@ class MDCTaskContextTest {
     @Test
     void debe_limpiar_todas_las_claves_al_llamar_clear() {
         TareaProgramada tarea = new TareaProgramada(UUID.randomUUID(), UUID.randomUUID(),
-                TipoFuenteExtraccion.CALENDAR, "1", "* * * * * *", true, "2026-01-01T00:00:00Z");
+                TipoFuenteExtraccion.CALENDAR, "1", "* * * * * *", true, "2026-01-01T00:00:00Z", null);
         MDCTaskContext.putTaskContext(tarea, "exec-3");
 
         MDCTaskContext.clear();

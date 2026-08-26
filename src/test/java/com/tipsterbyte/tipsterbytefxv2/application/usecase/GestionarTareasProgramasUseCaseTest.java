@@ -75,7 +75,7 @@ class GestionarTareasProgramasUseCaseTest {
                 .thenReturn(Optional.empty());
 
         casoDeUso.registrar(new RegistrarTareaProgramadaComando(
-                ligaId, TipoFuenteExtraccion.STANDINGS, "1", null, null, null));
+                ligaId, TipoFuenteExtraccion.STANDINGS, "1", null, null, null, null));
 
         ArgumentCaptor<TareaProgramada> captor = ArgumentCaptor.forClass(TareaProgramada.class);
         verify(tareaProgramadaRepository).guardar(captor.capture());
@@ -94,7 +94,7 @@ class GestionarTareasProgramasUseCaseTest {
 
         casoDeUso.registrar(new RegistrarTareaProgramadaComando(
                 ligaId, TipoFuenteExtraccion.ODDS_WPLAY, "1", null,
-                new Frecuencia(6, UnidadFrecuencia.HORAS), true));
+                new Frecuencia(6, UnidadFrecuencia.HORAS), true, null));
 
         ArgumentCaptor<TareaProgramada> captor = ArgumentCaptor.forClass(TareaProgramada.class);
         verify(tareaProgramadaRepository).guardar(captor.capture());
@@ -106,7 +106,7 @@ class GestionarTareasProgramasUseCaseTest {
         when(tareaProgramadaRepository.buscarGlobal()).thenReturn(Optional.empty());
 
         casoDeUso.registrar(new RegistrarTareaProgramadaComando(
-                null, null, "0", "0 0 3 * * *", null, true));
+                null, null, "0", "0 0 3 * * *", null, true, null));
 
         ArgumentCaptor<TareaProgramada> captor = ArgumentCaptor.forClass(TareaProgramada.class);
         verify(tareaProgramadaRepository).guardar(captor.capture());
@@ -116,7 +116,7 @@ class GestionarTareasProgramasUseCaseTest {
     @Test
     void debe_rechazar_cron_crudo_invalido() {
         assertThrows(DomainException.class, () -> casoDeUso.registrar(
-                new RegistrarTareaProgramadaComando(null, null, "0", "no-es-un-cron", null, true)));
+                new RegistrarTareaProgramadaComando(null, null, "0", "no-es-un-cron", null, true, null)));
         verify(tareaProgramadaRepository, never()).guardar(any());
     }
 
@@ -127,7 +127,7 @@ class GestionarTareasProgramasUseCaseTest {
                 .thenReturn(Optional.of(unaTarea(ligaId, TipoFuenteExtraccion.CALENDAR)));
 
         assertThrows(DomainException.class, () -> casoDeUso.registrar(
-                new RegistrarTareaProgramadaComando(ligaId, TipoFuenteExtraccion.CALENDAR, "1", null, null, true)));
+                new RegistrarTareaProgramadaComando(ligaId, TipoFuenteExtraccion.CALENDAR, "1", null, null, true, null)));
         verify(tareaProgramadaRepository, never()).guardar(any());
     }
 
@@ -136,7 +136,7 @@ class GestionarTareasProgramasUseCaseTest {
         when(tareaProgramadaRepository.buscarGlobal()).thenReturn(Optional.of(unaTarea(null, null)));
 
         assertThrows(DomainException.class, () -> casoDeUso.registrar(
-                new RegistrarTareaProgramadaComando(null, null, "0", null, null, true)));
+                new RegistrarTareaProgramadaComando(null, null, "0", null, null, true, null)));
         verify(tareaProgramadaRepository, never()).guardar(any());
     }
 
@@ -144,7 +144,7 @@ class GestionarTareasProgramasUseCaseTest {
     void debe_registrar_tarea_global_de_catalogo_con_liga_y_tipo_null() {
         when(tareaProgramadaRepository.buscarGlobal()).thenReturn(Optional.empty());
 
-        casoDeUso.registrar(new RegistrarTareaProgramadaComando(null, null, "0", null, null, true));
+        casoDeUso.registrar(new RegistrarTareaProgramadaComando(null, null, "0", null, null, true, null));
 
         ArgumentCaptor<TareaProgramada> captor = ArgumentCaptor.forClass(TareaProgramada.class);
         verify(tareaProgramadaRepository).guardar(captor.capture());
@@ -171,7 +171,7 @@ class GestionarTareasProgramasUseCaseTest {
         when(tareaProgramadaRepository.encontrarPorId(id)).thenReturn(Optional.of(existente));
 
         TareaProgramada actualizada = casoDeUso.actualizar(id,
-                new ActualizarTareaProgramadaComando(null, null, false, null));
+                new ActualizarTareaProgramadaComando(null, null, false, null, null));
 
         ArgumentCaptor<TareaProgramada> captor = ArgumentCaptor.forClass(TareaProgramada.class);
         verify(tareaProgramadaRepository).guardar(captor.capture());
@@ -183,10 +183,10 @@ class GestionarTareasProgramasUseCaseTest {
     void debe_reanudar_tarea_pausada() {
         UUID id = UUID.randomUUID();
         TareaProgramada existente = new TareaProgramada(id, null, null, "1",
-                "0 0 * * * *", false, "2026-01-01T00:00:00Z");
+                "0 0 * * * *", false, "2026-01-01T00:00:00Z", null);
         when(tareaProgramadaRepository.encontrarPorId(id)).thenReturn(Optional.of(existente));
 
-        casoDeUso.actualizar(id, new ActualizarTareaProgramadaComando(null, null, true, null));
+        casoDeUso.actualizar(id, new ActualizarTareaProgramadaComando(null, null, true, null, null));
 
         ArgumentCaptor<TareaProgramada> captor = ArgumentCaptor.forClass(TareaProgramada.class);
         verify(tareaProgramadaRepository).guardar(captor.capture());
@@ -200,7 +200,7 @@ class GestionarTareasProgramasUseCaseTest {
         when(tareaProgramadaRepository.encontrarPorId(id)).thenReturn(Optional.of(existente));
 
         casoDeUso.actualizar(id, new ActualizarTareaProgramadaComando(
-                null, new Frecuencia(30, UnidadFrecuencia.MINUTOS), null, null));
+                null, new Frecuencia(30, UnidadFrecuencia.MINUTOS), null, null, null));
 
         ArgumentCaptor<TareaProgramada> captor = ArgumentCaptor.forClass(TareaProgramada.class);
         verify(tareaProgramadaRepository).guardar(captor.capture());
@@ -213,7 +213,7 @@ class GestionarTareasProgramasUseCaseTest {
         when(tareaProgramadaRepository.encontrarPorId(id)).thenReturn(Optional.empty());
 
         assertThrows(DomainException.class,
-                () -> casoDeUso.actualizar(id, new ActualizarTareaProgramadaComando(null, null, false, null)));
+                () -> casoDeUso.actualizar(id, new ActualizarTareaProgramadaComando(null, null, false, null, null)));
     }
 
     @Test
@@ -241,7 +241,7 @@ class GestionarTareasProgramasUseCaseTest {
         when(tareaProgramadaRepository.encontrarPorId(id)).thenReturn(Optional.of(unaTarea(id, null)));
         when(tareaLogRepository.buscarPorTareaProgramadaId(id)).thenReturn(List.of(
                 new TareaLog(UUID.randomUUID(), id, "exec-1", java.time.Instant.now(),
-                        "SUCCESS", 100L, null, "ok")));
+                        "SUCCESS", 100L, null, "ok", null)));
 
         List<TareaLog> logs = casoDeUso.obtenerLogs(id);
 
@@ -302,9 +302,9 @@ class GestionarTareasProgramasUseCaseTest {
     void debe_listar_ultimas_ejecuciones_de_todas_las_tareas() {
         when(tareaLogRepository.listarUltimas(5)).thenReturn(List.of(
                 new TareaLog(UUID.randomUUID(), UUID.randomUUID(), "exec-2", java.time.Instant.now(),
-                        "ERROR", 90L, "RuntimeException", "fallo"),
+                        "ERROR", 90L, "RuntimeException", "fallo", null),
                 new TareaLog(UUID.randomUUID(), UUID.randomUUID(), "exec-1", java.time.Instant.now(),
-                        "SUCCESS", 150L, null, "ok")));
+                        "SUCCESS", 150L, null, "ok", null)));
 
         List<TareaLog> logs = casoDeUso.obtenerUltimasEjecuciones(5);
 
@@ -322,6 +322,6 @@ class GestionarTareasProgramasUseCaseTest {
 
     private TareaProgramada unaTarea(UUID id, TipoFuenteExtraccion tipoFuente) {
         return new TareaProgramada(id, UUID.randomUUID(), tipoFuente, "1",
-                "0 0 * * * *", true, "2026-01-01T00:00:00Z");
+                "0 0 * * * *", true, "2026-01-01T00:00:00Z", null);
     }
 }

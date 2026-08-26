@@ -68,7 +68,7 @@ public final class SincronizarCatalogoAsyncUseCase {
         tareaLogRepository.guardar(new TareaLog(
                 UUID.randomUUID(), null, executionId, inicio,
                 ESTADO_RUNNING, null, null,
-                "Poblamiento geográfico manual en curso"));
+                "Poblamiento geográfico manual en curso", null));
         log.info("FASE T3: poblamiento manual iniciado (executionId={})", executionId);
 
         executor.submit(() -> {
@@ -78,14 +78,14 @@ public final class SincronizarCatalogoAsyncUseCase {
                 tareaLogRepository.guardar(new TareaLog(
                         UUID.randomUUID(), null, executionId, fin,
                         ESTADO_SUCCESS, Duration.between(inicio, fin).toMillis(), null,
-                        "Poblamiento geográfico manual completado"));
+                        "Poblamiento geográfico manual completado", null));
                 log.info("FASE T3: poblamiento manual completado (executionId={})", executionId);
             } catch (Exception e) {
                 Instant fin = Instant.now();
                 tareaLogRepository.guardar(new TareaLog(
                         UUID.randomUUID(), null, executionId, fin,
                         ESTADO_ERROR, Duration.between(inicio, fin).toMillis(),
-                        e.getClass().getSimpleName(), e.getMessage()));
+                        e.getClass().getSimpleName(), e.getMessage(), null));
                 log.error("FASE T3: poblamiento manual falló (executionId={})", executionId, e);
             } finally {
                 enCurso.set(false);

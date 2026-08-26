@@ -10,6 +10,7 @@
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.infrastructure.adapter;
 
+import com.tipsterbyte.tipsterbytefxv2.application.port.DetalleFuenteExtraccionRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.TareaLogRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.TareaProgramadaRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarCalendarioUseCase;
@@ -48,6 +49,8 @@ class CatalogoSchedulerTest {
     @Mock
     private TareaLogRepository tareaLogRepository;
     @Mock
+    private DetalleFuenteExtraccionRepository detalleRepository;
+    @Mock
     private SincronizarPosicionesUseCase sincronizarPosicionesUseCase;
     @Mock
     private SincronizarCalendarioUseCase sincronizarCalendarioUseCase;
@@ -63,7 +66,7 @@ class CatalogoSchedulerTest {
     @BeforeEach
     void setUp() {
         scheduler = new CatalogoScheduler(tareaProgramadaRepository, tareaLogRepository,
-                sincronizarPosicionesUseCase, sincronizarCalendarioUseCase,
+                detalleRepository, sincronizarPosicionesUseCase, sincronizarCalendarioUseCase,
                 sincronizarCuotasUseCase, sincronizarEquiposLigaUseCase,
                 sincronizarCatalogoUseCase);
     }
@@ -87,6 +90,14 @@ class CatalogoSchedulerTest {
         UUID ligaId = UUID.randomUUID();
         TareaProgramada tarea = unaTarea(ligaId, TipoFuenteExtraccion.STANDINGS, true, "* * * * * *");
         when(tareaProgramadaRepository.listarPorPrioridadAsc()).thenReturn(List.of(tarea));
+        // HU-14 AC2: mockear detalle activo para que el scheduler no omita la tarea.
+        when(detalleRepository.buscarPorLigaYTipo(ligaId, TipoFuenteExtraccion.STANDINGS))
+                .thenReturn(java.util.Optional.of(
+                        new com.tipsterbyte.tipsterbytefxv2.domain.model.DetalleFuenteExtraccion(
+                                UUID.randomUUID(), ligaId,
+                                new com.tipsterbyte.tipsterbytefxv2.domain.model.FuenteExtraccion(
+                                        "Fuente #3", TipoFuenteExtraccion.STANDINGS, true),
+                                "http://fake-url", true)));
 
         scheduler.ejecutarTareasProgramadas();
 
@@ -100,6 +111,21 @@ class CatalogoSchedulerTest {
         when(tareaProgramadaRepository.listarPorPrioridadAsc()).thenReturn(List.of(
                 unaTarea(ligaCalendario, TipoFuenteExtraccion.CALENDAR, true, "* * * * * *"),
                 unaTarea(ligaCuotas, TipoFuenteExtraccion.ODDS_WPLAY, true, "* * * * * *")));
+        // HU-14 AC2: mockear detalles activos para ambas ligas.
+        when(detalleRepository.buscarPorLigaYTipo(ligaCalendario, TipoFuenteExtraccion.CALENDAR))
+                .thenReturn(java.util.Optional.of(
+                        new com.tipsterbyte.tipsterbytefxv2.domain.model.DetalleFuenteExtraccion(
+                                UUID.randomUUID(), ligaCalendario,
+                                new com.tipsterbyte.tipsterbytefxv2.domain.model.FuenteExtraccion(
+                                        "Fuente #4", TipoFuenteExtraccion.CALENDAR, true),
+                                "http://fake-url", true)));
+        when(detalleRepository.buscarPorLigaYTipo(ligaCuotas, TipoFuenteExtraccion.ODDS_WPLAY))
+                .thenReturn(java.util.Optional.of(
+                        new com.tipsterbyte.tipsterbytefxv2.domain.model.DetalleFuenteExtraccion(
+                                UUID.randomUUID(), ligaCuotas,
+                                new com.tipsterbyte.tipsterbytefxv2.domain.model.FuenteExtraccion(
+                                        "Fuente #2", TipoFuenteExtraccion.ODDS_WPLAY, true),
+                                "http://fake-url", true)));
 
         scheduler.ejecutarTareasProgramadas();
 
@@ -184,7 +210,7 @@ class CatalogoSchedulerTest {
     void debe_reportar_tarea_en_ejecucion_mientras_corre_y_limpiarla_al_terminar() throws InterruptedException {
         UUID tareaId = UUID.randomUUID();
         TareaProgramada tarea = new TareaProgramada(tareaId, null, null, "1",
-                "* * * * * *", true, "2026-01-01T00:00:00Z");
+                "* * * * * *", true, "2026-01-01T00:00:00Z", null);
         when(tareaProgramadaRepository.listarPorPrioridadAsc()).thenReturn(List.of(tarea));
 
         CountDownLatch iniciado = new CountDownLatch(1);
@@ -210,6 +236,6 @@ class CatalogoSchedulerTest {
     private TareaProgramada unaTarea(UUID ligaId, TipoFuenteExtraccion tipoFuente,
                                      boolean activa, String cron) {
         return new TareaProgramada(UUID.randomUUID(), ligaId, tipoFuente, "1",
-                cron, activa, "2026-01-01T00:00:00Z");
+                cron, activa, "2026-01-01T00:00:00Z", null);
     }
 }

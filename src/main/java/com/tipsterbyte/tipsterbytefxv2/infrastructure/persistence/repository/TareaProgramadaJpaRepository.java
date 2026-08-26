@@ -12,4 +12,5 @@ public interface TareaProgramadaJpaRepository extends JpaRepository<TareaProgram
     Optional<TareaProgramadaEntity> findByLigaIdAndTipoFuente(UUID ligaId, TipoFuenteExtraccion tipoFuente);
     Optional<TareaProgramadaEntity> findByLigaIdIsNullAndTipoFuenteIsNull();
     List<TareaProgramadaEntity> findAllByOrderByPrioridadAsc();
+    List<TareaProgramadaEntity> findByLigaId(UUID ligaId);
 }

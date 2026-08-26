@@ -58,7 +58,7 @@ public final class SincronizarLigasPorPaisAsyncUseCase {
         tareaLogRepository.guardar(new TareaLog(
                 UUID.randomUUID(), null, executionId, inicio,
                 ESTADO_RUNNING, null, null,
-                "Poblamiento de ligas en curso para " + iso));
+                "Poblamiento de ligas en curso para " + iso, null));
 
         log.info("HU-12 async: poblamiento de ligas iniciado iso={} executionId={}", iso, executionId);
 
@@ -69,14 +69,14 @@ public final class SincronizarLigasPorPaisAsyncUseCase {
                 tareaLogRepository.guardar(new TareaLog(
                         UUID.randomUUID(), null, executionId, fin,
                         ESTADO_SUCCESS, Duration.between(inicio, fin).toMillis(), null,
-                        "Ligas pobladas para " + iso + ": " + resultado.ligasCreadas() + " nuevas, total " + resultado.totalLigasPais()));
+                        "Ligas pobladas para " + iso + ": " + resultado.ligasCreadas() + " nuevas, total " + resultado.totalLigasPais(), null));
                 log.info("HU-12 async: completado iso={} executionId={}", iso, executionId);
             } catch (Exception e) {
                 Instant fin = Instant.now();
                 tareaLogRepository.guardar(new TareaLog(
                         UUID.randomUUID(), null, executionId, fin,
                         ESTADO_ERROR, Duration.between(inicio, fin).toMillis(),
-                        e.getClass().getSimpleName(), e.getMessage()));
+                        e.getClass().getSimpleName(), e.getMessage(), null));
                 log.error("HU-12 async: fallo iso={} executionId={}", iso, executionId, e);
             } finally {
                 flag.set(false);

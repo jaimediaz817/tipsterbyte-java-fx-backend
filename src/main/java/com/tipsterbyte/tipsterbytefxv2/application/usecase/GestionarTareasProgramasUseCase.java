@@ -55,7 +55,7 @@ public class GestionarTareasProgramasUseCase {
     }
 
     // [QUÉ]: Registra una nueva tarea programada con unicidad por liga+tipo (o global).
-    // [POR QUÉ]: El scheduler exige un solo job por fuente (regla FASE 12.5).
+    //        HU-14 AC1: acepta primerDisparo para postergar primera ejecución.
     public TareaProgramada registrar(RegistrarTareaProgramadaComando comando) {
         validarUnicidad(comando.ligaId(), comando.tipoFuente());
         String cron = resolverCron(comando.cron(), comando.frecuencia());
@@ -67,13 +67,15 @@ public class GestionarTareasProgramasUseCase {
                 comando.prioridad(),
                 cron,
                 activa,
-                Instant.now().toString()
+                Instant.now().toString(),
+                comando.primerDisparo()
         );
         return tareaProgramadaRepository.guardar(tarea);
     }
 
-    // [QUÉ]: Actualiza una tarea existente: cron/frecuencia, activa (pausar/reanudar)
-    //        y/o prioridad. Solo aplica los campos presentes.
+    // [QUÉ]: Actualiza una tarea existente: cron/frecuencia, activa (pausar/reanudar),
+    //        prioridad y/o primerDisparo. Solo aplica los campos presentes.
+    //        HU-14 AC3: enviar primerDisparo=null limpia el delay (setea a null).
     public TareaProgramada actualizar(UUID id, ActualizarTareaProgramadaComando comando) {
         TareaProgramada existente = obtenerPorId(id);
         String cron = (comando.cron() != null || comando.frecuencia() != null)
@@ -83,7 +85,8 @@ public class GestionarTareasProgramasUseCase {
         String prioridad = comando.prioridad() != null ? comando.prioridad() : existente.prioridad();
         TareaProgramada actualizada = new TareaProgramada(
                 existente.id(), existente.ligaId(), existente.tipoFuente(),
-                prioridad, cron, activa, existente.createdAt());
+                prioridad, cron, activa, existente.createdAt(),
+                comando.primerDisparo());
         return tareaProgramadaRepository.guardar(actualizada);
     }
 
@@ -160,6 +163,26 @@ public class GestionarTareasProgramasUseCase {
             return null;
         }
         return ligaRepository.buscarPorId(ligaId).map(Liga::nombre).orElse(null);
+    }
+
+    // [QUÉ]: HU-14 AC8 — pausa/reanudación MASIVA de todas las tareas de una liga.
+    //        Devuelve la lista de tareas modificadas (para el response con detalle por fuente).
+    public List<TareaProgramada> cambiarEstadoPorLiga(UUID ligaId, boolean activa) {
+        List<TareaProgramada> tareas = tareaProgramadaRepository.buscarPorLigaId(ligaId);
+        if (tareas.isEmpty()) {
+            throw new DomainException("La liga no tiene tareas programadas registradas");
+        }
+        List<TareaProgramada> modificadas = new ArrayList<>();
+        for (TareaProgramada tarea : tareas) {
+            if (tarea.activa() != activa) {
+                TareaProgramada actualizada = new TareaProgramada(
+                        tarea.id(), tarea.ligaId(), tarea.tipoFuente(),
+                        tarea.prioridad(), tarea.cronExpression(), activa,
+                        tarea.createdAt(), tarea.primerDisparo());
+                modificadas.add(tareaProgramadaRepository.guardar(actualizada));
+            }
+        }
+        return modificadas;
     }
 
     // [QUÉ]: Valida la unicidad por (liga, tipo) o de la tarea global.

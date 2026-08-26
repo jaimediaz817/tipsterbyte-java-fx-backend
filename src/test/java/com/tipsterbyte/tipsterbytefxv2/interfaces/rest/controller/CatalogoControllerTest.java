@@ -100,7 +100,7 @@ class CatalogoControllerTest {
     void debe_exponer_progreso_running_pais_en_curso() throws Exception {
         when(tareaLogRepository.buscarPorExecutionId(EXECUTION_ID)).thenReturn(List.of(
                 new TareaLog(null, null, EXECUTION_ID, Instant.parse("2026-08-22T05:00:00Z"),
-                        "RUNNING", null, null, "Poblamiento geográfico manual en curso")));
+                        "RUNNING", null, null, "Poblamiento geográfico manual en curso", null)));
         when(progresoPoblamiento.snapshot()).thenReturn(Optional.of(
                 new ProgresoPoblamiento.Progreso("Colombia", 12)));
 
@@ -116,7 +116,7 @@ class CatalogoControllerTest {
     void debe_exponer_estado_success_con_duracion_sin_pais_actual() throws Exception {
         when(tareaLogRepository.buscarPorExecutionId(EXECUTION_ID)).thenReturn(List.of(
                 new TareaLog(null, null, EXECUTION_ID, Instant.parse("2026-08-22T05:00:00Z"),
-                        "SUCCESS", 240_000L, null, "Poblamiento geográfico manual completado")));
+                        "SUCCESS", 240_000L, null, "Poblamiento geográfico manual completado", null)));
 
         mockMvc.perform(get("/api/v1/catalogo/activar/{executionId}", EXECUTION_ID))
                 .andExpect(status().isOk())

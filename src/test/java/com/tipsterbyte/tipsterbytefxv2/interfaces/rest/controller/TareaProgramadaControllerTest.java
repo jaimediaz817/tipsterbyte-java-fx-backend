@@ -84,7 +84,7 @@ class TareaProgramadaControllerTest {
     void debe_pausar_tarea_con_put_activa_false() throws Exception {
         when(gestionarTareasProgramasUseCase.actualizar(any(), any()))
                 .thenReturn(new TareaProgramada(UUID.randomUUID(), null, null, "1",
-                        "0 0 * * * *", false, "2026-01-01T00:00:00Z"));
+                        "0 0 * * * *", false, "2026-01-01T00:00:00Z", null));
 
         mockMvc.perform(put("/api/v1/tareas-programadas/{id}", UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -110,7 +110,7 @@ class TareaProgramadaControllerTest {
     @Test
     void debe_listar_tareas_con_proxima_ejecucion_derivada() throws Exception {
         TareaProgramada tarea = new TareaProgramada(UUID.randomUUID(), null, null, "1",
-                "0 0 3 * * *", true, "2026-01-01T00:00:00Z");
+                "0 0 3 * * *", true, "2026-01-01T00:00:00Z", null);
         when(gestionarTareasProgramasUseCase.listar()).thenReturn(List.of(tarea));
 
         mockMvc.perform(get("/api/v1/tareas-programadas"))
@@ -143,7 +143,7 @@ class TareaProgramadaControllerTest {
     void debe_listar_logs_de_una_tarea() throws Exception {
         when(gestionarTareasProgramasUseCase.obtenerLogs(any())).thenReturn(List.of(
                 new TareaLog(UUID.randomUUID(), UUID.randomUUID(), "exec-1", Instant.now(),
-                        "ERROR", 50L, "RuntimeException", "fallo")));
+                        "ERROR", 50L, "RuntimeException", "fallo", null)));
 
         mockMvc.perform(get("/api/v1/tareas-programadas/{id}/logs", UUID.randomUUID()))
                 .andExpect(status().isOk())
@@ -155,9 +155,9 @@ class TareaProgramadaControllerTest {
     void debe_listar_ultimas_ejecuciones_globales_con_limite() throws Exception {
         when(gestionarTareasProgramasUseCase.obtenerUltimasEjecuciones(3)).thenReturn(List.of(
                 new TareaLog(UUID.randomUUID(), UUID.randomUUID(), "exec-2", Instant.now(),
-                        "ERROR", 90L, "RuntimeException", "fallo"),
+                        "ERROR", 90L, "RuntimeException", "fallo", null),
                 new TareaLog(UUID.randomUUID(), UUID.randomUUID(), "exec-1", Instant.now(),
-                        "SUCCESS", 150L, null, "ok")));
+                        "SUCCESS", 150L, null, "ok", null)));
 
         mockMvc.perform(get("/api/v1/tareas-programadas/logs").param("limite", "3"))
                 .andExpect(status().isOk())
@@ -176,6 +176,6 @@ class TareaProgramadaControllerTest {
 
     private TareaProgramada unaTarea() {
         return new TareaProgramada(UUID.randomUUID(), null, null, "1",
-                "0 0 */6 * * *", true, "2026-01-01T00:00:00Z");
+                "0 0 */6 * * *", true, "2026-01-01T00:00:00Z", null);
     }
 }
