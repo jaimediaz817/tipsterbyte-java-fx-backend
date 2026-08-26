@@ -20,5 +20,7 @@ public record RegistrarFuenteRequest(
         @NotNull(message = "tipo es obligatorio")
         TipoFuenteExtraccion tipo,
 
-        boolean activa) {
+        boolean activa,
+
+        String urlBaseFuente) {
 }

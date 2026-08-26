@@ -52,15 +52,31 @@ public class FuenteExtraccionController {
     @PostMapping("/fuentes")
     public ResponseEntity<Void> registrarFuente(@Valid @RequestBody RegistrarFuenteRequest request) {
         gestionarFuenteUseCase.registrarFuente(new RegistrarFuenteComando(
-                request.nombre(), request.tipo(), request.activa()));
+                request.nombre(), request.tipo(), request.activa(), request.urlBaseFuente()));
         return ResponseEntity.created(URI.create("/api/v1/fuentes")).build();
+    }
+
+    // [QUÉ]: Endpoint PUT /api/v1/fuentes/{tipo} — edita nombre/url base/estado de una
+    //        fuente existente (CU-11 editar). La fuente se identifica por tipo (clave
+    //        natural única del catálogo).
+    // [POR QUÉ]: El SUPERADMIN corrige url_base_fuente desde el formulario sin re-registrar.
+    @PutMapping("/fuentes/{tipo}")
+    public ResponseEntity<FuenteExtraccionResponse> editarFuente(
+            @PathVariable TipoFuenteExtraccion tipo,
+            @Valid @RequestBody com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.request.EditarFuenteRequest request) {
+        FuenteExtraccion editada = gestionarFuenteUseCase.editarFuente(
+                tipo, request.nombre(), request.urlBaseFuente(), request.activa());
+        return ResponseEntity.ok(new FuenteExtraccionResponse(
+                editada.id(), editada.nombre(), editada.tipo(), null, editada.activa(),
+                editada.urlBase()));
     }
 
     // [QUÉ]: Endpoint GET /api/v1/fuentes — lista el catálogo de fuentes (CU-11).
     @GetMapping("/fuentes")
     public ResponseEntity<List<FuenteExtraccionResponse>> listarFuentes() {
         List<FuenteExtraccionResponse> respuestas = gestionarFuenteUseCase.listarFuentes().stream()
-                .map(f -> new FuenteExtraccionResponse(f.id(), f.nombre(), f.tipo(), null, f.activa()))
+                .map(f -> new FuenteExtraccionResponse(f.id(), f.nombre(), f.tipo(), null,
+                        f.activa(), f.urlBase()))
                 .toList();
         return ResponseEntity.ok(respuestas);
     }
@@ -90,6 +106,7 @@ public class FuenteExtraccionController {
     private FuenteExtraccionResponse toResponse(DetalleFuenteExtraccion detalle) {
         FuenteExtraccion fuente = detalle.fuente();
         return new FuenteExtraccionResponse(
-                fuente.id(), fuente.nombre(), fuente.tipo(), detalle.url(), detalle.activa());
+                fuente.id(), fuente.nombre(), fuente.tipo(), detalle.url(), detalle.activa(),
+                fuente.urlBase());
     }
 }

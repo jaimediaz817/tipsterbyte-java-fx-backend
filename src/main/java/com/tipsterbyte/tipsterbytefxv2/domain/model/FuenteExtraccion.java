@@ -24,13 +24,30 @@ public final class FuenteExtraccion {
     private final TipoFuenteExtraccion tipo;
     private final boolean activa;
 
+    // [QUÉ]: URL base de la fuente (ej: http://127.0.0.1:8001) para que el frontend
+    //        ofrezca un enlace directo al recurso externo desde el formulario de
+    //        activación de liga. Opcional (nullable): una fuente sin base sigue válida.
+    private final String urlBase;
+
     // [QUÉ]: Construye una fuente generando su identidad (alta vía CU-11).
     public FuenteExtraccion(String nombre, TipoFuenteExtraccion tipo, boolean activa) {
-        this(UUID.randomUUID(), nombre, tipo, activa);
+        this(UUID.randomUUID(), nombre, tipo, activa, null);
+    }
+
+    // [QUÉ]: Alta con URL base (CU-11 con url_base_fuente).
+    public FuenteExtraccion(String nombre, TipoFuenteExtraccion tipo, boolean activa,
+                            String urlBase) {
+        this(UUID.randomUUID(), nombre, tipo, activa, urlBase);
     }
 
     // [QUÉ]: Construye una fuente con identidad provista (reconstrucción desde persistencia).
     public FuenteExtraccion(UUID id, String nombre, TipoFuenteExtraccion tipo, boolean activa) {
+        this(id, nombre, tipo, activa, null);
+    }
+
+    // [QUÉ]: Reconstrucción completa desde persistencia (adapter JPA).
+    public FuenteExtraccion(UUID id, String nombre, TipoFuenteExtraccion tipo, boolean activa,
+                            String urlBase) {
         if (id == null) {
             throw new DomainException("FuenteExtraccion requiere id");
         }
@@ -44,6 +61,8 @@ public final class FuenteExtraccion {
         this.nombre = nombre;
         this.tipo = tipo;
         this.activa = activa;
+        // Normalización soft: blank se guarda como null para no persistir basura.
+        this.urlBase = (urlBase == null || urlBase.isBlank()) ? null : urlBase.trim();
     }
 
     public UUID id() {
@@ -60,6 +79,10 @@ public final class FuenteExtraccion {
 
     public boolean activa() {
         return activa;
+    }
+
+    public String urlBase() {
+        return urlBase;
     }
 
     @Override

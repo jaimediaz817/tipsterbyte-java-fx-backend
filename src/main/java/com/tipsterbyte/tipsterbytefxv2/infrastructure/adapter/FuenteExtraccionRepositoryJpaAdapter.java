@@ -56,11 +56,12 @@ public class FuenteExtraccionRepositoryJpaAdapter implements FuenteExtraccionRep
 
     private FuenteExtraccion toDominio(FuenteExtraccionEntity entidad) {
         return new FuenteExtraccion(
-                entidad.getId(), entidad.getNombre(), entidad.getTipo(), entidad.isActiva());
+                entidad.getId(), entidad.getNombre(), entidad.getTipo(), entidad.isActiva(),
+                entidad.getUrlBaseFuente());
     }
 
     private FuenteExtraccionEntity toEntity(FuenteExtraccion fuente) {
         return new FuenteExtraccionEntity(
-                fuente.id(), fuente.nombre(), fuente.tipo(), fuente.activa());
+                fuente.id(), fuente.nombre(), fuente.tipo(), fuente.activa(), fuente.urlBase());
     }
 }

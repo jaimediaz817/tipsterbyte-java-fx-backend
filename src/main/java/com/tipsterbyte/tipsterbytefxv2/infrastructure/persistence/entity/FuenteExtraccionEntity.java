@@ -41,14 +41,24 @@ public class FuenteExtraccionEntity {
     @Column(name = "activa", nullable = false)
     private boolean activa;
 
+    // [QUÉ]: URL base de la fuente para enlaces del frontend (V7, nullable).
+    @Column(name = "url_base_fuente", length = 500)
+    private String urlBaseFuente;
+
     protected FuenteExtraccionEntity() {
     }
 
     public FuenteExtraccionEntity(UUID id, String nombre, TipoFuenteExtraccion tipo, boolean activa) {
+        this(id, nombre, tipo, activa, null);
+    }
+
+    public FuenteExtraccionEntity(UUID id, String nombre, TipoFuenteExtraccion tipo, boolean activa,
+                                  String urlBaseFuente) {
         this.id = id;
         this.nombre = nombre;
         this.tipo = tipo;
         this.activa = activa;
+        this.urlBaseFuente = urlBaseFuente;
     }
 
     public UUID getId() {
@@ -65,5 +75,13 @@ public class FuenteExtraccionEntity {
 
     public boolean isActiva() {
         return activa;
+    }
+
+    public String getUrlBaseFuente() {
+        return urlBaseFuente;
+    }
+
+    public void setUrlBaseFuente(String urlBaseFuente) {
+        this.urlBaseFuente = urlBaseFuente;
     }
 }

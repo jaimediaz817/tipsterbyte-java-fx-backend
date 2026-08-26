@@ -57,6 +57,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/roles").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/fuentes", "/api/v1/fuentes/**").hasAnyRole("SUPERADMIN", "TIPSTER", "CLIENTE")
+                        // [QUÉ]: Escritura sobre el catálogo de fuentes (POST/PUT /fuentes/**)
+                        //        restringida: la lectura es pública para los 3 roles (regla
+                        //        anterior), pero editar url_base_fuente es tarea administrativa.
+                        .requestMatchers("/api/v1/fuentes/**").hasAnyRole("SUPERADMIN", "TIPSTER")
                         .requestMatchers("/api/v1/ligas/**").hasAnyRole("SUPERADMIN", "TIPSTER")
                         .requestMatchers("/api/v1/paises/**").hasAnyRole("SUPERADMIN", "TIPSTER")
                         .requestMatchers("/api/v1/paises-interes/**").hasAnyRole("SUPERADMIN", "TIPSTER")

@@ -22,6 +22,7 @@ import com.tipsterbyte.tipsterbytefxv2.domain.DomainException;
 import com.tipsterbyte.tipsterbytefxv2.domain.event.DomainEvent;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.DetalleFuenteExtraccion;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.FuenteExtraccion;
+import com.tipsterbyte.tipsterbytefxv2.domain.model.TipoFuenteExtraccion;
 
 import java.util.List;
 
@@ -50,8 +51,29 @@ public final class GestionarFuenteExtraccionUseCase {
             throw new DomainException("Ya existe una fuente registrada para el tipo: " + comando.tipo());
         }
         fuenteRepository.guardar(new FuenteExtraccion(
-                comando.nombre(), comando.tipo(), comando.activa()));
+                comando.nombre(), comando.tipo(), comando.activa(), comando.urlBase()));
         return List.of();
+    }
+
+    // [QUÉ]: Ejecuta CU-11 edición: actualiza nombre/url base/estado de una fuente
+    //        existente identificada por su tipo (clave natural única del catálogo).
+    // [POR QUÉ]: El SUPERADMIN corrige la url_base_fuente desde el formulario sin
+    //            re-registrar (registrarFuente rechaza tipos duplicados). La edición
+    //            reconstruye el aggregate (inmutable) conservando su id.
+    public FuenteExtraccion editarFuente(TipoFuenteExtraccion tipo, String nombre,
+                                         String urlBase, boolean activa) {
+        if (tipo == null) {
+            throw new DomainException("Editar fuente requiere tipo");
+        }
+        FuenteExtraccion existente = fuenteRepository.buscarPorTipo(tipo)
+                .orElseThrow(() -> new DomainException("No existe fuente registrada para el tipo: " + tipo));
+        if (nombre == null || nombre.isBlank()) {
+            throw new DomainException("Editar fuente requiere nombre");
+        }
+        FuenteExtraccion editada = new FuenteExtraccion(
+                existente.id(), nombre.trim(), tipo, activa, urlBase);
+        fuenteRepository.guardar(editada);
+        return editada;
     }
 
     // [QUÉ]: Ejecuta CU-11 listado: devuelve todas las fuentes del catálogo.

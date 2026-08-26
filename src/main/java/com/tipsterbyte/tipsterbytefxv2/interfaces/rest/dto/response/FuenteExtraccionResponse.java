@@ -1,6 +1,7 @@
 // ─────────────────────────────────────────────
 // [QUÉ]: Response DTO de CU-11 (fuentes): la vista de una fuente de extracción o del
-//        detalle asociado a una liga (id, nombre, tipo, URL y estado).
+//        detalle asociado a una liga (id, nombre, tipo, URL específica, URL base y
+//        estado). urlBaseFuente alimenta el enlace "ir a la fuente" del formulario.
 // [POR QUÉ]: Devuelve al cliente los datos del catálogo de fuentes sin exponer los
 //            entities del dominio. Un solo record sirve para fuente y detalle (el
 //            detalle agrega la URL); los campos ausentes van null.
@@ -19,5 +20,6 @@ public record FuenteExtraccionResponse(
         String nombre,
         TipoFuenteExtraccion tipo,
         String url,
-        boolean activa) {
+        boolean activa,
+        String urlBaseFuente) {
 }
