@@ -109,6 +109,22 @@ Referencia completa: ADR-008 en `docs/architecture/arquitectura-objetivo.md`.
 
 En la MISMA migración: `DROP COLUMN x;` + eliminar cualquier índice/constraint dependiente. Y revertir el campo en Entity JPA + dominio + mappers + tests en el mismo commit.
 
+### ⚠️ GOTCHA 3 — BD dev heredada del esquema pre-Flyway (deriva invisible, caso V6)
+
+`baseline-on-migrate=true` marcó V1 como aplicada **sin reconciliar** el contenido del baseline con el esquema legacy que ya existía en la BD dev (creada por `ddl-auto=update`). Consecuencia: los tests pasan en verde (Testcontainers ejecuta las migraciones desde cero) pero la BD dev puede tener constraints/columnas viejas que revientan en runtime con 500 silencioso. Ocurrió dos veces: `usuarios_rol_check` (roles) y 3 CHECKs sin `'EQUIPOS'` (`fuentes_extraccion`, `detalle_fuentes_extraccion`, `tareas_programadas`) — corregido con V6.
+
+Reglas derivadas:
+
+1. **La verdad del esquema son las migraciones + Testcontainers**, NO la BD dev. Ante un error de constraint en dev, comparar contra `V*.sql`, no asumir que dev coincide.
+2. **Al añadir un valor a un enum persistido, auditar TODOS los CHECK constraints** de todas las tablas que referencien ese enum (no solo la tabla que estás tocando):
+   ```bash
+   docker exec tipsterbytefxv2-postgres psql -U postgres -d tipsterbytefxv2_dev -c \
+   "SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint WHERE contype='c' AND conname LIKE '%tipo%';"
+   ```
+3. **NUNCA corregir la BD dev con ALTER manual**: si la deriva es real, va como migración `V(n+1)__*.sql` (idempotente DROP+ADD CONSTRAINT) para que cualquier entorno converja. Un hot-fix manual deja la BD como artefacto no reproducible y escondió este bug un día entero.
+
+Referencia completa: ADR-008 (sección "Actualización post-Flyway") en `docs/architecture/arquitectura-objetivo.md`.
+
 ### ❌ Prohibido
 
 - Editar un `.sql` YA aplicado (checksum mismatch → arranque roto). Corregir = nuevo V(n+1).
@@ -122,7 +138,7 @@ En la MISMA migración: `DROP COLUMN x;` + eliminar cualquier índice/constraint
 - [ ] Migración creada vía `nuevaMigracion` (numeración correlativa)
 - [ ] Header [QUÉ]/[POR QUÉ]/[RELACIONES] completo en el `.sql`
 - [ ] Entity JPA + mappers + dominio actualizados en el mismo commit
-- [ ] Si el enum cambió: CHECK recreado (Gotcha 1)
+- [ ] Si el enum cambió: CHECK recreado (Gotcha 1) + TODOS los CHECKs del enum auditados en dev (Gotcha 3)
 - [ ] `./gradlew test` completo en verde
 - [ ] Documentación afectada tocada (modelo-dominio, comunicados si cambia contrato REST)
 
