@@ -95,6 +95,11 @@ public class GestionarTareasProgramasUseCase {
         return tareaProgramadaRepository.listarPorPrioridadAsc();
     }
 
+    // [QUÉ]: HU-14 AC3 — lista las tareas de una liga específica.
+    public List<TareaProgramada> listarPorLiga(UUID ligaId) {
+        return tareaProgramadaRepository.buscarPorLigaId(ligaId);
+    }
+
     // [QUÉ]: Elimina una tarea programada por su ID (rechaza si no existe).
     public void eliminar(UUID id) {
         if (tareaProgramadaRepository.encontrarPorId(id).isEmpty()) {

@@ -44,7 +44,8 @@ class SincronizarCuotasUseCaseTest {
 
     @BeforeEach
     void setUp() {
-        casoDeUso = new SincronizarCuotasUseCase(partidoRepository, proveedorCuotas, cacheLecturas);
+        casoDeUso = new SincronizarCuotasUseCase(partidoRepository, proveedorCuotas, cacheLecturas,
+                null, null, null, null);
     }
 
     private Partido partidoProximo(UUID ligaId) {

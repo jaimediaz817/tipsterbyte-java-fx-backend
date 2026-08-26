@@ -75,9 +75,14 @@ public class TareaProgramadaController {
     }
 
     // [QUÉ]: Lista de tareas con próxima ejecución derivada.
+    //        HU-14 AC3: filtro opcional ?ligaId para mostrar solo las tareas de una liga.
     @GetMapping
-    public ResponseEntity<List<TareaProgramadaResponse>> listar() {
-        List<TareaProgramadaResponse> respuesta = gestionarTareasProgramasUseCase.listar().stream()
+    public ResponseEntity<List<TareaProgramadaResponse>> listar(
+            @RequestParam(required = false) UUID ligaId) {
+        List<TareaProgramada> tareas = ligaId != null
+                ? gestionarTareasProgramasUseCase.listarPorLiga(ligaId)
+                : gestionarTareasProgramasUseCase.listar();
+        List<TareaProgramadaResponse> respuesta = tareas.stream()
                 .map(this::aResponse)
                 .toList();
         return ResponseEntity.ok(respuesta);

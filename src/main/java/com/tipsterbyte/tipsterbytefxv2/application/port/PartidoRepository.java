@@ -30,6 +30,11 @@ public interface PartidoRepository {
     // [POR QUÉ]: CU-08 filtra pronósticos por liga y fecha.
     List<Partido> buscarPorLigaYFecha(UUID ligaId, java.time.LocalDate fecha);
 
+    // [QUÉ]: Busca un partido por temporada y IDs de equipos local y visitante.
+    // [POR QUÉ]: HU-14 AC4.3 — el use case necesita verificar si ya existe un partido
+    //            entre dos equipos antes de crearlo.
+    Optional<Partido> buscarPorTemporadaYEquipos(UUID temporadaId, UUID equipoLocalId, UUID equipoVisitanteId);
+
     // [QUÉ]: Persiste un partido (crea o actualiza según exista el id).
     void guardar(Partido partido);
 

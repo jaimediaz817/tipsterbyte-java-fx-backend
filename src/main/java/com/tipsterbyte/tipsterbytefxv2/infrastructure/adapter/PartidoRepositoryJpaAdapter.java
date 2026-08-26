@@ -80,6 +80,13 @@ public class PartidoRepositoryJpaAdapter implements PartidoRepository {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Optional<Partido> buscarPorTemporadaYEquipos(UUID temporadaId, UUID equipoLocalId, UUID equipoVisitanteId) {
+        return jpaRepository.findByTemporadaIdAndEquipos(temporadaId, equipoLocalId, equipoVisitanteId)
+                .map(this::toDominio);
+    }
+
+    @Override
     @Transactional
     public void guardar(Partido partido) {
         jpaRepository.save(toEntity(partido));

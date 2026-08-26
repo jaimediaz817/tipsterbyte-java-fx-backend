@@ -14,7 +14,9 @@
 package com.tipsterbyte.tipsterbytefxv2.infrastructure.config;
 
 import com.tipsterbyte.tipsterbytefxv2.application.port.CacheLecturas;
+import com.tipsterbyte.tipsterbytefxv2.application.port.CuotaHistorialRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.DetalleFuenteExtraccionRepository;
+import com.tipsterbyte.tipsterbytefxv2.application.port.EquiposAliasRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.FuenteExtraccionRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.LigaRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PaisInteresRepository;
@@ -25,6 +27,7 @@ import com.tipsterbyte.tipsterbytefxv2.application.port.PronosticoRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorCalendario;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorCuotas;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorEquiposPorLiga;
+import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorPartidosProximosWplay;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProgresoPoblamiento;
 import com.tipsterbyte.tipsterbytefxv2.application.port.TareaLogRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.DetectarDiscrepanciasEquiposUseCase;
@@ -89,12 +92,18 @@ public class UseCaseConfig {
         return new SincronizarCalendarioUseCase(ligaRepository, partidoRepository, proveedorCalendario, cacheLecturas);
     }
 
-    // [QUÉ]: Bean de CU-03 (sincronizar cuotas, con invalidación de cache FASE 12).
+    // [QUÉ]: Bean de CU-03 (sincronizar cuotas, con invalidación de cache FASE 12,
+    //        resolución multi-fuente HU-14 AC4.2/4.3, historial AC4.5).
     @Bean
     public SincronizarCuotasUseCase sincronizarCuotasUseCase(PartidoRepository partidoRepository,
                                                              ProveedorCuotas proveedorCuotas,
-                                                             CacheLecturas cacheLecturas) {
-        return new SincronizarCuotasUseCase(partidoRepository, proveedorCuotas, cacheLecturas);
+                                                             CacheLecturas cacheLecturas,
+                                                             ProveedorPartidosProximosWplay proveedorPartidosWplay,
+                                                             TemporadaRepository temporadaRepository,
+                                                             EquiposAliasRepository equiposAliasRepository,
+                                                             CuotaHistorialRepository cuotaHistorialRepository) {
+        return new SincronizarCuotasUseCase(partidoRepository, proveedorCuotas, cacheLecturas,
+                proveedorPartidosWplay, temporadaRepository, equiposAliasRepository, cuotaHistorialRepository);
     }
 
     // [QUÉ]: Bean de CU-05 (registrar resultado de partido).

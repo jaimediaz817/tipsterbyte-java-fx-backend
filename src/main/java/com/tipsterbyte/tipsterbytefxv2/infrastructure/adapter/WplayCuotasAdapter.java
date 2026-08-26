@@ -16,9 +16,11 @@ package com.tipsterbyte.tipsterbytefxv2.infrastructure.adapter;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.tipsterbyte.tipsterbytefxv2.application.dto.CuotaFuente;
+import com.tipsterbyte.tipsterbytefxv2.application.dto.PartidoWplay;
 import com.tipsterbyte.tipsterbytefxv2.application.port.DetalleFuenteExtraccionRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.PartidoRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorCuotas;
+import com.tipsterbyte.tipsterbytefxv2.application.port.ProveedorPartidosProximosWplay;
 import com.tipsterbyte.tipsterbytefxv2.domain.DomainException;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Mercado;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Partido;
@@ -39,7 +41,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @Component
-public class WplayCuotasAdapter implements ProveedorCuotas {
+public class WplayCuotasAdapter implements ProveedorCuotas, ProveedorPartidosProximosWplay {
 
     private static final Map<String, Integer> MESES_ES = Map.ofEntries(
             Map.entry("ene", 1), Map.entry("feb", 2), Map.entry("mar", 3),
@@ -88,6 +90,52 @@ public class WplayCuotasAdapter implements ProveedorCuotas {
         } catch (RestClientException ex) {
             throw new InfraestructureException("Fuente de cuotas no disponible: " + ex.getMessage(), ex);
         }
+    }
+
+    // [QUÉ]: Obtiene todos los partidos próximos de Wplay para una temporada, con datos
+    //        crudos (nombres de equipos, fecha, cuotas) sin resolver contra la plantilla.
+    // [POR QUÉ]: HU-14 AC4.2/4.3 — el caso de uso necesita los nombres de equipo crudos
+    //            para resolverlos contra la plantilla y crear partidos faltantes.
+    @Override
+    public List<PartidoWplay> obtenerPartidosProximos(UUID temporadaId) {
+        String url = resolverUrl(temporadaId);
+
+        try {
+            RespuestaCuotas respuesta = restClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/ext-next-matches-wplay-by-league")
+                            .queryParam("path_to_scrape", url)
+                            .build())
+                    .retrieve()
+                    .body(RespuestaCuotas.class);
+            if (respuesta == null || respuesta.matchesWplay() == null || respuesta.matchesWplay().isEmpty()) {
+                return List.of();
+            }
+
+            return respuesta.matchesWplay().stream()
+                    .map(this::toPartidoWplay)
+                    .toList();
+        } catch (RestClientException ex) {
+            throw new InfraestructureException("Fuente de cuotas no disponible: " + ex.getMessage(), ex);
+        }
+    }
+
+    // [QUÉ]: Mapea un MatchWplayJson crudo a un PartidoWplay con datos解析ados.
+    private PartidoWplay toPartidoWplay(MatchWplayJson match) {
+        List<PartidoWplay.CuotaDobleOportunidad> dobles = new ArrayList<>();
+        if (match.doubleChance() != null) {
+            for (DoubleChanceJson dc : match.doubleChance()) {
+                dobles.add(new PartidoWplay.CuotaDobleOportunidad(dc.nameQuota(), parsearCuota(dc.quota())));
+            }
+        }
+        return new PartidoWplay(
+                match.teamLocal(),
+                match.teamVisiting(),
+                combinarFechaHora(match.dateMatch(), match.timeMatch()).atZone(java.time.ZoneId.systemDefault()).toInstant(),
+                parsearCuota(match.quotaTeamLocal()),
+                parsearCuota(match.quotaTie()),
+                parsearCuota(match.quotaTeamVisiting()),
+                dobles);
     }
 
     // [QUÉ]: Resuelve la URL (path_to_scrape) de la fuente de cuotas Wplay de la

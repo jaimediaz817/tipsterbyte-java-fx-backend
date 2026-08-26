@@ -40,4 +40,14 @@ public interface PartidoJpaRepository extends JpaRepository<PartidoEntity, UUID>
     List<PartidoEntity> findByLigaIdAndFechaHoraBetween(@Param("ligaId") UUID ligaId,
                                                         @Param("inicio") LocalDateTime inicio,
                                                         @Param("fin") LocalDateTime fin);
+
+    // [QUÉ]: Busca un partido por temporada y IDs de equipos local y visitante.
+    // [POR QUÉ]: HU-14 AC4.3 — el use case necesita verificar si ya existe un partido
+    //            entre dos equipos antes de crearlo.
+    @Query("select p from PartidoEntity p where p.temporada.id = :temporadaId "
+            + "and p.equipoLocalId = :equipoLocalId and p.equipoVisitanteId = :equipoVisitanteId")
+    java.util.Optional<PartidoEntity> findByTemporadaIdAndEquipos(
+            @Param("temporadaId") UUID temporadaId,
+            @Param("equipoLocalId") UUID equipoLocalId,
+            @Param("equipoVisitanteId") UUID equipoVisitanteId);
 }
