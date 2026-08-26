@@ -313,14 +313,29 @@ class LigaControllerTest {
     @Test
     void debe_sincronizar_equipos_de_liga_y_devolver_conteos() throws Exception {
         UUID ligaId = UUID.randomUUID();
-        when(sincronizarEquiposLigaUseCase.ejecutar(ligaId))
-                .thenReturn(new com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarEquiposLigaUseCase.ResultadoPoblacionEquipos(5, 2, 30));
+        when(sincronizarEquiposLigaUseCase.ejecutar(ligaId, true))
+                .thenReturn(new com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarEquiposLigaUseCase.ResultadoPoblacionEquipos(5, 2, 30, false));
 
-        mockMvc.perform(post("/api/v1/ligas/{ligaId}/equipos/sincronizar", ligaId))
+        mockMvc.perform(post("/api/v1/ligas/{ligaId}/equipos/sincronizar", ligaId)
+                        .param("forzar", "true"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.creados").value(5))
                 .andExpect(jsonPath("$.actualizados").value(2))
-                .andExpect(jsonPath("$.totalEquipos").value(30));
+                .andExpect(jsonPath("$.totalEquipos").value(30))
+                .andExpect(jsonPath("$.desdePlantillaExistente").value(false));
+    }
+
+    @Test
+    void debe_sincronizar_equipos_sin_forzar_y_reportar_plantilla_existente() throws Exception {
+        UUID ligaId = UUID.randomUUID();
+        when(sincronizarEquiposLigaUseCase.ejecutar(ligaId, false))
+                .thenReturn(new com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarEquiposLigaUseCase.ResultadoPoblacionEquipos(0, 0, 30, true));
+
+        mockMvc.perform(post("/api/v1/ligas/{ligaId}/equipos/sincronizar", ligaId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.creados").value(0))
+                .andExpect(jsonPath("$.totalEquipos").value(30))
+                .andExpect(jsonPath("$.desdePlantillaExistente").value(true));
     }
 
     private static Set<Temporada> temporadasDe(UUID ligaId, String nombre, int inicio, int fin) {

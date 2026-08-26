@@ -61,11 +61,46 @@ class GestionarFuenteExtraccionUseCaseTest {
 
     @Test
     void debe_registrar_fuente_nueva() {
-        casoDeUso.registrarFuente(new RegistrarFuenteComando("Posiciones Flashscore", TipoFuenteExtraccion.STANDINGS, true));
+        casoDeUso.registrarFuente(new RegistrarFuenteComando("Posiciones Flashscore", TipoFuenteExtraccion.STANDINGS, true, null));
 
         ArgumentCaptor<FuenteExtraccion> captor = ArgumentCaptor.forClass(FuenteExtraccion.class);
         verify(fuenteRepository).guardar(captor.capture());
         assertEquals(TipoFuenteExtraccion.STANDINGS, captor.getValue().tipo());
+    }
+
+    @Test
+    void debe_registrar_fuente_con_url_base() {
+        casoDeUso.registrarFuente(new RegistrarFuenteComando("Cuotas Wplay",
+                TipoFuenteExtraccion.ODDS_WPLAY, true, "http://127.0.0.1:8001"));
+
+        ArgumentCaptor<FuenteExtraccion> captor = ArgumentCaptor.forClass(FuenteExtraccion.class);
+        verify(fuenteRepository).guardar(captor.capture());
+        assertEquals("http://127.0.0.1:8001", captor.getValue().urlBase());
+    }
+
+    @Test
+    void debe_editar_url_base_de_fuente_existente() {
+        FuenteExtraccion existente = new FuenteExtraccion(
+                UUID.randomUUID(), "Cuotas Wplay", TipoFuenteExtraccion.ODDS_WPLAY, true, null);
+        when(fuenteRepository.buscarPorTipo(TipoFuenteExtraccion.ODDS_WPLAY))
+                .thenReturn(Optional.of(existente));
+
+        FuenteExtraccion editada = casoDeUso.editarFuente(
+                TipoFuenteExtraccion.ODDS_WPLAY, "Cuotas Wplay",
+                "https://wplay.co/apuestas", true);
+
+        assertEquals(existente.id(), editada.id());
+        assertEquals("https://wplay.co/apuestas", editada.urlBase());
+        verify(fuenteRepository).guardar(editada);
+    }
+
+    @Test
+    void debe_fallar_edicion_si_la_fuente_no_existe() {
+        when(fuenteRepository.buscarPorTipo(TipoFuenteExtraccion.CALENDAR))
+                .thenReturn(Optional.empty());
+
+        assertThrows(DomainException.class, () -> casoDeUso.editarFuente(
+                TipoFuenteExtraccion.CALENDAR, "Calendario", "http://x", true));
     }
 
     @Test
@@ -74,7 +109,7 @@ class GestionarFuenteExtraccionUseCaseTest {
                 .thenReturn(Optional.of(new FuenteExtraccion("Existente", TipoFuenteExtraccion.STANDINGS, true)));
 
         assertThrows(DomainException.class, () -> casoDeUso.registrarFuente(
-                new RegistrarFuenteComando("Duplicada", TipoFuenteExtraccion.STANDINGS, true)));
+                new RegistrarFuenteComando("Duplicada", TipoFuenteExtraccion.STANDINGS, true, null)));
         verify(fuenteRepository, never()).guardar(org.mockito.ArgumentMatchers.any());
     }
 
