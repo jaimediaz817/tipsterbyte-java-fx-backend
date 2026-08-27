@@ -218,7 +218,7 @@ public class CatalogoScheduler implements EstadoEjecucionTareas {
         switch (tarea.tipoFuente()) {
             case STANDINGS -> sincronizarPosicionesUseCase.ejecutar(tarea.ligaId());
             case CALENDAR -> sincronizarCalendarioUseCase.ejecutar(tarea.ligaId());
-            case ODDS_WPLAY -> sincronizarCuotasUseCase.ejecutar(tarea.ligaId());
+            case ODDS_WPLAY -> sincronizarCuotasUseCase.ejecutarConResolucion(tarea.ligaId());
             // [POR QUÉ]: EQUIPOS no usa path_to_scrape ni DetalleFuenteExtraccion (H-07):
             //            la #6 se consume con country_name+league_name del aggregate.
             case EQUIPOS -> sincronizarEquiposLigaUseCase.ejecutar(tarea.ligaId());

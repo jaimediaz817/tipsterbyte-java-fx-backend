@@ -130,7 +130,7 @@ class CatalogoSchedulerTest {
         scheduler.ejecutarTareasProgramadas();
 
         verify(sincronizarCalendarioUseCase, timeout(5000).times(1)).ejecutar(ligaCalendario);
-        verify(sincronizarCuotasUseCase, timeout(5000).times(1)).ejecutar(ligaCuotas);
+        verify(sincronizarCuotasUseCase, timeout(5000).times(1)).ejecutarConResolucion(ligaCuotas);
     }
 
     @Test
