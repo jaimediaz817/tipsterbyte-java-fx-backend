@@ -300,4 +300,26 @@ public class UseCaseConfig {
         return new com.tipsterbyte.tipsterbytefxv2.application.usecase.GestionarEstrategiasUseCase(
                 estrategiaRepository);
     }
+
+    // [QUÉ]: Bean de CU-24 (HU-16): evaluación de estrategias contra partidos.
+    @Bean
+    public com.tipsterbyte.tipsterbytefxv2.application.usecase.EvaluarEstrategiaUseCase evaluarEstrategiaUseCase(
+            com.tipsterbyte.tipsterbytefxv2.application.port.EstrategiaRepository estrategiaRepository,
+            PartidoRepository partidoRepository,
+            com.tipsterbyte.tipsterbytefxv2.application.port.CuotaHistorialRepository cuotaHistorialRepository,
+            com.tipsterbyte.tipsterbytefxv2.application.port.ZonaDescensoRepository zonaDescensoRepository,
+            com.tipsterbyte.tipsterbytefxv2.application.port.PronosticoSugeridoRepository pronosticoSugeridoRepository) {
+        return new com.tipsterbyte.tipsterbytefxv2.application.usecase.EvaluarEstrategiaUseCase(
+                estrategiaRepository, partidoRepository, cuotaHistorialRepository,
+                zonaDescensoRepository, pronosticoSugeridoRepository);
+    }
+
+    // [QUÉ]: Bean de CU-25 (HU-16): consulta de sugerencias de una estrategia.
+    @Bean
+    public com.tipsterbyte.tipsterbytefxv2.application.usecase.ConsultarSugerenciasUseCase consultarSugerenciasUseCase(
+            com.tipsterbyte.tipsterbytefxv2.application.port.PronosticoSugeridoRepository pronosticoSugeridoRepository,
+            PartidoRepository partidoRepository) {
+        return new com.tipsterbyte.tipsterbytefxv2.application.usecase.ConsultarSugerenciasUseCase(
+                pronosticoSugeridoRepository, partidoRepository);
+    }
 }
