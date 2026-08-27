@@ -5,8 +5,7 @@
 // ─────────────────────────────────────────────
 package com.tipsterbyte.tipsterbytefxv2.infrastructure.adapter;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.tipsterbyte.tipsterbytefxv2.application.port.EstrategiaRepository;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Criterio;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Estrategia;
@@ -91,9 +90,10 @@ public class EstrategiaRepositoryJpaAdapter implements EstrategiaRepository {
     private Estrategia toDomainModel(EstrategiaEntity entity) {
         List<Criterio> criterios;
         try {
-            criterios = objectMapper.readValue(entity.getCriteriosJson(),
-                    new TypeReference<List<CriterioDto>>() {})
-                    .stream().map(this::toCriterio).collect(Collectors.toList());
+            List<CriterioDto> dtos = objectMapper.readValue(
+                    entity.getCriteriosJson(),
+                    objectMapper.getTypeFactory().constructCollectionType(List.class, CriterioDto.class));
+            criterios = dtos.stream().map(this::toCriterio).collect(Collectors.toList());
         } catch (Exception e) {
             criterios = new ArrayList<>();
         }
