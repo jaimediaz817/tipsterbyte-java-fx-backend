@@ -10,4 +10,7 @@ import java.util.UUID;
 public interface CuotaHistorialJpaRepository extends JpaRepository<CuotaHistorialEntity, UUID> {
     List<CuotaHistorialEntity> findByPartidoIdAndCapturadaEnBetweenOrderByCapturadaEnAsc(
             UUID partidoId, Instant desde, Instant hasta);
+
+    List<CuotaHistorialEntity> findByPartidoIdInAndCapturadaEnBetweenOrderByPartidoIdAscCapturadaEnAsc(
+            List<UUID> partidoIds, Instant desde, Instant hasta);
 }

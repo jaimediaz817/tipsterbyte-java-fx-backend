@@ -275,4 +275,21 @@ public class UseCaseConfig {
         return new com.tipsterbyte.tipsterbytefxv2.application.usecase.SincronizarLigasPorPaisAsyncUseCase(
                 delegado, tareaLogRepository);
     }
+
+    // [QUÉ]: Bean de CU-21 (HU-15): snapshot de cuotas próximas con volatilidad.
+    @Bean
+    public com.tipsterbyte.tipsterbytefxv2.application.usecase.ConsultarCuotasProximasUseCase consultarCuotasProximasUseCase(
+            PartidoRepository partidoRepository,
+            com.tipsterbyte.tipsterbytefxv2.application.port.CuotaHistorialRepository cuotaHistorialRepository) {
+        return new com.tipsterbyte.tipsterbytefxv2.application.usecase.ConsultarCuotasProximasUseCase(
+                partidoRepository, cuotaHistorialRepository);
+    }
+
+    // [QUÉ]: Bean de CU-22 (HU-15): historial cronológico de cuotas por partido.
+    @Bean
+    public com.tipsterbyte.tipsterbytefxv2.application.usecase.ConsultarHistorialCuotasUseCase consultarHistorialCuotasUseCase(
+            com.tipsterbyte.tipsterbytefxv2.application.port.CuotaHistorialRepository cuotaHistorialRepository) {
+        return new com.tipsterbyte.tipsterbytefxv2.application.usecase.ConsultarHistorialCuotasUseCase(
+                cuotaHistorialRepository);
+    }
 }

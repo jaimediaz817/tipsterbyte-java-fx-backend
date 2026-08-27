@@ -22,4 +22,8 @@ public interface CuotaHistorialRepository {
 
     // [QUÉ]: Devuelve las cuotas de un partido en un rango de tiempo (para HU-15).
     List<CuotaHistorial> buscarPorPartidoYRango(UUID partidoId, java.time.Instant desde, java.time.Instant hasta);
+
+    // [QUÉ]: Devuelve las cuotas de múltiples partidos en un rango de tiempo (batch, sin N+1).
+    // [POR QUÉ]: HU-15 AC3 — el snapshot consulta todos los partidos de una liga de una sola vez.
+    List<CuotaHistorial> buscarPorPartidosYRango(List<UUID> partidoIds, java.time.Instant desde, java.time.Instant hasta);
 }

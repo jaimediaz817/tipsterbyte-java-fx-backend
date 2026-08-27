@@ -38,4 +38,14 @@ public class CuotaHistorialRepositoryJpaAdapter implements CuotaHistorialReposit
         return jpaRepository.findByPartidoIdAndCapturadaEnBetweenOrderByCapturadaEnAsc(partidoId, desde, hasta)
                 .stream().map(CuotaHistorialEntity::toDomainModel).collect(Collectors.toList());
     }
+
+    @Override
+    public List<CuotaHistorial> buscarPorPartidosYRango(List<UUID> partidoIds, Instant desde, Instant hasta) {
+        if (partidoIds == null || partidoIds.isEmpty()) {
+            return List.of();
+        }
+        return jpaRepository.findByPartidoIdInAndCapturadaEnBetweenOrderByPartidoIdAscCapturadaEnAsc(
+                        partidoIds, desde, hasta)
+                .stream().map(CuotaHistorialEntity::toDomainModel).collect(Collectors.toList());
+    }
 }
