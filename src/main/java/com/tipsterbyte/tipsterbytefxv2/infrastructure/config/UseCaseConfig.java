@@ -292,4 +292,12 @@ public class UseCaseConfig {
         return new com.tipsterbyte.tipsterbytefxv2.application.usecase.ConsultarHistorialCuotasUseCase(
                 cuotaHistorialRepository);
     }
+
+    // [QUÉ]: Bean de CU-23 (HU-16): CRUD de estrategias de pronóstico.
+    @Bean
+    public com.tipsterbyte.tipsterbytefxv2.application.usecase.GestionarEstrategiasUseCase gestionarEstrategiasUseCase(
+            com.tipsterbyte.tipsterbytefxv2.application.port.EstrategiaRepository estrategiaRepository) {
+        return new com.tipsterbyte.tipsterbytefxv2.application.usecase.GestionarEstrategiasUseCase(
+                estrategiaRepository);
+    }
 }
