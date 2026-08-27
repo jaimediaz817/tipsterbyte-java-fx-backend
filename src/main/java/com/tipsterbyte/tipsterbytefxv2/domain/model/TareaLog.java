@@ -20,7 +20,7 @@ public record TareaLog(
         UUID tareaProgramadaId,
         String executionId,
         Instant timestamp,
-        String status, // SUCCESS, ERROR
+        String status, // SUCCESS, ERROR, SKIPPED
         Long durationMs,
         String errorCode,
         String mensaje,

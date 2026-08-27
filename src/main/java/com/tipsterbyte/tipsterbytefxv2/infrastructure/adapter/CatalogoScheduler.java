@@ -164,6 +164,8 @@ public class CatalogoScheduler implements EstadoEjecucionTareas {
         String executionId = UUID.randomUUID().toString();
         Instant inicio = Instant.now();
         MDCTaskContext.putTaskContext(tarea, executionId);
+        log.info("[SCHEDULER] Iniciando tarea: id={}, tipo={}, ligaId={}, cron='{}'",
+                tarea.id(), tarea.tipoFuente(), tarea.ligaId(), tarea.cronExpression());
         try {
             // HU-14 AC2: verificar elegibilidad por DetalleFuenteExtraccion activo.
             // EQUIPOS no requiere detalle (la #6 no usa path_to_scrape — H-07).
@@ -172,32 +174,34 @@ public class CatalogoScheduler implements EstadoEjecucionTareas {
                 boolean detalleActivo = detalleRepository.buscarPorLigaYTipo(tarea.ligaId(), tarea.tipoFuente())
                         .isPresent();
                 if (!detalleActivo) {
-                    log.warn("[HU-14 AC2] Tarea {} omitida: sin detalle activo para liga {} tipo {}",
-                            tarea.id(), tarea.ligaId(), tarea.tipoFuente());
+                    log.warn("[SCHEDULER] Tarea {} ({}) OMITIDA: sin DetalleFuenteExtraccion activo para liga {} tipo {}",
+                            tarea.id(), tarea.tipoFuente(), tarea.ligaId(), tarea.tipoFuente());
                     tareaLogRepository.guardar(new TareaLog(
                             UUID.randomUUID(), tarea.id(), executionId, inicio,
-                            "SUCCESS", Duration.between(inicio, Instant.now()).toMillis(),
+                            "SKIPPED", Duration.between(inicio, Instant.now()).toMillis(),
                             null, "Tarea omitida: sin detalle fuente activo", 0));
                     return;
                 }
             }
 
-            despachar(tarea);
+            String resultado = despachar(tarea);
             Instant fin = Instant.now();
             long duracionMs = Duration.between(inicio, fin).toMillis();
+            log.info("[SCHEDULER] Tarea {} ({}) completada en {}ms: {}",
+                    tarea.id(), tarea.tipoFuente(), duracionMs, resultado);
             tareaLogRepository.guardar(new TareaLog(
                     UUID.randomUUID(), tarea.id(), executionId, inicio,
                     "SUCCESS", duracionMs, null,
-                    "Ejecución exitosa de tarea programada", null));
+                    resultado, null));
         } catch (Exception e) {
             Instant fin = Instant.now();
             long duracionMs = Duration.between(inicio, fin).toMillis();
+            log.error("[SCHEDULER] Tarea {} ({}) FAILED en {}ms: {}",
+                    tarea.id(), tarea.tipoFuente(), duracionMs, e.getMessage(), e);
             tareaLogRepository.guardar(new TareaLog(
                     UUID.randomUUID(), tarea.id(), executionId, inicio,
                     "ERROR", duracionMs, e.getClass().getSimpleName(),
                     e.getMessage(), null));
-            // El MDC ya está enriquecido: este log aparece en los logs JSON correlacionado.
-            log.error("Error ejecutando tarea programada {}", tarea.id(), e);
         } finally {
             MDCTaskContext.clear();
             runningTasks.put(tarea.id(), false);
@@ -206,24 +210,37 @@ public class CatalogoScheduler implements EstadoEjecucionTareas {
 
     // [QUÉ]: Despacha la tarea al caso de uso correspondiente según su tipo de fuente.
     //        tipoFuente null = tarea global de catálogo (CU-10, sin liga).
-    private void despachar(TareaProgramada tarea) {
+    //        Retorna un resumen legible del resultado para persistir en tarea_log.mensaje.
+    private String despachar(TareaProgramada tarea) {
         if (tarea.tipoFuente() == null) {
             sincronizarCatalogoUseCase.ejecutar();
-            return;
+            return "Catálogo global sincronizado (CU-10)";
         }
         if (tarea.ligaId() == null) {
             throw new IllegalArgumentException("Tarea de tipo " + tarea.tipoFuente()
                     + " requiere ligaId para la liga " + tarea.id());
         }
-        switch (tarea.tipoFuente()) {
-            case STANDINGS -> sincronizarPosicionesUseCase.ejecutar(tarea.ligaId());
-            case CALENDAR -> sincronizarCalendarioUseCase.ejecutar(tarea.ligaId());
-            case ODDS_WPLAY -> sincronizarCuotasUseCase.ejecutarConResolucion(tarea.ligaId());
-            // [POR QUÉ]: EQUIPOS no usa path_to_scrape ni DetalleFuenteExtraccion (H-07):
-            //            la #6 se consume con country_name+league_name del aggregate.
-            case EQUIPOS -> sincronizarEquiposLigaUseCase.ejecutar(tarea.ligaId());
+        return switch (tarea.tipoFuente()) {
+            case STANDINGS -> {
+                sincronizarPosicionesUseCase.ejecutar(tarea.ligaId());
+                yield "Posiciones sincronizadas para liga " + tarea.ligaId();
+            }
+            case CALENDAR -> {
+                sincronizarCalendarioUseCase.ejecutar(tarea.ligaId());
+                yield "Calendario sincronizado para liga " + tarea.ligaId();
+            }
+            case ODDS_WPLAY -> {
+                List<com.tipsterbyte.tipsterbytefxv2.domain.event.DomainEvent> eventos =
+                        sincronizarCuotasUseCase.ejecutarConResolucion(tarea.ligaId());
+                yield String.format("Wplay cuotas: %d eventos generados para liga %s",
+                        eventos.size(), tarea.ligaId());
+            }
+            case EQUIPOS -> {
+                sincronizarEquiposLigaUseCase.ejecutar(tarea.ligaId());
+                yield "Equipos sincronizados para liga " + tarea.ligaId();
+            }
             default -> throw new IllegalArgumentException(
                     "Tipo de fuente no soportado: " + tarea.tipoFuente());
-        }
+        };
     }
 }

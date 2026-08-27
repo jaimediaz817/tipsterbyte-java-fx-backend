@@ -126,6 +126,8 @@ class CatalogoSchedulerTest {
                                 new com.tipsterbyte.tipsterbytefxv2.domain.model.FuenteExtraccion(
                                         "Fuente #2", TipoFuenteExtraccion.ODDS_WPLAY, true),
                                 "http://fake-url", true)));
+        when(sincronizarCuotasUseCase.ejecutarConResolucion(ligaCuotas))
+                .thenReturn(List.of());
 
         scheduler.ejecutarTareasProgramadas();
 
