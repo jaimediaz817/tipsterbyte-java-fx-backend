@@ -20,12 +20,16 @@ import com.tipsterbyte.tipsterbytefxv2.application.dto.RegistrarTareaProgramadaC
 import com.tipsterbyte.tipsterbytefxv2.application.port.DetalleFuenteExtraccionRepository;
 import com.tipsterbyte.tipsterbytefxv2.application.port.EstadoEjecucionTareas;
 import com.tipsterbyte.tipsterbytefxv2.application.usecase.GestionarTareasProgramasUseCase;
+import com.tipsterbyte.tipsterbytefxv2.domain.DomainException;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.Frecuencia;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.TareaLog;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.TareaProgramada;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.TipoFuenteExtraccion;
+import com.tipsterbyte.tipsterbytefxv2.infrastructure.adapter.CatalogoScheduler;
+import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.EjecucionTareaResponse;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.dto.response.TareaProgramadaResponse;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.support.CronExpression;
 import org.springframework.web.bind.annotation.*;
@@ -37,6 +41,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @RestController
 @RequestMapping("/api/v1/tareas-programadas")
@@ -45,13 +52,18 @@ public class TareaProgramadaController {
     private final GestionarTareasProgramasUseCase gestionarTareasProgramasUseCase;
     private final ObjectProvider<EstadoEjecucionTareas> estadoEjecucionTareas;
     private final DetalleFuenteExtraccionRepository detalleFuenteRepository;
+    private final ObjectProvider<CatalogoScheduler> catalogoSchedulerProvider;
+    // Hilo virtual dedicado a la ejecución manual para no competir con el dispatcher.
+    private final ExecutorService manualExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
     public TareaProgramadaController(GestionarTareasProgramasUseCase gestionarTareasProgramasUseCase,
                                      ObjectProvider<EstadoEjecucionTareas> estadoEjecucionTareas,
-                                     DetalleFuenteExtraccionRepository detalleFuenteRepository) {
+                                     DetalleFuenteExtraccionRepository detalleFuenteRepository,
+                                     ObjectProvider<CatalogoScheduler> catalogoSchedulerProvider) {
         this.gestionarTareasProgramasUseCase = gestionarTareasProgramasUseCase;
         this.estadoEjecucionTareas = estadoEjecucionTareas;
         this.detalleFuenteRepository = detalleFuenteRepository;
+        this.catalogoSchedulerProvider = catalogoSchedulerProvider;
     }
 
     // DTOs de request (se parsean a comandos del caso de uso)
@@ -164,6 +176,38 @@ public class TareaProgramadaController {
         gestionarTareasProgramasUseCase.eliminar(id);
         return ResponseEntity.noContent().build();
     }
+
+    // [QUÉ]: Ejecuta una tarea manualmente sin esperar al cron. Dispara la misma
+    //        cadena que el scheduler (validación AC2, MDC, TareaLog) en un hilo virtual.
+    // [POR QUÉ]: El equipo de operaciones necesita forzar la sincronización de una
+    //            fuente sin esperar a la próxima hora (ej: tras un cambio manual en
+    //            la base de datos, o para verificar que la extracción funciona).
+    //        202 Accepted: la tarea corre en background; el frontend puede pollear
+    //            GET /{id}/logs o GET /tareas-programadas/ejecucion para ver el resultado.
+    //        404: id no existe. 422: tarea inactiva. 409: ya hay una ejecución en curso.
+    @PostMapping("/{id}/ejecutar")
+    public ResponseEntity<EjecucionTareaResponse> ejecutar(@PathVariable UUID id) {
+        TareaProgramada tarea = gestionarTareasProgramasUseCase.obtenerPorId(id);
+        if (!tarea.activa()) {
+            throw new DomainException("La tarea no está activa. Actívala primero.");
+        }
+        CatalogoScheduler scheduler = catalogoSchedulerProvider.getIfAvailable();
+        if (scheduler == null) {
+            throw new DomainException("El scheduler no está disponible en este entorno.");
+        }
+        Set<UUID> enEjecucion = scheduler.tareasEnEjecucion();
+        if (enEjecucion.contains(id)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new EjecucionTareaResponse(null, "La tarea ya está en ejecución"));
+        }
+        UUID executionId = UUID.randomUUID();
+        log.info("[MANUAL] Disparando ejecución manual de tarea {} ({})", id, tarea.tipoFuente());
+        CompletableFuture.runAsync(() -> scheduler.ejecutarTarea(tarea), manualExecutor);
+        return ResponseEntity.accepted()
+                .body(new EjecucionTareaResponse(executionId, "Tarea programada en ejecución"));
+    }
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TareaProgramadaController.class);
 
     // [QUÉ]: HU-14 AC8 — pausa/reanudación MASIVA de todas las tareas de una liga.
     //        PUT /tareas-programadas/liga/{ligaId}/estado con {"activa": false|true}.

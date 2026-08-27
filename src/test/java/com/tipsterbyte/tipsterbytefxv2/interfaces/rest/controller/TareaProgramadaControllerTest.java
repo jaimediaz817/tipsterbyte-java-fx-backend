@@ -17,6 +17,7 @@ import com.tipsterbyte.tipsterbytefxv2.application.usecase.GestionarTareasProgra
 import com.tipsterbyte.tipsterbytefxv2.domain.DomainException;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.TareaLog;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.TareaProgramada;
+import com.tipsterbyte.tipsterbytefxv2.infrastructure.adapter.CatalogoScheduler;
 import com.tipsterbyte.tipsterbytefxv2.domain.model.TipoFuenteExtraccion;
 import com.tipsterbyte.tipsterbytefxv2.interfaces.rest.exception.GlobalExceptionHandler;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +39,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -60,13 +62,18 @@ class TareaProgramadaControllerTest {
     @Mock
     private EstadoEjecucionTareas estadoEjecucion;
 
+    @Mock
+    private ObjectProvider<CatalogoScheduler> catalogoscheduler;
+
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
+        when(catalogoscheduler.getIfAvailable()).thenReturn(mock(CatalogoScheduler.class));
         mockMvc = MockMvcBuilders.standaloneSetup(
                         new TareaProgramadaController(gestionarTareasProgramasUseCase,
-                                estadoEjecucionTareas, detalleFuenteRepository))
+                                estadoEjecucionTareas, detalleFuenteRepository,
+                                catalogoscheduler))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -176,6 +183,41 @@ class TareaProgramadaControllerTest {
                 .andExpect(status().isNoContent());
 
         verify(gestionarTareasProgramasUseCase).eliminar(any());
+    }
+
+    @Test
+    void debe_ejecutar_tarea_manualmente_y_retornar_202() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(gestionarTareasProgramasUseCase.obtenerPorId(id)).thenReturn(unaTarea());
+
+        mockMvc.perform(post("/api/v1/tareas-programadas/{id}/ejecutar", id))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.executionId").isString())
+                .andExpect(jsonPath("$.mensaje").value("Tarea programada en ejecución"));
+
+        verify(gestionarTareasProgramasUseCase).obtenerPorId(id);
+    }
+
+    @Test
+    void debe_retornar_422_si_la_tarea_no_esta_activa() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(gestionarTareasProgramasUseCase.obtenerPorId(id))
+                .thenReturn(new TareaProgramada(id, null, null, "1",
+                        "0 0 */6 * * *", false, "2026-01-01T00:00:00Z", null));
+
+        mockMvc.perform(post("/api/v1/tareas-programadas/{id}/ejecutar", id))
+                .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    void debe_retornar_202_con_executionId_y_mostrar_mENSAJE() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(gestionarTareasProgramasUseCase.obtenerPorId(id)).thenReturn(unaTarea());
+
+        mockMvc.perform(post("/api/v1/tareas-programadas/{id}/ejecutar", id))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.executionId").exists())
+                .andExpect(jsonPath("$.mensaje").isString());
     }
 
     private TareaProgramada unaTarea() {

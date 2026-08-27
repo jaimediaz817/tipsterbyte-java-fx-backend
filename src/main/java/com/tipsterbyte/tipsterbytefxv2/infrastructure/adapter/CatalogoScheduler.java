@@ -160,7 +160,7 @@ public class CatalogoScheduler implements EstadoEjecucionTareas {
     // [QUÉ]: Ejecuta la tarea en su propio hilo: verifica elegibilidad (HU-14 AC2),
     //        enriquece el MDC, despacha al caso de uso, persiste TareaLog con
     //        elementosProcesados y limpia estado.
-    private void ejecutarTarea(TareaProgramada tarea) {
+    public void ejecutarTarea(TareaProgramada tarea) {
         String executionId = UUID.randomUUID().toString();
         Instant inicio = Instant.now();
         MDCTaskContext.putTaskContext(tarea, executionId);
